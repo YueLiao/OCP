@@ -22,6 +22,7 @@ The OCP tool is composed of the following main modules:
 
 - **test** contains various test scripts for attacks and implementations.
 
+- **agent** provides an AI-powered conversational interface for OCP. Users can describe cryptographic algorithms in natural language and automatically perform analysis, code generation, and visualization -- without writing any code. It also supports defining **custom ciphers** through dialogue and analyzing them on the fly. See [agent/README.md](agent/README.md) for usage details and examples.
 
 The overall structure is illustrated in the diagram below:
 <p align="center">
