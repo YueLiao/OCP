@@ -14,6 +14,7 @@ pip install numpy matplotlib kiwisolver
 pip install openai       # OpenAI GPT
 pip install anthropic    # Anthropic Claude
 pip install google-genai # Google Gemini
+pip install ollama       # Ollama (local models, no API key needed)
 
 # Optional (for MILP/SAT solvers)
 pip install gurobipy     # Gurobi MILP solver
@@ -38,10 +39,15 @@ python3 run_agent.py --provider anthropic
 export GOOGLE_API_KEY="AIza..."
 python3 run_agent.py --provider gemini
 
+# Ollama (local models, no API key needed)
+python3 run_agent.py --provider ollama
+python3 run_agent.py --provider ollama --model qwen2.5
+
 # Specify a model
 python3 run_agent.py --model gpt-4o-mini
 python3 run_agent.py --provider anthropic --model claude-sonnet-4-20250514
 python3 run_agent.py --provider gemini --model gemini-2.5-flash
+python3 run_agent.py --provider ollama --model llama3
 
 # Use a local/custom OpenAI-compatible endpoint
 python3 run_agent.py --base-url http://localhost:8000/v1

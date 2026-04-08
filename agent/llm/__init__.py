@@ -1,6 +1,6 @@
 from agent.llm.provider import LLMProvider
 
-__all__ = ["LLMProvider", "OpenAIProvider", "AnthropicProvider", "GeminiProvider"]
+__all__ = ["LLMProvider", "OpenAIProvider", "AnthropicProvider", "GeminiProvider", "OllamaProvider"]
 
 
 def OpenAIProvider(*args, **kwargs):
@@ -18,4 +18,10 @@ def AnthropicProvider(*args, **kwargs):
 def GeminiProvider(*args, **kwargs):
     """Lazy import to avoid requiring google-genai as a dependency."""
     from agent.llm.gemini_provider import GeminiProvider as _Cls
+    return _Cls(*args, **kwargs)
+
+
+def OllamaProvider(*args, **kwargs):
+    """Lazy import to avoid requiring ollama as a dependency."""
+    from agent.llm.ollama_provider import OllamaProvider as _Cls
     return _Cls(*args, **kwargs)

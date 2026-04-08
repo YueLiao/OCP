@@ -17,10 +17,15 @@ Usage:
     export GOOGLE_API_KEY="AIza..."
     python3 run_agent.py --provider gemini
 
+    # Ollama (local models, no API key needed)
+    python3 run_agent.py --provider ollama
+    python3 run_agent.py --provider ollama --model qwen2.5
+
     # Specify model
     python3 run_agent.py --provider openai --model gpt-4o
     python3 run_agent.py --provider anthropic --model claude-sonnet-4-20250514
     python3 run_agent.py --provider gemini --model gemini-2.5-flash
+    python3 run_agent.py --provider ollama --model llama3
 """
 
 import argparse
@@ -30,10 +35,10 @@ import sys
 
 def main():
     parser = argparse.ArgumentParser(description="OCP Agent - Automated Cryptanalysis Assistant")
-    parser.add_argument("--provider", choices=["openai", "anthropic", "gemini"], default="openai",
+    parser.add_argument("--provider", choices=["openai", "anthropic", "gemini", "ollama"], default="openai",
                         help="LLM provider (default: openai)")
     parser.add_argument("--model", type=str, default=None,
-                        help="Model name (default: gpt-4o / claude-sonnet-4-20250514 / gemini-2.5-flash)")
+                        help="Model name (default: gpt-4o / claude-sonnet-4-20250514 / gemini-2.5-flash / llama3)")
     parser.add_argument("--base-url", type=str, default=None,
                         help="Custom API base URL (for OpenAI-compatible endpoints)")
     parser.add_argument("--api-key", type=str, default=None,
@@ -66,6 +71,12 @@ def main():
         model = args.model or "gemini-2.5-flash"
         from agent.llm.gemini_provider import GeminiProvider
         provider = GeminiProvider(api_key=api_key, model=model)
+
+    elif args.provider == "ollama":
+        model = args.model or "llama3"
+        host = args.base_url or "http://localhost:11434"
+        from agent.llm.ollama_provider import OllamaProvider
+        provider = OllamaProvider(model=model, host=host)
 
     from agent.interfaces.cli import run_cli
     run_cli(provider)
