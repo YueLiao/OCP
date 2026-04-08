@@ -29,6 +29,8 @@ def create_default_registry() -> SkillRegistry:
     from agent.skills.visualization import VisualizationSkill
     from agent.skills.differential_analysis import DifferentialAnalysisSkill
     from agent.skills.linear_analysis import LinearAnalysisSkill
+    from agent.skills.cipher_definition import CipherDefinitionSkill
+    from agent.skills.cipher_dialogue import CipherDialogueSkill
 
     registry = SkillRegistry()
     registry.register(CipherInstantiationSkill())
@@ -36,4 +38,6 @@ def create_default_registry() -> SkillRegistry:
     registry.register(VisualizationSkill())
     registry.register(DifferentialAnalysisSkill())
     registry.register(LinearAnalysisSkill())
+    registry.register(CipherDefinitionSkill())
+    registry.register(CipherDialogueSkill())
     return registry

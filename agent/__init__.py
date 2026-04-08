@@ -24,6 +24,7 @@ from agent.session import Session
 from agent.core import AgentCore
 from agent.skills import SkillRegistry, create_default_registry
 from agent.skills.base import BaseSkill
+from agent.skills.cipher_spec import CipherSpec, LayerSpec
 from agent.llm.provider import LLMProvider
 from agent.interfaces.api import OCPAgent
 from agent.interfaces.cli import run_cli
@@ -39,6 +40,8 @@ __all__ = [
     "UserIntent",
     "SkillRegistry",
     "BaseSkill",
+    "CipherSpec",
+    "LayerSpec",
     "create_default_registry",
     "run_cli",
 ]

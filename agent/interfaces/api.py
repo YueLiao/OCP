@@ -2,10 +2,13 @@
 
 from typing import Any, Dict, List, Optional
 
+from typing import Union
+
 from agent.core import AgentCore
 from agent.types import SkillName, SkillRequest, SkillResult
 from agent.session import Session
 from agent.skills import SkillRegistry, create_default_registry
+from agent.skills.cipher_spec import CipherSpec
 from agent.llm.provider import LLMProvider
 
 
@@ -169,3 +172,36 @@ class OCPAgent:
         }
         params.update(kwargs)
         return self._core.execute_direct(SkillRequest(skill=SkillName.LINEAR_ANALYSIS, params=params))
+
+    def define_custom_cipher(self, spec: Union[dict, CipherSpec]) -> SkillResult:
+        """Define and build a custom cipher from a CipherSpec.
+
+        Args:
+            spec: CipherSpec object or dict describing the cipher.
+
+        Returns:
+            SkillResult with the built cipher info.
+
+        Example:
+            from agent import OCPAgent, CipherSpec, LayerSpec
+            spec = CipherSpec(
+                name="MyARX",
+                cipher_type="permutation",
+                block_size=32, word_bitsize=16, nbr_words=2, nbr_rounds=22,
+                round_structure=[
+                    LayerSpec("rotation", {"direction": "r", "amount": 7, "word_index": 0}),
+                    LayerSpec("modadd", {"input_indices": [[0, 1]], "output_indices": [0]}),
+                    LayerSpec("rotation", {"direction": "l", "amount": 2, "word_index": 1}),
+                    LayerSpec("xor", {"input_indices": [[0, 1]], "output_indices": [1]}),
+                ],
+            )
+            agent = OCPAgent()
+            agent.define_custom_cipher(spec)
+            agent.differential_analysis(model_type="milp")
+        """
+        if isinstance(spec, CipherSpec):
+            spec = spec.to_dict()
+        return self._core.execute_direct(SkillRequest(
+            skill=SkillName.CIPHER_DEFINITION,
+            params={"spec": spec},
+        ))

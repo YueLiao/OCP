@@ -50,6 +50,8 @@ INTENT_RESPONSE_SCHEMA = {
                             "visualization",
                             "differential_analysis",
                             "linear_analysis",
+                            "cipher_definition",
+                            "cipher_dialogue",
                         ],
                     },
                     "params": {"type": "object"},
@@ -102,11 +104,27 @@ Parse the user's request and return a JSON object matching this schema:
 {schema}
 
 Key rules:
-1. If the user mentions a cipher but no cipher is loaded, include a cipher_instantiation request FIRST.
+1. If the user mentions a known cipher but no cipher is loaded, include a cipher_instantiation request FIRST.
 2. For analysis tasks, default to MILP solver and DIFFERENTIALPATH_PROB/LINEARPATH_CORR goals unless specified.
 3. If the user wants both differential and linear analysis, include both as separate requests.
 4. For code generation, default to Python unless specified.
 5. If the request is unclear, set needs_clarification=true with a helpful question.
+6. If the user describes a NEW/CUSTOM cipher not in the catalog, use cipher_dialogue with action="start" to begin collecting its specification, then cipher_definition to build it.
+7. If the user provides cipher parameters during a dialogue, use cipher_dialogue with action="update" and the structured data.
+
+## Custom Cipher Definition
+When a user describes a new cipher, extract a CipherSpec:
+- cipher_type: "permutation" or "blockcipher"
+- block_size, word_bitsize, nbr_words, nbr_rounds
+- round_structure: list of layers, each with layer_type and params:
+  - rotation: {{"direction": "l"/"r", "amount": N, "word_index": N}}
+  - xor: {{"input_indices": [[a,b]], "output_indices": [c]}}
+  - modadd: {{"input_indices": [[a,b]], "output_indices": [c]}}
+  - sbox: {{"sbox_name": "name", "index": [[0,1,2,3],...]}}
+  - permutation: {{"table": [...]}}
+  - add_round_key: {{"operator": "xor"/"modadd"}}
+- sbox_tables: {{"name": [lookup_table]}}
+- For block ciphers: key_size, key_nbr_words, key_schedule, key_extract_indices
 
 Return ONLY valid JSON, no extra text.
 """

@@ -9,6 +9,8 @@ class SkillName(Enum):
     VISUALIZATION = "visualization"
     DIFFERENTIAL_ANALYSIS = "differential_analysis"
     LINEAR_ANALYSIS = "linear_analysis"
+    CIPHER_DEFINITION = "cipher_definition"
+    CIPHER_DIALOGUE = "cipher_dialogue"
 
 
 @dataclass
