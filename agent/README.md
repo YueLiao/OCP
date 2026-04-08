@@ -1,52 +1,53 @@
 # OCP Agent - Automated Cryptanalysis Assistant
 
-OCP Agent 是一个对话式密码分析助手，支持通过自然语言或 Python API 自动化完成密码算法的分析。
+OCP Agent is a conversational cryptanalysis assistant that automates cipher analysis, code generation, and visualization through natural language or a Python API.
 
 ## Quick Start
 
-### 1. 安装依赖
+### 1. Install Dependencies
 
 ```bash
-# 必需
-pip install numpy
+# Required
+pip install numpy matplotlib kiwisolver
 
-# 选择一个 LLM provider（三选一）
-pip install openai       # 使用 OpenAI GPT
-pip install anthropic    # 使用 Anthropic Claude
-pip install google-genai # 使用 Google Gemini
+# Choose an LLM provider (pick one)
+pip install openai       # OpenAI GPT
+pip install anthropic    # Anthropic Claude
+pip install google-genai # Google Gemini
 
-# 可选（用于 MILP/SAT 求解）
+# Optional (for MILP/SAT solvers)
 pip install gurobipy     # Gurobi MILP solver
 pip install python-sat   # SAT solver
+pip install ortools      # Google OR-Tools
 ```
 
-### 2. 启动对话
+### 2. Launch the CLI
 
 ```bash
 cd /path/to/OCP
 
-# 使用 OpenAI
+# OpenAI
 export OPENAI_API_KEY="sk-xxx"
 python3 run_agent.py
 
-# 使用 Claude
+# Anthropic Claude
 export ANTHROPIC_API_KEY="sk-ant-xxx"
 python3 run_agent.py --provider anthropic
 
-# 使用 Gemini
+# Google Gemini
 export GOOGLE_API_KEY="AIza..."
 python3 run_agent.py --provider gemini
 
-# 指定模型
+# Specify a model
 python3 run_agent.py --model gpt-4o-mini
 python3 run_agent.py --provider anthropic --model claude-sonnet-4-20250514
 python3 run_agent.py --provider gemini --model gemini-2.5-flash
 
-# 使用本地/自定义 OpenAI 兼容 API
+# Use a local/custom OpenAI-compatible endpoint
 python3 run_agent.py --base-url http://localhost:8000/v1
 ```
 
-启动后进入交互式对话：
+Once launched, you enter an interactive session:
 
 ```
 ============================================================
@@ -59,116 +60,118 @@ You>
 
 ---
 
-## 对话示例
+## Dialogue Examples
 
-### 示例 1：分析已有算法
-
-```
-You> 分析 SPECK32/64 的差分特性，用 MILP
-
-Assistant> 已创建 SPECK32_64（22轮分组密码），正在运行差分分析...
-           差分分析完成：找到 1 条最优路径。
-
-You> 再用 SAT 做线性分析
-
-Assistant> 线性分析 (SAT) 完成：找到 1 条最优线性路径。
-
-You> 生成 Python 代码
-
-Assistant> 已生成 files/SPECK32_64.py，测试通过 (1/1)。
-```
-
-### 示例 2：定义并分析全新的密码算法
+### Example 1: Analyze an Existing Cipher
 
 ```
-You> 我设计了一个新的 ARX 密码叫 TinyARX，块大小 32 bit，
-     分成 2 个 16-bit 的字，共 10 轮。
-     每轮操作：字0右旋7位，字0和字1模加存字0，字1左旋2位，字0和字1异或存字1。
-     帮我做差分分析。
+You> Analyze SPECK32/64 with differential cryptanalysis using MILP
 
-Assistant> 已解析你的密码 TinyARX:
-           - permutation, 32-bit, 2×16-bit words, 10 rounds
-           - ROT_R(w0,7) → MODADD(w0,w1→w0) → ROT_L(w1,2) → XOR(w0,w1→w1)
-           构建成功，正在分析...
-           差分分析完成：找到最优差分路径。
+Assistant> Created SPECK32_64 (22-round block cipher). Running differential analysis...
+           Differential analysis complete: found 1 optimal trail.
+
+You> Now run linear analysis with SAT
+
+Assistant> Linear analysis (SAT) complete: found 1 optimal linear trail.
+
+You> Generate Python code
+
+Assistant> Generated files/SPECK32_64.py. Tests passed (1/1).
 ```
 
-### 示例 3：分步引导定义复杂密码
-
-如果描述不够完整，agent 会分步引导你：
+### Example 2: Define and Analyze a New Custom Cipher
 
 ```
-You> 我有一个新的 SPN 密码想分析
+You> I designed a new ARX cipher called TinyARX. Block size 32 bits,
+     split into 2 words of 16 bits each, 10 rounds.
+     Each round: rotate word 0 right by 7, modular add words 0 and 1 into word 0,
+     rotate word 1 left by 2, XOR words 0 and 1 into word 1.
+     Run differential analysis on it.
 
-Assistant> 我需要以下基本信息：
-           1. 密码名称
-           2. 类型: permutation 还是 blockcipher
-           3. 块大小 (bits)
-           4. 字大小 (bits)
-           5. 字的数量
-           6. 轮数
+Assistant> Parsed your cipher TinyARX:
+           - permutation, 32-bit, 2x16-bit words, 10 rounds
+           - ROT_R(w0,7) -> MODADD(w0,w1->w0) -> ROT_L(w1,2) -> XOR(w0,w1->w1)
+           Built successfully. Running analysis...
+           Differential analysis complete: found optimal differential trail.
+```
 
-You> 叫 MySPN，permutation，64 bit，bit 级别所以字大小 1 bit，64 个字，8 轮
+### Example 3: Step-by-Step Guided Cipher Definition
 
-Assistant> 你的密码用 S-box 吗？请提供 S-box 名称和查找表。
+If the description is incomplete, the agent guides you through each step:
 
-You> 用 PRESENT 的 S-box: [0xC,0x5,0x6,0xB,0x9,0x0,0xA,0xD,0x3,0xE,0xF,0x8,0x4,0x7,0x1,0x2]
+```
+You> I have a new SPN cipher I'd like to analyze
 
-Assistant> 请描述轮函数的操作。
+Assistant> I need the following basic information:
+           1. Cipher name
+           2. Type: 'permutation' or 'blockcipher'
+           3. Block size (bits)
+           4. Word size (bits)
+           5. Number of words
+           6. Number of rounds
 
-You> 先做 S-box，每 4 bit 一组，然后做 bit 置换 [0,4,8,12,1,5,9,13,...]
+You> It's called MySPN, permutation, 64-bit, bit-level so word size is 1 bit,
+     64 words, 8 rounds
 
-Assistant> 已构建 MySPN:
+Assistant> Does your cipher use S-boxes? If so, please provide the name and lookup table.
+
+You> Yes, use the PRESENT S-box: [0xC,0x5,0x6,0xB,0x9,0x0,0xA,0xD,0x3,0xE,0xF,0x8,0x4,0x7,0x1,0x2]
+
+Assistant> Now describe the round function operations.
+
+You> First apply the S-box in 4-bit groups, then a bit permutation [0,4,8,12,1,5,9,13,...]
+
+Assistant> Here is the cipher specification:
            - S-box layer (PRESENT S-box, 4-bit groups)
            - Permutation layer
-           确认？
+           Confirm?
 
-You> 确认
+You> Confirm
 
-Assistant> MySPN_PERM 构建成功！需要做什么分析？
+Assistant> MySPN_PERM built successfully! What analysis would you like to run?
 
-You> 差分和线性都做一下
+You> Both differential and linear
 
-Assistant> 差分分析完成... 线性分析完成...
+Assistant> Differential analysis complete... Linear analysis complete...
 ```
 
 ---
 
-## Python API 使用
+## Python API
 
-不需要 LLM，直接在代码中调用：
+No LLM required -- call the API directly from your code:
 
-### 分析已有算法
+### Analyze an Existing Cipher
 
 ```python
 from agent import OCPAgent
 
 agent = OCPAgent()
 
-# 创建密码实例
+# Instantiate a cipher
 agent.instantiate_cipher("speck", "blockcipher", version=[32, 64])
 
-# 生成代码
+# Generate code
 agent.generate_code(language="python", unroll=True, test=True)
 
-# 生成可视化
+# Generate visualization
 agent.generate_visualization()
 
-# 差分分析
+# Differential analysis
 result = agent.differential_analysis(goal="DIFFERENTIALPATH_PROB", model_type="milp")
 
-# 线性分析
+# Linear analysis
 result = agent.linear_analysis(goal="LINEARPATH_CORR", model_type="sat")
 ```
 
-### 定义并分析自定义密码
+### Define and Analyze a Custom Cipher
 
 ```python
 from agent import OCPAgent, CipherSpec, LayerSpec
 
 agent = OCPAgent()
 
-# 定义密码结构
+# Define the cipher structure
 spec = CipherSpec(
     name="MyARX",
     cipher_type="permutation",
@@ -184,14 +187,14 @@ spec = CipherSpec(
     ],
 )
 
-# 构建并分析
+# Build and analyze
 agent.define_custom_cipher(spec)
 agent.differential_analysis(model_type="milp")
 agent.linear_analysis(model_type="sat")
 agent.generate_code(language="python")
 ```
 
-### 带 S-box 的 SPN 密码
+### SPN Cipher with S-box
 
 ```python
 from agent import OCPAgent, CipherSpec, LayerSpec
@@ -223,31 +226,31 @@ agent.differential_analysis(model_type="milp")
 
 ---
 
-## 支持的操作
+## Reference
 
-### 已有算法 (17种)
+### Supported Built-in Ciphers (17)
 speck, aes, gift, simon, present, skinny, ascon, chacha, salsa, forro, led, siphash, shacal2, rocca, speedy, trivium
 
-### 自定义密码支持的层类型
-| 层类型 | 说明 | 参数 |
-|--------|------|------|
-| `rotation` | 循环移位 | direction, amount, word_index |
-| `xor` | 异或 | input_indices, output_indices |
-| `modadd` | 模加 | input_indices, output_indices |
-| `sbox` | S-box 替换 | sbox_name, index |
-| `permutation` | 置换 | table |
-| `matrix` | 矩阵乘法 | matrix, indices, polynomial |
-| `add_round_key` | 轮密钥加 | operator, mask |
-| `add_constant` | 常量加 | add_type, constant_mask, constant_table |
+### Custom Cipher Layer Types
+| Layer Type | Description | Parameters |
+|------------|-------------|------------|
+| `rotation` | Cyclic rotation | direction, amount, word_index |
+| `xor` | Bitwise XOR | input_indices, output_indices |
+| `modadd` | Modular addition | input_indices, output_indices |
+| `sbox` | S-box substitution | sbox_name, index |
+| `permutation` | Bit/word permutation | table |
+| `matrix` | Matrix multiplication | matrix, indices, polynomial |
+| `add_round_key` | Round key addition | operator, mask |
+| `add_constant` | Constant addition | add_type, constant_mask, constant_table |
 
-### 分析功能
-| 功能 | 方法 | 求解器 |
-|------|------|--------|
-| 差分分析 | `differential_analysis()` | MILP, SAT |
-| 线性分析 | `linear_analysis()` | MILP, SAT |
-| 代码生成 | `generate_code()` | Python, C, Verilog |
-| 可视化 | `generate_visualization()` | PDF |
+### Analysis Capabilities
+| Feature | Method | Solvers |
+|---------|--------|---------|
+| Differential analysis | `differential_analysis()` | MILP, SAT |
+| Linear analysis | `linear_analysis()` | MILP, SAT |
+| Code generation | `generate_code()` | Python, C, Verilog |
+| Visualization | `generate_visualization()` | PDF |
 
-### 分析目标
-- 差分: `DIFFERENTIALPATH_PROB`, `DIFFERENTIAL_SBOXCOUNT`, `DIFFERENTIAL_PROB`, `TRUNCATEDDIFF_SBOXCOUNT`
-- 线性: `LINEARPATH_CORR`, `LINEAR_SBOXCOUNT`, `LINEARHULL_CORR`, `TRUNCATEDLINEAR_SBOXCOUNT`
+### Analysis Goals
+- **Differential:** `DIFFERENTIALPATH_PROB`, `DIFFERENTIAL_SBOXCOUNT`, `DIFFERENTIAL_PROB`, `TRUNCATEDDIFF_SBOXCOUNT`
+- **Linear:** `LINEARPATH_CORR`, `LINEAR_SBOXCOUNT`, `LINEARHULL_CORR`, `TRUNCATEDLINEAR_SBOXCOUNT`
