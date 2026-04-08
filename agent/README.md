@@ -10,9 +10,10 @@ OCP Agent 是一个对话式密码分析助手，支持通过自然语言或 Pyt
 # 必需
 pip install numpy
 
-# 选择一个 LLM provider（二选一）
+# 选择一个 LLM provider（三选一）
 pip install openai       # 使用 OpenAI GPT
 pip install anthropic    # 使用 Anthropic Claude
+pip install google-genai # 使用 Google Gemini
 
 # 可选（用于 MILP/SAT 求解）
 pip install gurobipy     # Gurobi MILP solver
@@ -32,9 +33,14 @@ python3 run_agent.py
 export ANTHROPIC_API_KEY="sk-ant-xxx"
 python3 run_agent.py --provider anthropic
 
+# 使用 Gemini
+export GOOGLE_API_KEY="AIza..."
+python3 run_agent.py --provider gemini
+
 # 指定模型
 python3 run_agent.py --model gpt-4o-mini
 python3 run_agent.py --provider anthropic --model claude-sonnet-4-20250514
+python3 run_agent.py --provider gemini --model gemini-2.5-flash
 
 # 使用本地/自定义 OpenAI 兼容 API
 python3 run_agent.py --base-url http://localhost:8000/v1
