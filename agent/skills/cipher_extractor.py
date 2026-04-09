@@ -118,29 +118,58 @@ def get_image_mime_type(file_path):
 
 # ---------------------------------------------------------------------------
 #  Multi-step prompts
+#
+#  Design principle: papers use diverse terminology. The prompts guide the LLM
+#  to UNDERSTAND the cipher in cryptographic terms first, then map to our format.
+#  We never assume the paper uses our naming conventions.
 # ---------------------------------------------------------------------------
 
 STEP1_LOCATE_PROMPT = """\
-You are a cryptography expert reading an academic paper. Your task is to identify
-which parts of this paper describe a cryptographic algorithm's specification.
+You are a senior cryptography researcher reading an academic paper.
+Your task is to find the sections that describe a cipher algorithm's SPECIFICATION.
 
-Look for:
-1. The cipher/algorithm NAME
-2. Sections describing: block size, word size, number of rounds
-3. The ROUND FUNCTION: what operations are applied each round (rotations, XOR,
-   modular addition, S-box substitution, permutation, matrix multiplication, etc.)
-4. S-BOX TABLES: the actual lookup tables if present
-5. KEY SCHEDULE: how round keys are derived (for block ciphers)
-6. Any PSEUDOCODE or ALGORITHM listings
-7. FIGURES/DIAGRAMS describing the cipher structure
+Papers use many different terms. Look for content that describes ANY of the following
+(they may appear under different names):
 
-Return a JSON object with:
+ALGORITHM STRUCTURE:
+- "round function", "round transformation", "encryption process", "state update"
+- "permutation", "internal function", "compression function"
+- Block/state size (may be called "block length", "state size", "width", "n-bit")
+- Number of rounds/steps/iterations
+
+OPERATIONS (may use various names):
+- Substitution: "S-box", "substitution box", "nonlinear layer", "SubBytes", "gamma"
+- Permutation: "P-layer", "bit permutation", "ShiftRows", "pi", "wire crossing"
+- Linear mixing: "MixColumns", "MDS matrix", "linear layer", "diffusion", "theta"
+- Rotation: "cyclic shift", "ROT", "<<<", ">>>", "circular shift"
+- Addition: "modular addition", "ADD", "mod 2^n", "boxplus"
+- XOR: "exclusive-or", "bitwise addition mod 2", "oplus"
+
+DATA TABLES:
+- S-box lookup tables (may be in hex, decimal, matrix form)
+- Permutation tables, wiring tables
+- Round constants
+- MDS/diffusion matrices
+
+KEY SCHEDULE (for block ciphers):
+- "key schedule", "key expansion", "subkey generation", "round key derivation"
+
+Also look for: pseudocode, algorithm listings, figures showing the cipher structure.
+
+Return JSON:
 {
-  "cipher_name": "name of the cipher",
-  "cipher_type": "ARX" / "SPN" / "Feistel" / "other",
-  "relevant_sections": ["list of section numbers/names that describe the cipher"],
-  "relevant_pages": [list of page numbers containing cipher description],
-  "summary": "brief 2-3 sentence summary of the cipher structure"
+  "cipher_name": "the algorithm's name as used in the paper",
+  "paper_terminology": {
+    "state": "what the paper calls the internal state (e.g., 'state', 'block', 'register')",
+    "round_function": "what the paper calls one round (e.g., 'round', 'step', 'iteration')",
+    "sbox": "what the paper calls the S-box (e.g., 'S', 'Sbox', 'gamma', 'SubBytes') or null",
+    "permutation": "what the paper calls the permutation layer or null",
+    "linear_layer": "what the paper calls the linear mixing layer or null"
+  },
+  "design_type": "SPN / ARX / Feistel / GFN / stream / other",
+  "relevant_sections": ["section numbers or names containing the specification"],
+  "relevant_pages": [page numbers],
+  "summary": "2-3 sentence description of the cipher in your own words as a cryptographer"
 }
 
 Return ONLY valid JSON.
@@ -149,42 +178,86 @@ Return ONLY valid JSON.
 """
 
 STEP2_EXTRACT_PROMPT = """\
-You are a cryptography expert. Below are the relevant sections from a paper
-describing the cipher "{cipher_name}" ({cipher_type}).
+You are a senior cryptography researcher. You are reading sections of a paper
+that describes the cipher "{cipher_name}" (design type: {cipher_type}).
 
-Extract ALL precise technical details needed to fully implement this cipher:
+The paper uses this terminology: {terminology}
 
-1. **Basic parameters**: exact block size (bits), word size (bits), number of words,
-   number of rounds
-2. **Round function**: the EXACT sequence of operations in each round, including:
-   - Rotation directions (left/right) and amounts
-   - Which words are XORed/added together and where the result goes
-   - S-box application: which bits/words, which S-box
-   - Permutation tables: the exact mapping
-   - Matrix multiplication details
-3. **S-box tables**: the COMPLETE lookup tables, every single entry
-4. **Key schedule** (if block cipher): how round keys are computed
-5. **Permutation tables**: the complete bit/word permutation mappings
+Your task: extract EVERY technical detail needed to fully implement this cipher
+from scratch. Think step by step:
 
-Be extremely precise with numbers. Copy tables EXACTLY from the paper.
+1. STATE STRUCTURE
+   - What is the total state/block size in bits?
+   - How is the state divided? Into words? Bytes? Nibbles? Bits?
+   - What is the size of each unit? How many units?
+   - Example: "64-bit block divided into 4 nibbles of 4 bits" -> block=64, unit=4bit, count=16
+   - Example: "128-bit state as 4 x 32-bit words" -> block=128, unit=32bit, count=4
 
-Return a JSON object:
+2. ROUND FUNCTION - list EVERY operation in EXACT ORDER
+   For each operation, determine:
+   - What type is it? (substitution/permutation/rotation/XOR/addition/matrix/key-add)
+   - What does it operate on? (which words/bytes/bits)
+   - What are the parameters? (rotation amount, S-box table, permutation table, matrix)
+   - Where does the result go?
+   Be careful: some operations may be described in mathematical notation.
+   "x_i <- x_i <<< 3" means left-rotate word i by 3
+   "x_0 <- x_0 + x_1 mod 2^n" means modular addition of word 0 and word 1, result in word 0
+   "x_1 <- x_0 XOR x_1" means XOR word 0 and word 1, result in word 1
+
+3. LOOKUP TABLES - copy the COMPLETE tables
+   - S-box: every entry, in order from index 0. Note the format (hex/dec).
+   - Permutation: the complete bit/byte mapping.
+   - Round constants if any.
+   If a table says [C, 5, 6, B, 9, 0, A, D, 3, E, F, 8, 4, 7, 1, 2]:
+   this means S(0)=0xC, S(1)=0x5, S(2)=0x6, ..., S(15)=0x2
+
+4. KEY SCHEDULE (if this is a block cipher / has a key)
+   - Key size
+   - How are round subkeys derived?
+   - What operations are used?
+   - Which part of the key state becomes the round subkey?
+
+5. NUMBER OF ROUNDS
+   - The default/recommended number of rounds
+
+Return a detailed JSON:
 {{
   "name": "cipher name",
-  "block_size": integer,
-  "word_bitsize": integer,
-  "nbr_words": integer,
-  "nbr_rounds": integer,
-  "cipher_category": "ARX" / "SPN" / "Feistel",
+  "state_size_bits": integer,
+  "state_division": "how the state is divided, e.g., '2 words of 16 bits', '16 nibbles of 4 bits', '64 individual bits'",
+  "unit_size_bits": integer,
+  "num_units": integer,
+  "num_rounds": integer,
+  "design_type": "SPN/ARX/Feistel/other",
+  "has_key": true/false,
   "round_operations": [
-    "step-by-step description of each operation in the round function, in order"
+    {{
+      "step": 1,
+      "operation": "rotation/xor/modadd/sbox/permutation/matrix/key_addition",
+      "description": "plain English description of exactly what happens",
+      "operands": "which units are involved (by index, 0-based)",
+      "parameters": "rotation amount, S-box name, etc."
+    }}
   ],
-  "sbox_tables": {{"name": [complete lookup table]}} or null,
-  "permutation_tables": {{"name": [complete table]}} or null,
-  "key_schedule": "description of key schedule" or null,
-  "key_size": integer or null,
-  "key_words": integer or null,
-  "additional_details": "any other relevant info"
+  "sbox_tables": {{
+    "name": {{
+      "input_bits": integer,
+      "output_bits": integer,
+      "table": [complete lookup table as integers]
+    }}
+  }},
+  "permutation_tables": {{
+    "name": [complete permutation mapping]
+  }},
+  "key_info": {{
+    "key_size_bits": integer,
+    "key_unit_size_bits": integer,
+    "key_num_units": integer,
+    "subkey_extraction": "which key units form the round subkey",
+    "key_round_operations": [same format as round_operations]
+  }} or null,
+  "round_constants": [list] or null,
+  "notes": "any ambiguities or things that need clarification"
 }}
 
 Return ONLY valid JSON.
@@ -194,77 +267,100 @@ Return ONLY valid JSON.
 """
 
 STEP3_FORMALIZE_PROMPT = """\
-You are a cryptography expert. Convert the following cipher description into
-the exact CipherSpec JSON format used by the OCP analysis tool.
+You are converting a cipher description into the OCP analysis tool's CipherSpec format.
 
-## Input cipher description:
+## Cipher description (from previous analysis):
 {cipher_details}
 
-## Target CipherSpec format:
-The JSON must have these fields:
+## CRITICAL MAPPING RULES
+
+You must decide the word_bitsize carefully. This determines how the cipher is modeled:
+
+RULE 1 - ARX ciphers (use rotation + modular addition + XOR on words):
+  -> word_bitsize = the word size used in the cipher (e.g., 16, 32, 64)
+  -> nbr_words = state_size / word_bitsize
+  -> Example: SPECK32 with 2 x 16-bit words -> word_bitsize=16, nbr_words=2
+  -> Rotations, modadd, XOR all operate on these word-sized units
+
+RULE 2 - SPN ciphers (use S-box + bit permutation):
+  -> word_bitsize = 1 (bit-level modeling)
+  -> nbr_words = state_size in bits
+  -> Example: PRESENT-64 -> word_bitsize=1, nbr_words=64
+  -> S-box is applied to groups of bits via the "index" parameter
+  -> If the S-box is 4-bit: index=[[0,1,2,3],[4,5,6,7],...] groups every 4 bits
+
+RULE 3 - SPN ciphers with word-level S-boxes:
+  -> word_bitsize = S-box input size (e.g., 8 for AES-like byte S-boxes)
+  -> nbr_words = state_size / word_bitsize
+  -> Example: AES with 16 bytes -> word_bitsize=8, nbr_words=16
+
+## Layer mapping:
+
+Map each round operation to exactly ONE layer:
+
+| Cipher operation | layer_type | params |
+|-----------------|------------|--------|
+| Cyclic rotation (<<<, >>>, ROT) | "rotation" | {{"direction": "l"/"r", "amount": N, "word_index": I}} |
+| XOR of two words | "xor" | {{"input_indices": [[a,b]], "output_indices": [c]}} |
+| Modular addition (mod 2^n) | "modadd" | {{"input_indices": [[a,b]], "output_indices": [c]}} |
+| S-box substitution | "sbox" | {{"sbox_name": "S", "index": [[bit/word groups]]}} |
+| Bit/word permutation | "permutation" | {{"table": [mapping]}} |
+| Matrix multiplication | "matrix" | {{"matrix": [[M]], "indices": [[groups]], "polynomial": P}} |
+| Round key XOR/addition | "add_round_key" | {{"operator": "xor" or "modadd"}} |
+
+## input_indices and output_indices explained:
+- "input_indices": [[0,1]] means the operation takes word[0] and word[1] as inputs
+- "output_indices": [0] means the result is stored in word[0]
+- So {{"input_indices": [[0,1]], "output_indices": [0]}} means word[0] = OP(word[0], word[1])
+- Multiple operations: {{"input_indices": [[0,1],[2,3]], "output_indices": [0,2]}}
+
+## S-box index explained (for bit-level SPN):
+- If word_bitsize=1 and S-box is 4-bit:
+  index = [[0,1,2,3], [4,5,6,7], [8,9,10,11], [12,13,14,15]]
+  This applies the 4-bit S-box to bits 0-3, then 4-7, etc.
+
+## Output format:
 {{
-  "name": "cipher name (string)",
-  "cipher_type": "permutation" or "blockcipher",
-  "block_size": integer (total bits),
-  "word_bitsize": integer (bits per word),
-  "nbr_words": integer (number of words = block_size / word_bitsize),
-  "nbr_rounds": integer,
-  "round_structure": [ordered list of layer operations],
-  "sbox_tables": {{"name": [lookup_table]}} or {{}},
-  "key_size": integer or null,
-  "key_word_bitsize": integer or null,
-  "key_nbr_words": integer or null,
-  "key_schedule": [ordered list of key schedule operations] or null,
-  "key_extract_indices": [indices] or null
+  "name": "cipher name",
+  "cipher_type": "permutation" (no key) or "blockcipher" (has key),
+  "block_size": total state bits,
+  "word_bitsize": see rules above,
+  "nbr_words": block_size / word_bitsize,
+  "nbr_rounds": number of rounds,
+  "round_structure": [list of layers in order],
+  "sbox_tables": {{"name": [lookup table as ints]}} or {{}},
+  "key_size": int or null,
+  "key_word_bitsize": int or null,
+  "key_nbr_words": int or null,
+  "key_schedule": [layers] or null,
+  "key_extract_indices": [which key word indices form subkey] or null
 }}
 
-## Layer format rules:
-Each layer in round_structure must be ONE of:
-- {{"layer_type": "rotation", "params": {{"direction": "l" or "r", "amount": N, "word_index": N}}}}
-- {{"layer_type": "xor", "params": {{"input_indices": [[a,b]], "output_indices": [c]}}}}
-  means: word[c] = word[a] XOR word[b]
-- {{"layer_type": "modadd", "params": {{"input_indices": [[a,b]], "output_indices": [c]}}}}
-  means: word[c] = (word[a] + word[b]) mod 2^n
-- {{"layer_type": "sbox", "params": {{"sbox_name": "name", "index": [[0,1,2,3],[4,5,6,7],...] }}}}
-  index groups consecutive word indices for each S-box application
-- {{"layer_type": "permutation", "params": {{"table": [0,4,8,12,1,5,9,13,...]}}}}
-  output[j] = input[table[j]]
-- {{"layer_type": "matrix", "params": {{"matrix": [[...]], "indices": [[...]], "polynomial": N}}}}
-- {{"layer_type": "add_round_key", "params": {{"operator": "xor" or "modadd"}}}}
-
-## Key rules:
-- For SPN ciphers with bit-level operations: set word_bitsize=1, nbr_words=block_size
-- For ARX ciphers with word-level operations: set word_bitsize=word_size, nbr_words=block_size/word_size
-- Words are 0-indexed: word 0 is the first word
-- Each operation in the round function becomes ONE layer in round_structure
-- The order of layers must match the order of operations in the round function
-- If the cipher has no key (permutation only), set cipher_type="permutation"
-  and omit all key_* fields
-
-Return ONLY the CipherSpec JSON, no extra text.
+Return ONLY the JSON, no explanation.
 """
 
-# For images: single-step since we can't do multi-step easily
 IMAGE_EXTRACTION_PROMPT = """\
-You are a cryptography expert. This image describes a cryptographic algorithm
-(possibly a diagram, pseudocode, or specification table).
+You are a senior cryptography researcher. This image describes a cryptographic
+algorithm (could be a structure diagram, pseudocode, or specification table).
 
-Extract the cipher specification and return a CipherSpec JSON:
-{
-  "name": "cipher name",
-  "cipher_type": "permutation" or "blockcipher",
-  "block_size": integer, "word_bitsize": integer, "nbr_words": integer,
-  "nbr_rounds": integer,
-  "round_structure": [list of layer specs],
-  "sbox_tables": {"name": [table]} or {}
-}
+Analyze the image carefully:
+1. Identify the cipher type (SPN, ARX, Feistel, etc.)
+2. Determine state size, word size, number of rounds
+3. List every operation in the round function in order
+4. Note any S-box tables, permutation tables, or constants shown
 
-Layer types and format:
+Then produce a CipherSpec JSON. Key rules:
+- ARX ciphers: word_bitsize = actual word size (e.g., 16, 32)
+- SPN with bit permutation: word_bitsize = 1, nbr_words = block_size
+- SPN with byte S-boxes: word_bitsize = 8
+
+Layer types:
 - {"layer_type": "rotation", "params": {"direction": "r", "amount": 7, "word_index": 0}}
 - {"layer_type": "xor", "params": {"input_indices": [[0,1]], "output_indices": [1]}}
 - {"layer_type": "modadd", "params": {"input_indices": [[0,1]], "output_indices": [0]}}
 - {"layer_type": "sbox", "params": {"sbox_name": "S", "index": [[0,1,2,3],[4,5,6,7]]}}
 - {"layer_type": "permutation", "params": {"table": [0,4,8,12,...]}}
+- {"layer_type": "add_round_key", "params": {"operator": "xor"}}
 
 Return ONLY valid JSON.
 """

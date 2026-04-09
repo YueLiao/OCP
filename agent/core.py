@@ -176,26 +176,25 @@ class AgentCore:
                 step1_data = self._parse_json_from_llm(step1_raw)
 
                 cipher_name = step1_data.get("cipher_name", "Unknown")
-                cipher_type = step1_data.get("cipher_type", "unknown")
+                cipher_type = step1_data.get("design_type", step1_data.get("cipher_type", "unknown"))
+                terminology = json.dumps(step1_data.get("paper_terminology", {}))
                 relevant_pages = step1_data.get("relevant_pages", [])
-                step1_summary = step1_data.get("summary", "")
 
                 self.session.set_metadata("extraction_step1", step1_data)
 
                 # --- Step 2: Extract details from relevant pages ---
-                # Re-read only the relevant pages if possible
                 if relevant_pages and extraction_data["file_type"] == "pdf":
                     from agent.skills.cipher_extractor import extract_text_from_pdf
                     sections_content = extract_text_from_pdf(
                         extraction_data["file_path"], set(relevant_pages)
                     )
                 else:
-                    # Fall back to full text (truncated)
                     sections_content = full_text[:20000]
 
                 step2_prompt = STEP2_EXTRACT_PROMPT.format(
                     cipher_name=cipher_name,
                     cipher_type=cipher_type,
+                    terminology=terminology,
                     sections_content=sections_content,
                 )
                 step2_raw = self.llm.call_llm(step2_prompt)
