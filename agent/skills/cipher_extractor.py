@@ -138,12 +138,20 @@ ALGORITHM STRUCTURE:
 - Number of rounds/steps/iterations
 
 OPERATIONS (may use various names):
-- Substitution: "S-box", "substitution box", "nonlinear layer", "SubBytes", "gamma"
-- Permutation: "P-layer", "bit permutation", "ShiftRows", "pi", "wire crossing"
-- Linear mixing: "MixColumns", "MDS matrix", "linear layer", "diffusion", "theta"
-- Rotation: "cyclic shift", "ROT", "<<<", ">>>", "circular shift"
+- Substitution: "S-box", "substitution box", "nonlinear layer", "SubBytes", "SubNibbles",
+  "SubColumn", "SubCells", "gamma", "chi", "S-layer"
+- Permutation: "P-layer", "bit permutation", "ShiftRows", "ShiftRow", "ShiftColumns",
+  "pi", "wire crossing", "PermBits", "bit shuffle"
+- Linear mixing: "MixColumns", "MDS matrix", "linear layer", "diffusion", "theta",
+  "MixRow", "MixNibbles"
+- Rotation: "cyclic shift", "ROT", "<<<", ">>>", "circular shift", "left/right rotation"
 - Addition: "modular addition", "ADD", "mod 2^n", "boxplus"
-- XOR: "exclusive-or", "bitwise addition mod 2", "oplus"
+- XOR: "exclusive-or", "bitwise addition mod 2", "oplus", "AddRoundKey"
+
+STATE LAYOUT (critical for understanding S-box/permutation indices):
+- States may be arranged as 2D arrays: "4x16 array", "4x4 matrix", "rectangular array"
+- S-boxes may operate on COLUMNS (vertical) or ROWS (horizontal) of the 2D state
+- Row/column rotations with different offsets per row/column
 
 DATA TABLES:
 - S-box lookup tables (may be in hex, decimal, matrix form)
@@ -186,12 +194,18 @@ The paper uses this terminology: {terminology}
 Your task: extract EVERY technical detail needed to fully implement this cipher
 from scratch. Think step by step:
 
-1. STATE STRUCTURE
+1. STATE STRUCTURE (very important - think carefully)
    - What is the total state/block size in bits?
    - How is the state divided? Into words? Bytes? Nibbles? Bits?
    - What is the size of each unit? How many units?
-   - Example: "64-bit block divided into 4 nibbles of 4 bits" -> block=64, unit=4bit, count=16
+   - Example: "64-bit block divided into 16 nibbles of 4 bits" -> block=64, unit=4bit, count=16
    - Example: "128-bit state as 4 x 32-bit words" -> block=128, unit=32bit, count=4
+
+   CRITICAL: Is the state arranged as a 2D array (matrix/rectangle)?
+   - If yes: how many ROWS and how many COLUMNS?
+   - How are the bits numbered? Row-major (row by row) or column-major?
+   - Example: "4x16 rectangular array" with row 0 = bits 0-15, row 1 = bits 16-31, etc.
+   - This affects how S-boxes and permutations index the bits!
 
 2. ROUND FUNCTION - list EVERY operation in EXACT ORDER
    For each operation, determine:
@@ -199,6 +213,13 @@ from scratch. Think step by step:
    - What does it operate on? (which words/bytes/bits)
    - What are the parameters? (rotation amount, S-box table, permutation table, matrix)
    - Where does the result go?
+
+   PAY SPECIAL ATTENTION to these patterns in 2D-state ciphers:
+   - S-box on COLUMNS: takes one bit from each row at the same column position.
+     Example: a 4-row state with S-box on column j takes bits [row0_j, row1_j, row2_j, row3_j]
+   - Row rotations with DIFFERENT offsets per row:
+     Example: "row 0 rotated by 0, row 1 by 1, row 2 by 12, row 3 by 13"
+     This is NOT a single rotation - it's a full permutation of all bits
    Be careful: some operations may be described in mathematical notation.
    "x_i <- x_i <<< 3" means left-rotate word i by 3
    "x_0 <- x_0 + x_1 mod 2^n" means modular addition of word 0 and word 1, result in word 0
@@ -227,6 +248,13 @@ Return a detailed JSON:
   "state_division": "how the state is divided, e.g., '2 words of 16 bits', '16 nibbles of 4 bits', '64 individual bits'",
   "unit_size_bits": integer,
   "num_units": integer,
+  "state_2d_layout": {{
+    "is_2d": true/false,
+    "rows": integer,
+    "cols": integer,
+    "bit_numbering": "row-major: row 0 = bits 0..cols-1, row 1 = bits cols..2*cols-1, etc.",
+    "sbox_direction": "column (vertical) or row (horizontal) or null"
+  }},
   "num_rounds": integer,
   "design_type": "SPN/ARX/Feistel/other",
   "has_key": true/false,
@@ -314,10 +342,43 @@ Map each round operation to exactly ONE layer:
 - So {{"input_indices": [[0,1]], "output_indices": [0]}} means word[0] = OP(word[0], word[1])
 - Multiple operations: {{"input_indices": [[0,1],[2,3]], "output_indices": [0,2]}}
 
-## S-box index explained (for bit-level SPN):
-- If word_bitsize=1 and S-box is 4-bit:
-  index = [[0,1,2,3], [4,5,6,7], [8,9,10,11], [12,13,14,15]]
-  This applies the 4-bit S-box to bits 0-3, then 4-7, etc.
+## S-box index explained (for bit-level SPN, word_bitsize=1):
+The "index" parameter groups bits that feed into each S-box instance.
+You MUST compute these groups based on the STATE LAYOUT:
+
+CASE A - S-box on SEQUENTIAL bits (e.g., PRESENT):
+  State is a flat array, S-box applies to consecutive bits.
+  index = [[0,1,2,3], [4,5,6,7], [8,9,10,11], [12,13,14,15], ...]
+
+CASE B - S-box on COLUMNS of a 2D state (e.g., RECTANGLE):
+  State is a R x C bit matrix, numbered row-major:
+    Row 0: bits 0 .. C-1
+    Row 1: bits C .. 2C-1
+    ...
+    Row R-1: bits (R-1)*C .. R*C-1
+  Column j = [j, j+C, j+2C, ..., j+(R-1)*C]
+  For R=4, C=16: column 0 = [0, 16, 32, 48], column 1 = [1, 17, 33, 49], etc.
+  index = [[j, j+C, j+2C, j+3C] for j in range(C)]
+
+CASE C - S-box on ROWS or DIAGONALS:
+  Compute the bit indices accordingly based on the 2D layout.
+
+## Permutation table for row rotations (2D SPN ciphers):
+When a cipher applies DIFFERENT rotation offsets to each row of a 2D state,
+this is modeled as a single permutation layer with a computed table.
+
+Example: 4x16 state (4 rows of 16 bits), left-rotate row i by offset[i]:
+  offset = [0, 1, 12, 13]
+  For each row r (bits r*16 to r*16+15):
+    bit at position r*16 + j moves to r*16 + ((j - offset[r]) mod 16)
+  Compute the full 64-entry permutation table from this.
+
+  Concretely for the example above:
+  Row 0 (offset 0): [0,1,2,...,15] -> [0,1,2,...,15]  (no change)
+  Row 1 (offset 1): bit 16->31 become [17,18,...,31,16]
+  Row 2 (offset 12): bit 32->47 become [44,45,46,47,32,33,...,43]
+  Row 3 (offset 13): bit 48->63 become [61,62,63,48,49,...,60]
+  Final table = row0 ++ row1 ++ row2 ++ row3 (concatenate all 64 positions)
 
 ## Output format:
 {{
