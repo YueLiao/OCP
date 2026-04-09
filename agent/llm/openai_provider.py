@@ -79,3 +79,23 @@ class OpenAIProvider(LLMProvider):
 
     def handle_error(self, error, failed_request, session_context):
         return f"Error executing {failed_request.skill.value}: {error}"
+
+    def extract_cipher_from_content(self, extraction_data):
+        if extraction_data.get("file_type") == "image":
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": [
+                    {"type": "text", "text": extraction_data["prompt"]},
+                    {"type": "image_url", "image_url": {
+                        "url": f"data:{extraction_data['mime_type']};base64,{extraction_data['image_base64']}"
+                    }},
+                ]}],
+                temperature=0,
+            )
+        else:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": extraction_data["prompt"]}],
+                temperature=0,
+            )
+        return response.choices[0].message.content

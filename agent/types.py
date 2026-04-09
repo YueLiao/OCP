@@ -11,6 +11,7 @@ class SkillName(Enum):
     LINEAR_ANALYSIS = "linear_analysis"
     CIPHER_DEFINITION = "cipher_definition"
     CIPHER_DIALOGUE = "cipher_dialogue"
+    CIPHER_EXTRACTION = "cipher_extraction"
 
 
 @dataclass

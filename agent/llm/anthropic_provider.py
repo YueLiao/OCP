@@ -76,3 +76,23 @@ class AnthropicProvider(LLMProvider):
 
     def handle_error(self, error, failed_request, session_context):
         return f"Error executing {failed_request.skill.value}: {error}"
+
+    def extract_cipher_from_content(self, extraction_data):
+        if extraction_data.get("file_type") == "image":
+            content = [
+                {"type": "image", "source": {
+                    "type": "base64",
+                    "media_type": extraction_data["mime_type"],
+                    "data": extraction_data["image_base64"],
+                }},
+                {"type": "text", "text": extraction_data["prompt"]},
+            ]
+        else:
+            content = extraction_data["prompt"]
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=4096,
+            messages=[{"role": "user", "content": content}],
+            temperature=0,
+        )
+        return response.content[0].text

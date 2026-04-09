@@ -141,6 +141,28 @@ You> Both differential and linear
 Assistant> Differential analysis complete... Linear analysis complete...
 ```
 
+### Example 4: Extract Cipher from a PDF Paper
+
+```
+You> Analyze the cipher described in /path/to/paper.pdf
+
+Assistant> Loaded PDF file: paper.pdf. Extracting cipher specification...
+           Extracted cipher "NewCipher": permutation, 128-bit, 4x32-bit words, 20 rounds.
+           Building cipher... Built successfully.
+           What analysis would you like to run?
+
+You> Differential analysis with MILP
+
+Assistant> Differential analysis complete: found 1 optimal trail.
+```
+
+You can also specify a section or page range:
+```
+You> Extract the cipher from pages 3-5 of /path/to/paper.pdf, focus on the KATAN cipher
+```
+
+Supported file formats: PDF (.pdf), images (.png, .jpg), plain text (.txt).
+
 ---
 
 ## Python API
@@ -229,6 +251,29 @@ agent = OCPAgent()
 agent.define_custom_cipher(spec)
 agent.differential_analysis(model_type="milp")
 ```
+
+### Extract Cipher from a PDF Paper
+
+```python
+from agent import OCPAgent
+from agent.llm.openai_provider import OpenAIProvider
+
+agent = OCPAgent(llm_provider=OpenAIProvider(api_key="sk-xxx"))
+
+# Extract cipher from a PDF and auto-build
+agent.extract_cipher_from_file(
+    "path/to/crypto_paper.pdf",
+    focus="the new lightweight cipher in Section 3",
+    pages="3-6",
+    auto_build=True,
+)
+
+# Now analyze
+agent.differential_analysis(model_type="milp")
+agent.generate_code(language="python")
+```
+
+Supported file formats: PDF (requires `pip install PyMuPDF`), images (PNG/JPG), plain text.
 
 ---
 

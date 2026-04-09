@@ -52,6 +52,7 @@ INTENT_RESPONSE_SCHEMA = {
                             "linear_analysis",
                             "cipher_definition",
                             "cipher_dialogue",
+                            "cipher_extraction",
                         ],
                     },
                     "params": {"type": "object"},
@@ -125,6 +126,12 @@ When a user describes a new cipher, extract a CipherSpec:
   - add_round_key: {{"operator": "xor"/"modadd"}}
 - sbox_tables: {{"name": [lookup_table]}}
 - For block ciphers: key_size, key_nbr_words, key_schedule, key_extract_indices
+
+## File-based Cipher Extraction
+When a user provides a PDF, image, or text file describing a cipher, use cipher_extraction skill:
+- cipher_extraction: {{"file_path": "/path/to/file.pdf", "focus": "optional section", "pages": "1-5", "auto_build": true/false}}
+- Supports .pdf, .png, .jpg, .txt files
+- Set auto_build=true to immediately build the cipher after extraction
 
 Return ONLY valid JSON, no extra text.
 """

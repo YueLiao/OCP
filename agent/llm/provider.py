@@ -101,3 +101,26 @@ class LLMProvider(ABC):
             A human-readable error message.
         """
         ...
+
+    def extract_cipher_from_content(self, extraction_data: dict) -> str:
+        """Extract a CipherSpec JSON from document content or image using LLM.
+
+        This method is called by AgentCore after CipherExtractorSkill loads a file.
+        Default implementation raises NotImplementedError. Providers with vision
+        capabilities should override this to handle image inputs.
+
+        Args:
+            extraction_data: Dict with keys:
+                - "prompt": The extraction prompt
+                - "content": Text content (for PDF/text files)
+                - "image_base64": Base64 image (for image files)
+                - "mime_type": Image MIME type (for image files)
+                - "file_type": "pdf", "text", or "image"
+
+        Returns:
+            Raw LLM response string (should be JSON).
+        """
+        raise NotImplementedError(
+            "This LLM provider does not support document extraction. "
+            "Override extract_cipher_from_content() to add support."
+        )

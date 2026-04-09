@@ -67,6 +67,13 @@ class AgentCore:
             results.append(result)
             self.session.add_result(result)
 
+            # After extraction, automatically call LLM to parse content into CipherSpec
+            if req.skill == SkillName.CIPHER_EXTRACTION and result.success:
+                extraction_result = self._process_extraction(result)
+                if extraction_result:
+                    results.append(extraction_result)
+                    self.session.add_result(extraction_result)
+
         # Generate response
         response = self.llm.generate_response(
             results=results,
@@ -113,3 +120,110 @@ class AgentCore:
                 skill=request.skill,
                 error=error_msg,
             )
+
+    def _process_extraction(self, extraction_result: SkillResult) -> Optional[SkillResult]:
+        """After CipherExtractorSkill loads a file, use LLM to parse it into CipherSpec."""
+        if self.llm is None:
+            return None
+
+        extraction_data = self.session.get_metadata("extraction_data")
+        if not extraction_data:
+            return None
+
+        try:
+            raw_response = self.llm.extract_cipher_from_content(extraction_data)
+        except NotImplementedError:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_EXTRACTION,
+                error="This LLM provider does not support document extraction.",
+            )
+        except Exception as e:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_EXTRACTION,
+                error=f"LLM extraction failed: {e}",
+            )
+
+        # Parse JSON from LLM response
+        from agent.llm.response_parser import parse_llm_json_response
+        from agent.skills.cipher_spec import CipherSpec
+        import json
+        import re
+
+        text = raw_response.strip()
+        # Strip markdown code fences
+        fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
+        if fence_match:
+            text = fence_match.group(1).strip()
+        # Find JSON
+        brace_start = text.find("{")
+        if brace_start == -1:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_EXTRACTION,
+                error=f"LLM did not return valid JSON. Response: {raw_response[:500]}",
+            )
+        depth = 0
+        brace_end = -1
+        for i in range(brace_start, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    brace_end = i
+                    break
+        if brace_end == -1:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_EXTRACTION,
+                error="LLM returned incomplete JSON.",
+            )
+
+        try:
+            spec_data = json.loads(text[brace_start:brace_end + 1])
+        except json.JSONDecodeError:
+            fixed = re.sub(r",\s*([}\]])", r"\1", text[brace_start:brace_end + 1])
+            try:
+                spec_data = json.loads(fixed)
+            except json.JSONDecodeError as e:
+                return SkillResult(
+                    success=False,
+                    skill=SkillName.CIPHER_EXTRACTION,
+                    error=f"Failed to parse LLM JSON: {e}",
+                )
+
+        # Store spec and optionally auto-build
+        spec = CipherSpec.from_dict(spec_data)
+        errors = spec.validate()
+        if errors:
+            # Store anyway for user to review/fix
+            self.session.set_metadata("pending_cipher_spec", spec_data)
+            return SkillResult(
+                success=True,
+                skill=SkillName.CIPHER_EXTRACTION,
+                data={"spec": spec_data, "validation_errors": errors},
+                summary=f"Extracted cipher '{spec.name}' from document (with warnings: {'; '.join(errors)}). "
+                        f"Review and use cipher_definition to build.",
+            )
+
+        self.session.set_metadata("pending_cipher_spec", spec_data)
+        auto_build = self.session.get_metadata("extraction_auto_build", False)
+
+        if auto_build:
+            build_result = self._execute_skill(SkillRequest(
+                skill=SkillName.CIPHER_DEFINITION, params={}
+            ))
+            self.session.add_result(build_result)
+            return build_result
+
+        return SkillResult(
+            success=True,
+            skill=SkillName.CIPHER_EXTRACTION,
+            data={"spec": spec_data},
+            summary=f"Extracted cipher '{spec.name}': {spec.cipher_type}, "
+                    f"{spec.block_size}-bit, {spec.nbr_rounds} rounds, "
+                    f"{len(spec.round_structure)} layers/round. "
+                    f"Use cipher_definition to build it.",
+        )

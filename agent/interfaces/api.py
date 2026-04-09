@@ -205,3 +205,38 @@ class OCPAgent:
             skill=SkillName.CIPHER_DEFINITION,
             params={"spec": spec},
         ))
+
+    def extract_cipher_from_file(
+        self,
+        file_path: str,
+        focus: Optional[str] = None,
+        pages: Optional[str] = None,
+        auto_build: bool = False,
+    ) -> SkillResult:
+        """Extract a cipher specification from a PDF, image, or text file.
+
+        Requires an LLM provider to parse the document content.
+
+        Args:
+            file_path: Path to the file (PDF, PNG, JPG, TXT).
+            focus: Optional focus area (e.g., "the SPECK cipher", "Section 3").
+            pages: For PDFs: page range (e.g., "1-5", "3,7").
+            auto_build: If True, automatically build the cipher after extraction.
+
+        Returns:
+            SkillResult with extracted CipherSpec.
+
+        Example:
+            agent = OCPAgent(llm_provider=my_provider)
+            agent.extract_cipher_from_file("paper.pdf", focus="the new ARX cipher")
+            agent.define_custom_cipher(agent.session.get_metadata("pending_cipher_spec"))
+        """
+        params = {"file_path": file_path, "auto_build": auto_build}
+        if focus:
+            params["focus"] = focus
+        if pages:
+            params["pages"] = pages
+        return self._core.execute_direct(SkillRequest(
+            skill=SkillName.CIPHER_EXTRACTION,
+            params=params,
+        ))

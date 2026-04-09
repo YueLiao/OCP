@@ -74,3 +74,21 @@ class GeminiProvider(LLMProvider):
 
     def handle_error(self, error, failed_request, session_context):
         return f"Error executing {failed_request.skill.value}: {error}"
+
+    def extract_cipher_from_content(self, extraction_data):
+        from google.genai import types
+        if extraction_data.get("file_type") == "image":
+            import base64
+            image_bytes = base64.b64decode(extraction_data["image_base64"])
+            contents = [
+                types.Part.from_bytes(data=image_bytes, mime_type=extraction_data["mime_type"]),
+                extraction_data["prompt"],
+            ]
+        else:
+            contents = extraction_data["prompt"]
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=contents,
+            config={"temperature": 0},
+        )
+        return response.text

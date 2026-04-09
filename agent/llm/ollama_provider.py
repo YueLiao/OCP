@@ -82,3 +82,20 @@ class OllamaProvider(LLMProvider):
 
     def handle_error(self, error, failed_request, session_context):
         return f"Error executing {failed_request.skill.value}: {error}"
+
+    def extract_cipher_from_content(self, extraction_data):
+        if extraction_data.get("file_type") == "image":
+            # Ollama vision models (e.g., llava, llama3.2-vision)
+            response = self.client.chat(
+                model=self.model,
+                messages=[{"role": "user", "content": extraction_data["prompt"],
+                           "images": [extraction_data["image_base64"]]}],
+                options={"temperature": 0},
+            )
+        else:
+            response = self.client.chat(
+                model=self.model,
+                messages=[{"role": "user", "content": extraction_data["prompt"]}],
+                options={"temperature": 0},
+            )
+        return response["message"]["content"]
