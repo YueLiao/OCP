@@ -152,6 +152,11 @@ def status():
 
 
 if __name__ == "__main__":
-    print("OCP Agent Web UI")
-    print("Open http://localhost:5000 in your browser")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=5001)
+    parser.add_argument("--host", type=str, default="0.0.0.0")
+    args = parser.parse_args()
+    print(f"OCP Agent Web UI")
+    print(f"Open http://localhost:{args.port} in your browser")
+    app.run(host=args.host, port=args.port, debug=True)
