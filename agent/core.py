@@ -122,7 +122,7 @@ class AgentCore:
             )
 
     def _process_extraction(self, extraction_result: SkillResult) -> Optional[SkillResult]:
-        """After CipherExtractorSkill loads a file, use LLM to parse it into CipherSpec."""
+        """Run the multi-step LLM pipeline to extract a CipherSpec from loaded file."""
         if self.llm is None:
             return None
 
@@ -130,87 +130,112 @@ class AgentCore:
         if not extraction_data:
             return None
 
+        import json
+        import re
+        from agent.skills.cipher_spec import CipherSpec
+        from agent.skills.cipher_extractor import (
+            STEP1_LOCATE_PROMPT, STEP2_EXTRACT_PROMPT,
+            STEP3_FORMALIZE_PROMPT, IMAGE_EXTRACTION_PROMPT,
+        )
+
+        pipeline = extraction_data.get("pipeline", "single")
+        focus = extraction_data.get("focus", "")
+        file_name = extraction_data.get("file_name", "")
+
         try:
-            raw_response = self.llm.extract_cipher_from_content(extraction_data)
+            if extraction_data["file_type"] == "image":
+                # Image: single-step with vision
+                image_data = {"base64": extraction_data["image_base64"],
+                              "mime_type": extraction_data["mime_type"]}
+                raw = self.llm.call_llm(IMAGE_EXTRACTION_PROMPT, image_data=image_data)
+                spec_data = self._parse_json_from_llm(raw)
+
+            elif pipeline == "single":
+                # Short document: single-step extraction
+                from agent.skills.cipher_extractor import STEP3_FORMALIZE_PROMPT
+                text = extraction_data["full_text"]
+                prompt = STEP3_FORMALIZE_PROMPT.format(cipher_details=text)
+                raw = self.llm.call_llm(prompt)
+                spec_data = self._parse_json_from_llm(raw)
+
+            else:
+                # Multi-step pipeline for long papers
+                full_text = extraction_data["full_text"]
+
+                # --- Step 1: Locate relevant sections ---
+                locate_prompt = STEP1_LOCATE_PROMPT
+                if focus:
+                    locate_prompt += f"\nFOCUS: The user is specifically interested in: {focus}\n\n"
+                # Send first ~15k chars for structure scanning
+                locate_prompt += full_text[:15000]
+                if len(full_text) > 15000:
+                    locate_prompt += "\n\n[... remaining content omitted for scanning ...]\n"
+                    locate_prompt += "\n" + full_text[-3000:]  # also include end (references, appendix)
+
+                step1_raw = self.llm.call_llm(locate_prompt)
+                step1_data = self._parse_json_from_llm(step1_raw)
+
+                cipher_name = step1_data.get("cipher_name", "Unknown")
+                cipher_type = step1_data.get("cipher_type", "unknown")
+                relevant_pages = step1_data.get("relevant_pages", [])
+                step1_summary = step1_data.get("summary", "")
+
+                self.session.set_metadata("extraction_step1", step1_data)
+
+                # --- Step 2: Extract details from relevant pages ---
+                # Re-read only the relevant pages if possible
+                if relevant_pages and extraction_data["file_type"] == "pdf":
+                    from agent.skills.cipher_extractor import extract_text_from_pdf
+                    sections_content = extract_text_from_pdf(
+                        extraction_data["file_path"], set(relevant_pages)
+                    )
+                else:
+                    # Fall back to full text (truncated)
+                    sections_content = full_text[:20000]
+
+                step2_prompt = STEP2_EXTRACT_PROMPT.format(
+                    cipher_name=cipher_name,
+                    cipher_type=cipher_type,
+                    sections_content=sections_content,
+                )
+                step2_raw = self.llm.call_llm(step2_prompt)
+                step2_data = self._parse_json_from_llm(step2_raw)
+
+                self.session.set_metadata("extraction_step2", step2_data)
+
+                # --- Step 3: Formalize into CipherSpec ---
+                step3_prompt = STEP3_FORMALIZE_PROMPT.format(
+                    cipher_details=json.dumps(step2_data, indent=2)
+                )
+                step3_raw = self.llm.call_llm(step3_prompt)
+                spec_data = self._parse_json_from_llm(step3_raw)
+
         except NotImplementedError:
             return SkillResult(
-                success=False,
-                skill=SkillName.CIPHER_EXTRACTION,
-                error="This LLM provider does not support document extraction.",
+                success=False, skill=SkillName.CIPHER_EXTRACTION,
+                error="LLM provider does not implement call_llm().",
             )
         except Exception as e:
             return SkillResult(
-                success=False,
-                skill=SkillName.CIPHER_EXTRACTION,
-                error=f"LLM extraction failed: {e}",
+                success=False, skill=SkillName.CIPHER_EXTRACTION,
+                error=f"Extraction pipeline failed: {e}",
             )
 
-        # Parse JSON from LLM response
-        from agent.llm.response_parser import parse_llm_json_response
-        from agent.skills.cipher_spec import CipherSpec
-        import json
-        import re
-
-        text = raw_response.strip()
-        # Strip markdown code fences
-        fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
-        if fence_match:
-            text = fence_match.group(1).strip()
-        # Find JSON
-        brace_start = text.find("{")
-        if brace_start == -1:
-            return SkillResult(
-                success=False,
-                skill=SkillName.CIPHER_EXTRACTION,
-                error=f"LLM did not return valid JSON. Response: {raw_response[:500]}",
-            )
-        depth = 0
-        brace_end = -1
-        for i in range(brace_start, len(text)):
-            if text[i] == "{":
-                depth += 1
-            elif text[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    brace_end = i
-                    break
-        if brace_end == -1:
-            return SkillResult(
-                success=False,
-                skill=SkillName.CIPHER_EXTRACTION,
-                error="LLM returned incomplete JSON.",
-            )
-
-        try:
-            spec_data = json.loads(text[brace_start:brace_end + 1])
-        except json.JSONDecodeError:
-            fixed = re.sub(r",\s*([}\]])", r"\1", text[brace_start:brace_end + 1])
-            try:
-                spec_data = json.loads(fixed)
-            except json.JSONDecodeError as e:
-                return SkillResult(
-                    success=False,
-                    skill=SkillName.CIPHER_EXTRACTION,
-                    error=f"Failed to parse LLM JSON: {e}",
-                )
-
-        # Store spec and optionally auto-build
+        # Validate and store
         spec = CipherSpec.from_dict(spec_data)
         errors = spec.validate()
+        self.session.set_metadata("pending_cipher_spec", spec_data)
+
         if errors:
-            # Store anyway for user to review/fix
-            self.session.set_metadata("pending_cipher_spec", spec_data)
             return SkillResult(
-                success=True,
-                skill=SkillName.CIPHER_EXTRACTION,
-                data={"spec": spec_data, "validation_errors": errors},
-                summary=f"Extracted cipher '{spec.name}' from document (with warnings: {'; '.join(errors)}). "
-                        f"Review and use cipher_definition to build.",
+                success=True, skill=SkillName.CIPHER_EXTRACTION,
+                data={"spec": spec_data, "validation_errors": errors,
+                      "pipeline": pipeline},
+                summary=f"Extracted '{spec.name}' from {file_name} "
+                        f"(warnings: {'; '.join(errors)}). Review and fix.",
             )
 
-        self.session.set_metadata("pending_cipher_spec", spec_data)
         auto_build = self.session.get_metadata("extraction_auto_build", False)
-
         if auto_build:
             build_result = self._execute_skill(SkillRequest(
                 skill=SkillName.CIPHER_DEFINITION, params={}
@@ -219,11 +244,45 @@ class AgentCore:
             return build_result
 
         return SkillResult(
-            success=True,
-            skill=SkillName.CIPHER_EXTRACTION,
-            data={"spec": spec_data},
-            summary=f"Extracted cipher '{spec.name}': {spec.cipher_type}, "
+            success=True, skill=SkillName.CIPHER_EXTRACTION,
+            data={"spec": spec_data, "pipeline": pipeline},
+            summary=f"Extracted '{spec.name}': {spec.cipher_type}, "
                     f"{spec.block_size}-bit, {spec.nbr_rounds} rounds, "
                     f"{len(spec.round_structure)} layers/round. "
-                    f"Use cipher_definition to build it.",
+                    f"Pipeline: {pipeline}-step.",
         )
+
+    @staticmethod
+    def _parse_json_from_llm(raw: str) -> dict:
+        """Extract a JSON object from LLM response text."""
+        import json
+        import re
+
+        text = raw.strip()
+        fence = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
+        if fence:
+            text = fence.group(1).strip()
+
+        brace_start = text.find("{")
+        if brace_start == -1:
+            raise ValueError(f"No JSON found in LLM response: {raw[:300]}")
+
+        depth, brace_end = 0, -1
+        for i in range(brace_start, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    brace_end = i
+                    break
+
+        if brace_end == -1:
+            raise ValueError("Incomplete JSON in LLM response")
+
+        json_str = text[brace_start:brace_end + 1]
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError:
+            fixed = re.sub(r",\s*([}\]])", r"\1", json_str)
+            return json.loads(fixed)

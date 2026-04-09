@@ -102,25 +102,20 @@ class LLMProvider(ABC):
         """
         ...
 
-    def extract_cipher_from_content(self, extraction_data: dict) -> str:
-        """Extract a CipherSpec JSON from document content or image using LLM.
+    def call_llm(self, prompt: str, image_data: dict = None) -> str:
+        """Send a prompt to the LLM and return the raw response text.
 
-        This method is called by AgentCore after CipherExtractorSkill loads a file.
-        Default implementation raises NotImplementedError. Providers with vision
-        capabilities should override this to handle image inputs.
+        This is a generic LLM call used by the multi-step extraction pipeline.
+        Each provider must implement this.
 
         Args:
-            extraction_data: Dict with keys:
-                - "prompt": The extraction prompt
-                - "content": Text content (for PDF/text files)
-                - "image_base64": Base64 image (for image files)
-                - "mime_type": Image MIME type (for image files)
-                - "file_type": "pdf", "text", or "image"
+            prompt: The text prompt to send.
+            image_data: Optional dict with "base64" and "mime_type" for vision.
 
         Returns:
-            Raw LLM response string (should be JSON).
+            Raw LLM response string.
         """
         raise NotImplementedError(
-            "This LLM provider does not support document extraction. "
-            "Override extract_cipher_from_content() to add support."
+            "This LLM provider does not implement call_llm(). "
+            "Override it to support the extraction pipeline."
         )
