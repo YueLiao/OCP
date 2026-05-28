@@ -183,6 +183,29 @@ def test_upload_response_includes_data_and_artifact_links():
     assert data["artifact_links"][0]["label"] == "extract_log"
 
 
+def test_upload_hides_unexpected_processing_details():
+    class FailingUploadAgent:
+        session = SimpleNamespace(get_context=lambda: {"has_cipher": False})
+
+        def extract_cipher_from_file(self, file_path, focus=None, auto_build=False):
+            raise RuntimeError("file parser secret detail")
+
+    web_app.agent = FailingUploadAgent()
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    response = client.post(
+        "/api/upload",
+        data={"file": (BytesIO(b"cipher text"), "cipher.txt")},
+        content_type="multipart/form-data",
+    )
+    data = response.get_json()
+
+    assert response.status_code == 500
+    assert data["error_code"] == "upload_failed"
+    assert "file parser secret detail" not in data["error"]
+
+
 def test_upload_cleanup_does_not_mask_response_when_temp_file_is_missing(monkeypatch):
     class FakeUploadAgent:
         session = SimpleNamespace(get_context=lambda: {"has_cipher": False})

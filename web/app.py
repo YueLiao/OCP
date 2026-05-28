@@ -342,8 +342,12 @@ def upload_file():
     try:
         result = agent.extract_cipher_from_file(tmp_path, focus=focus or None, auto_build=False)
         return _skill_response(result)
-    except Exception as e:
-        return _error_response(str(e), 500, "upload_failed")
+    except Exception:
+        return _error_response(
+            "File upload processing failed. Check the file and server logs.",
+            500,
+            "upload_failed",
+        )
     finally:
         with suppress(FileNotFoundError):
             os.unlink(tmp_path)
