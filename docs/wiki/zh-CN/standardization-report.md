@@ -35,6 +35,7 @@
 - 添加文本优先 facts 抽取、draft 创建和显式确认构建的 `OCPAgent` 直接 API。
 - 添加 CLI `draft <cipher text>` 文本优先草稿审阅和确认流程。
 - 添加网页 text draft/confirm endpoint 和 `Draft` UI 动作，用于先审阅再构建。
+- 为网页 JSON endpoints 缺失 JSON body 的情况添加显式 400 响应。
 - 为 text-first 抽取、draft 和 confirmation 添加可复现 JSON job 记录与 artifact links。
 - 将文本优先 Agentic 路线图扩展为可评审实现契约，覆盖 schema、网页流程、provider、安全确认和测试。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
@@ -62,7 +63,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`101 passed, 106 skipped`。
+最新默认 pytest 状态：`102 passed, 106 skipped`。
 
 ## 后续工作
 

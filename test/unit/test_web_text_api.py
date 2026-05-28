@@ -46,6 +46,21 @@ def test_text_draft_requires_connected_agent():
     assert response.get_json()["error"] == "Not connected. Configure provider first."
 
 
+def test_json_endpoints_reject_missing_json_body():
+    web_app.agent = OCPAgent(llm_provider=FakeFactsProvider())
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    for path in ("/api/config", "/api/chat", "/api/text/draft"):
+        response = client.post(path, data="not json", content_type="text/plain")
+
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "success": False,
+            "error": "JSON request body is required.",
+        }
+
+
 def test_text_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):
     monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
     web_app.agent = OCPAgent(llm_provider=FakeFactsProvider())

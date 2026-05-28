@@ -40,6 +40,11 @@ def _draft_payload(draft):
     }
 
 
+def _json_payload():
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else None
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -49,7 +54,9 @@ def index():
 def set_config():
     """Configure the LLM provider and create the agent."""
     global agent, config
-    data = request.json
+    data = _json_payload()
+    if data is None:
+        return jsonify({"success": False, "error": "JSON request body is required."}), 400
     provider_name = data.get("provider", "openai")
     api_key = data.get("api_key", "")
     model = data.get("model", "")
@@ -79,7 +86,9 @@ def chat():
     if agent is None:
         return jsonify({"success": False, "error": "Not connected. Configure provider first."}), 400
 
-    data = request.json
+    data = _json_payload()
+    if data is None:
+        return jsonify({"success": False, "error": "JSON request body is required."}), 400
     message = data.get("message", "")
     if not message:
         return jsonify({"success": False, "error": "Empty message."}), 400
@@ -103,7 +112,9 @@ def draft_text_cipher():
     if agent is None:
         return jsonify({"success": False, "error": "Not connected. Configure provider first."}), 400
 
-    data = request.json or {}
+    data = _json_payload()
+    if data is None:
+        return jsonify({"success": False, "error": "JSON request body is required."}), 400
     text = data.get("text", "")
     if not text.strip():
         return jsonify({"success": False, "error": "Empty cipher text."}), 400
