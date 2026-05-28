@@ -95,9 +95,13 @@ Skipped tests are intentional by default:
 
 默认跳过的测试是有意设置：
 
-- `--run-legacy-operators`
 - `--run-solver`
 - `--run-implementations`
+
+Legacy operator experiment scripts under `test/operators/` are always skipped by
+pytest and should be run directly when needed.
+
+`test/operators/` 下的旧式算子实验脚本始终由 pytest 跳过，需要时应直接运行对应脚本。
 
 ## Next Work / 后续工作
 

@@ -221,7 +221,9 @@ python -m pytest
 # Optional heavier suites:
 python -m pytest --run-implementations
 python -m pytest --run-solver
-python -m pytest --run-legacy-operators
+
+# Manual legacy operator experiments:
+python test/operators/test_xor.py
 ```
 
 For development, install the editable package with test dependencies:
@@ -238,11 +240,14 @@ MILP tests require a MILP backend such as Gurobi or SCIP. SAT tests require
 MILP 测试需要 Gurobi 或 SCIP 等 MILP 后端。SAT 测试需要 `python-sat`。
 
 By default, pytest runs only lightweight standardized tests. Script-style
-operator experiments, generated implementation tests, and solver-dependent
-cryptanalysis tests are skipped unless their explicit flags are passed.
+operator experiments are always skipped under pytest because they are manual
+experiment scripts, not fixture-based tests. Generated implementation tests and
+solver-dependent cryptanalysis tests are skipped unless their explicit flags are
+passed.
 
-默认情况下，pytest 只运行轻量、标准化测试。脚本式算子实验、生成实现测试和依赖求解器
-的密码分析测试会被跳过，除非显式传入对应开关。
+默认情况下，pytest 只运行轻量、标准化测试。脚本式算子实验在 pytest 下始终跳过，
+因为它们是人工实验脚本，不是基于 fixture 的规范测试。生成实现测试和依赖求解器的密码分析
+测试会被跳过，除非显式传入对应开关。
 
 ## Runtime Output Directory / 运行输出目录
 

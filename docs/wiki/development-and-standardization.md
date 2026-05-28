@@ -97,9 +97,11 @@ python -m compileall agent primitives attacks solving tools
 python -m pytest
 
 # Optional suites:
-python -m pytest --run-legacy-operators
 python -m pytest --run-implementations
 python -m pytest --run-solver
+
+# Manual legacy operator experiments:
+python test/operators/test_xor.py
 ```
 
 Run solver-dependent tests only after installing the matching backend.
@@ -107,11 +109,11 @@ Run solver-dependent tests only after installing the matching backend.
 只有安装对应后端后，才运行依赖求解器的测试。
 
 Default pytest behavior intentionally keeps the standard check fast. Legacy
-operator experiments, generated implementation checks, and solver-heavy
-cryptanalysis tests are opt-in.
+operator experiments are manual scripts and remain skipped under pytest.
+Generated implementation checks and solver-heavy cryptanalysis tests are opt-in.
 
-默认 pytest 行为有意保持快速。旧式算子实验、生成实现检查，以及依赖求解器的重型密码分析
-测试都需要显式开启。
+默认 pytest 行为有意保持快速。旧式算子实验是人工脚本，在 pytest 下保持跳过。
+生成实现检查以及依赖求解器的重型密码分析测试都需要显式开启。
 
 ## Runtime Paths / 运行路径
 

@@ -25,7 +25,6 @@ It runs standardized lightweight tests and skips:
 ## Optional Suites / 可选测试套件
 
 ```bash
-python -m pytest --run-legacy-operators
 python -m pytest --run-implementations
 python -m pytest --run-solver
 ```
@@ -33,6 +32,16 @@ python -m pytest --run-solver
 Use these suites when touching the corresponding subsystem.
 
 修改对应子系统时再运行这些测试。
+
+Legacy operator files under `test/operators/` are manual experiment scripts and
+are intentionally skipped under pytest. Run one directly when needed:
+
+`test/operators/` 下的旧式算子文件是人工实验脚本，会在 pytest 下有意跳过。需要时直接运行
+单个脚本：
+
+```bash
+python test/operators/test_xor.py
+```
 
 ## CI / 持续集成
 

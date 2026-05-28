@@ -14,7 +14,10 @@ def pytest_addoption(parser):
         "--run-legacy-operators",
         action="store_true",
         default=False,
-        help="run script-style operator experiments under test/operators",
+        help=(
+            "deprecated: test/operators contains script-style experiments and "
+            "is skipped under pytest; run those files directly instead"
+        ),
     )
     parser.addoption(
         "--run-solver",
@@ -32,7 +35,10 @@ def pytest_addoption(parser):
 
 def pytest_collection_modifyitems(config, items):
     skip_legacy = pytest.mark.skip(
-        reason="legacy script-style operator experiment; pass --run-legacy-operators to run"
+        reason=(
+            "legacy script-style operator experiment; run directly with "
+            "`python test/operators/<file>.py`"
+        )
     )
     skip_solver = pytest.mark.skip(
         reason="external solver-dependent test; pass --run-solver to run"
@@ -44,9 +50,10 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         rel = item.path.relative_to(ROOT)
         rel_parts = rel.parts
-        if rel_parts[:2] == ("test", "operators") and not config.getoption("--run-legacy-operators"):
+        if rel_parts[:2] == ("test", "operators"):
             item.add_marker(pytest.mark.legacy_script)
             item.add_marker(skip_legacy)
+            continue
         if rel_parts[:2] == ("test", "differential_cryptanalysis") and not config.getoption("--run-solver"):
             item.add_marker(pytest.mark.solver)
             item.add_marker(skip_solver)
