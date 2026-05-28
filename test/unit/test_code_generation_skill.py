@@ -101,3 +101,22 @@ def test_code_generation_reports_structured_test_summary(monkeypatch, tmp_path):
     assert result.data["test_results"][0] is True
     assert result.data["test_results"][1] == "mismatch"
     assert result.data["test_summary"] == {"passed": 1, "total": 2, "failed": 1}
+
+
+def test_code_generation_wraps_output_directory_errors(monkeypatch, tmp_path):
+    blocked_output_dir = tmp_path / "not-a-dir"
+    blocked_output_dir.write_text("file blocks mkdir", encoding="utf-8")
+
+    session = Session()
+    session.set_cipher(SimpleNamespace(name="Tiny", test_vectors=[]))
+
+    result = CodeGenerationSkill().execute(
+        SkillRequest(
+            SkillName.CODE_GENERATION,
+            {"language": "python", "output_dir": str(blocked_output_dir)},
+        ),
+        session,
+    )
+
+    assert not result.success
+    assert result.error.startswith("Code generation failed:")

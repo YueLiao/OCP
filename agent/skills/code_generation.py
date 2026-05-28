@@ -67,7 +67,6 @@ class CodeGenerationSkill(BaseSkill):
         test = params.get("test", True)
         output_dir_param = params.get("output_dir")
         output_dir = Path(output_dir_param) if output_dir_param else get_files_dir()
-        output_dir.mkdir(parents=True, exist_ok=True)
 
         if language not in ("python", "c", "verilog"):
             return SkillResult(
@@ -81,6 +80,7 @@ class CodeGenerationSkill(BaseSkill):
         filename = output_dir / f"{cipher.name}{suffix}{ext_map[language]}"
 
         try:
+            output_dir.mkdir(parents=True, exist_ok=True)
             imp.generate_implementation(cipher, filename, language, unroll)
             results_data = {
                 "filename": str(filename),
