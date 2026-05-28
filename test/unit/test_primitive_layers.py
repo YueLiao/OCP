@@ -1,7 +1,7 @@
 from operators.boolean_operators import XOR
 from operators.matrix import Matrix
 from operators.operators import Equal, Rot
-from primitives.primitives import Function, Layered_Function
+from primitives.primitives import Function, Layered_Function, Permutation
 from variables.variables import Variable
 
 
@@ -126,3 +126,17 @@ def test_primitive_build_dictionaries_indexes_function_graph():
     assert primitive.constraints_dictionary["ID_EQ_1_1_0"] is function.constraints[1][0][0]
     assert "IN_LINK_EQ_0" in primitive.constraints_dictionary
     assert "OUT_LINK_EQ_0" in primitive.constraints_dictionary
+
+
+def test_primitive_link_helpers_preserve_constraint_direction_and_ids():
+    inputs = [Variable(1, ID=f"in{i}") for i in range(2)]
+    outputs = [Variable(1, ID=f"out{i}") for i in range(2)]
+
+    primitive = Permutation("P", inputs, outputs, 1, [1, 2, 0, 1])
+
+    assert [constraint.ID for constraint in primitive.inputs_constraints] == ["IN_LINK_EQ_0", "IN_LINK_EQ_1"]
+    assert [constraint.input_vars[0].ID for constraint in primitive.inputs_constraints] == ["in0", "in1"]
+    assert [constraint.output_vars[0].ID for constraint in primitive.inputs_constraints] == ["v_1_0_0", "v_1_0_1"]
+    assert [constraint.ID for constraint in primitive.outputs_constraints] == ["OUT_LINK_EQ_0", "OUT_LINK_EQ_1"]
+    assert [constraint.input_vars[0].ID for constraint in primitive.outputs_constraints] == ["v_1_1_0", "v_1_1_1"]
+    assert [constraint.output_vars[0].ID for constraint in primitive.outputs_constraints] == ["out0", "out1"]

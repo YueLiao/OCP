@@ -280,6 +280,14 @@ class Primitive(ABC):
                     for n, constraint in enumerate(f.constraints[r][l]):
                         yield f, r, l, n, constraint
 
+    def _append_input_links(self, external_vars, function_vars, id_prefix):
+        for i, external_var in enumerate(external_vars):
+            self.inputs_constraints.append(op.Equal([external_var], [function_vars[i]], ID=id_prefix + str(i)))
+
+    def _append_output_links(self, function_vars, external_vars, id_prefix):
+        for i, external_var in enumerate(external_vars):
+            self.outputs_constraints.append(op.Equal([function_vars[i]], [external_var], ID=id_prefix + str(i)))
+
     # method that builds the variables and constraints dictionaries
     def build_dictionaries(self):
         self.vars_dictionary = {}
@@ -394,10 +402,10 @@ class Function(Primitive):
         self.functions_display_order = ["FUNCTION"]
 
         if len(s_input)!=nbr_words_input: raise Exception("Function: the number of input words does not match the number of input words in function")
-        for i in range(len(s_input)): self.inputs_constraints.append(op.Equal([s_input[i]], [self.functions["FUNCTION"].vars[1][0][i]], ID='IN_LINK_EQ_'+str(i)))
+        self._append_input_links(s_input, self.functions["FUNCTION"].vars[1][0], "IN_LINK_EQ_")
 
         if len(s_output)!=nbr_words_output: raise Exception("Function: the number of output words does not match the number of output words in function")
-        for i in range(len(s_output)): self.outputs_constraints.append(op.Equal([self.functions["FUNCTION"].vars[nbr_rounds][nbr_layers][i]], [s_output[i]], ID='OUT_LINK_EQ_'+str(i)))
+        self._append_output_links(self.functions["FUNCTION"].vars[nbr_rounds][nbr_layers], s_output, "OUT_LINK_EQ_")
 
 
 # ********************************************** PERMUTATIONS **********************************************
@@ -413,10 +421,10 @@ class Permutation(Primitive):
         self.functions_display_order = ["PERMUTATION"]
 
         if len(s_input)!=nbr_words: raise Exception("Permutation: the number of input words does not match the number of words in function")
-        for i in range(len(s_input)): self.inputs_constraints.append(op.Equal([s_input[i]], [self.functions["PERMUTATION"].vars[1][0][i]], ID='IN_LINK_EQ_'+str(i)))
+        self._append_input_links(s_input, self.functions["PERMUTATION"].vars[1][0], "IN_LINK_EQ_")
 
         if len(s_output)!=nbr_words: raise Exception("Permutation: the number of output words does not match the number of words in function")
-        for i in range(len(s_output)): self.outputs_constraints.append(op.Equal([self.functions["PERMUTATION"].vars[nbr_rounds][nbr_layers][i]], [s_output[i]], ID='OUT_LINK_EQ_'+str(i)))
+        self._append_output_links(self.functions["PERMUTATION"].vars[nbr_rounds][nbr_layers], s_output, "OUT_LINK_EQ_")
 
 
 # ********************************************** BLOCK CIPHERS **********************************************
@@ -437,13 +445,13 @@ class Block_cipher(Primitive):
         if (len(k_input)!=k_nbr_words) or (len(p_input)!=s_nbr_words): raise Exception("Block_cipher: the number of input plaintext/key words does not match the number of plaintext/key words in function")
 
         if len(p_input)!=s_nbr_words: raise Exception("Block_cipher: the number of plaintext words does not match the number of words in the permutation")
-        for i in range(len(p_input)): self.inputs_constraints.append(op.Equal([p_input[i]], [self.functions["PERMUTATION"].vars[1][0][i]], ID='IN_LINK_P_EQ_'+str(i)))
+        self._append_input_links(p_input, self.functions["PERMUTATION"].vars[1][0], "IN_LINK_P_EQ_")
 
         if len(k_input)!=k_nbr_words: raise Exception("Block_cipher: the number of key words does not match the number of words in the")
-        for i in range(len(k_input)): self.inputs_constraints.append(op.Equal([k_input[i]], [self.functions["KEY_SCHEDULE"].vars[1][0][i]], ID='IN_LINK_K_EQ_'+str(i)))
+        self._append_input_links(k_input, self.functions["KEY_SCHEDULE"].vars[1][0], "IN_LINK_K_EQ_")
 
         if len(c_output)!=s_nbr_words: raise Exception("Block_cipher: the number of ciphertext words does not match the number of words in the permutation")
-        for i in range(len(c_output)): self.outputs_constraints.append(op.Equal([self.functions["PERMUTATION"].vars[nbr_rounds][s_nbr_layers][i]], [c_output[i]], ID='OUT_LINK_C_EQ_'+str(i)))
+        self._append_output_links(self.functions["PERMUTATION"].vars[nbr_rounds][s_nbr_layers], c_output, "OUT_LINK_C_EQ_")
 
 
 
@@ -467,10 +475,10 @@ class Stream_cipher(Primitive):
         if (len(iv_input)!=init_nbr_words) or (len(k_input)!=init_nbr_words): raise Exception("Stream_cipher: the number of input IV/key words does not match the number of IV/key words in initialization function")
 
         if len(iv_input)!=init_nbr_words: raise Exception("Stream_cipher: the number of IV words does not match the number of words in the initialization function")
-        for i in range(len(iv_input)): self.inputs_constraints.append(op.Equal([iv_input[i]], [self.functions["INITIALIZATION"].vars[1][0][i]], ID='IN_LINK_IV_EQ_'+str(i)))
+        self._append_input_links(iv_input, self.functions["INITIALIZATION"].vars[1][0], "IN_LINK_IV_EQ_")
 
         if len(k_input)!=init_nbr_words: raise Exception("Stream_cipher: the number of key words does not match the number of words in the initialization function")
-        for i in range(len(k_input)): self.inputs_constraints.append(op.Equal([k_input[i]], [self.functions["INITIALIZATION"].vars[1][0][i + init_nbr_words]], ID='IN_LINK_K_EQ_'+str(i)))
+        self._append_input_links(k_input, self.functions["INITIALIZATION"].vars[1][0][init_nbr_words:], "IN_LINK_K_EQ_")
 
         if len(keystream_output)!=keystream_nbr_words: raise Exception("Stream_cipher: the number of keystream words does not match the number of words in the keystream generation function")
-        for i in range(len(keystream_output)): self.outputs_constraints.append(op.Equal([self.functions["KEYSTREAM_GEN"].vars[nbr_rounds_keystream][keystream_nbr_layers][i]], [keystream_output[i]], ID='OUT_LINK_KS_EQ_'+str(i)))
+        self._append_output_links(self.functions["KEYSTREAM_GEN"].vars[nbr_rounds_keystream][keystream_nbr_layers], keystream_output, "OUT_LINK_KS_EQ_")
