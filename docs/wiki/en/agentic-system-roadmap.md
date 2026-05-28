@@ -181,6 +181,7 @@ The confirmation view should show:
    `confirm_cipher_spec`.
    Initial direct API methods are in place.
 5. Add CLI confirmation flow.
+   Initial `draft <cipher text>` confirmation flow is in place.
 6. Add web text workspace and draft review UI.
 7. Add replayable job records and artifact links.
 8. Relegate PDF/image extraction to an experimental import helper.

@@ -47,6 +47,9 @@ DeepSeek uses the OpenAI-compatible protocol. Set `DEEPSEEK_API_KEY`; the
 default model is `deepseek-chat`, and `deepseek-reasoner` can be selected with
 `--model`.
 
+Inside the CLI, use `draft <cipher text>` to run the text-first extraction
+flow. The CLI prints the proposed `CipherSpec` draft and asks before building.
+
 ## Web UI
 
 ```bash

@@ -46,6 +46,9 @@ python3 run_agent.py --provider ollama --model llama3
 DeepSeek 使用 OpenAI-compatible 协议。设置 `DEEPSEEK_API_KEY` 即可；默认模型为
 `deepseek-chat`，也可以用 `--model deepseek-reasoner` 指定推理模型。
 
+进入 CLI 后，可以使用 `draft <cipher text>` 运行文本优先抽取流程。CLI 会打印候选
+`CipherSpec` 草稿，并在构建前要求确认。
+
 ## 网页界面
 
 ```bash
