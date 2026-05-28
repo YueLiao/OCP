@@ -17,9 +17,7 @@ Usage:
     agent.chat("Analyze SPECK32/64 with differential cryptanalysis")
 """
 
-from typing import List
-
-from agent.types import UserIntent, SkillRequest, SkillResult
+from agent.types import UserIntent
 from agent.llm.provider import LLMProvider
 from agent.llm.prompt_templates import build_parse_prompt, build_response_prompt
 from agent.llm.response_parser import parse_llm_json_response
