@@ -13,7 +13,7 @@ document, and extend.
 | Repository structure | Needs work | Core engine, tests, agent, docs, and generated files are clearer; deeper module boundaries still need work. |
 | Architecture boundaries | Needs work | Agent provider creation, output paths, attack helpers, operator helpers, and primitive layer/link helpers were tightened; solver/modeling layers still mix logging, I/O, and domain logic in places. |
 | Public interfaces | Needs work | `OCPAgent` and provider launchers are clearer; operator/model APIs still need typed contracts over time. |
-| Readability | Needs work | Low-risk cleanup completed across operators and primitive scaffolding; large files such as `Sbox.py`, `matrix.py`, and attack modules remain complex. |
+| Readability | Needs work | Low-risk cleanup completed across operators and primitive scaffolding; attack modules and solver/modeling boundaries remain complex. |
 | Style tooling | Pass | `pyproject.toml` defines package metadata and pytest settings. |
 | Error handling | Needs work | Optional dependency failures are less noisy; broad exception handling remains in some paths. |
 | Configuration | Pass | Output location is centralized through `tools.paths.get_files_dir()` and supports `OCP_FILES_DIR`. |
@@ -33,6 +33,7 @@ document, and extend.
 - Added text-first cipher input dataclasses and Markdown/LaTeX normalization.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
 - Consolidated repeated operator model helpers across Boolean, modular, S-box, and matrix operators.
+- Refined S-box weighted truth-table generation, matrix bit-model generation, explicit modular arithmetic, and unfinished operator abstractions.
 - Consolidated primitive layer Equal constraints, graph iteration, input/output link helpers, and faster layer output lookups.
 - Clarified legacy operator scripts as manual experiments.
 - Split documentation into English and Chinese pages with language switch links.
@@ -46,11 +47,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `61 passed, 106 skipped`.
+Latest default pytest status: `65 passed, 106 skipped`.
 
 ## Next Work
 
-1. Continue low-risk operator cleanup with focused regression tests, especially `Sbox.py`, `matrix.py`, casting/custom operators, and TODO placeholders.
-2. Tighten attack and solver boundaries: reduce direct printing, keep file output centralized, and isolate solver capability detection.
-3. Add the full text-first agentic extraction design around `CipherInput`, `CipherFacts`, and `CipherSpecDraft`.
-4. Profile model generation before deeper performance rewrites.
+1. Tighten attack and solver boundaries: reduce direct printing, keep file output centralized, and isolate solver capability detection.
+2. Add the full text-first agentic extraction design around `CipherInput`, `CipherFacts`, and `CipherSpecDraft`.
+3. Profile model generation before deeper performance rewrites.

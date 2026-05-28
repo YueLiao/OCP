@@ -11,7 +11,7 @@
 | 仓库结构 | 需继续改进 | 核心引擎、测试、agent、文档和生成文件边界更清楚了；更深模块边界仍需整理。 |
 | 架构边界 | 需继续改进 | Agent provider、输出路径、attack 公共 helper、operator helper 和 primitive layer/link helper 已收紧；solver/modeling 层仍有日志、I/O 和领域逻辑混杂。 |
 | 公共接口 | 需继续改进 | `OCPAgent` 和 provider 启动入口更清楚；operator/model API 后续仍需要类型化契约。 |
-| 可读性 | 需继续改进 | operator 和 primitive 框架已完成多轮低风险清理；`Sbox.py`、`matrix.py` 和 attack 模块仍较复杂。 |
+| 可读性 | 需继续改进 | operator 和 primitive 框架已完成多轮低风险清理；attack 模块和 solver/modeling 边界仍较复杂。 |
 | 风格工具 | 通过 | `pyproject.toml` 已定义 package metadata 和 pytest 设置。 |
 | 错误处理 | 需继续改进 | 可选依赖失败更安静；部分路径仍有较宽泛异常处理。 |
 | 配置 | 通过 | 输出位置通过 `tools.paths.get_files_dir()` 集中管理，并支持 `OCP_FILES_DIR`。 |
@@ -31,6 +31,7 @@
 - 添加文本优先的密码输入 dataclass 与 Markdown/LaTeX 规整。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
 - 收拢 Boolean、modular、S-box 和 matrix operator 中重复的模型生成 helper。
+- 清理 S-box 带权 truth-table、matrix bit-model、显式 modular arithmetic 和未完成 operator 抽象。
 - 收拢 primitive layer 的 Equal 约束、图遍历、输入/输出链接 helper，并优化 layer 输出查找。
 - 明确旧式 operator 文件是人工实验脚本。
 - 将文档拆为英文和中文页面，并在顶部提供语言切换链接。
@@ -44,11 +45,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`61 passed, 106 skipped`。
+最新默认 pytest 状态：`65 passed, 106 skipped`。
 
 ## 后续工作
 
-1. 继续在聚焦回归测试保护下清理 operator，尤其是 `Sbox.py`、`matrix.py`、casting/custom operator 和 TODO 占位。
-2. 收紧 attack 与 solver 边界：减少直接 `print`，保持文件输出集中，并隔离 solver 能力检测。
-3. 围绕 `CipherInput`、`CipherFacts` 和 `CipherSpecDraft` 设计完整文本优先 agentic 抽取系统。
-4. 深层性能重写前先 profile 模型生成过程。
+1. 收紧 attack 与 solver 边界：减少直接 `print`，保持文件输出集中，并隔离 solver 能力检测。
+2. 围绕 `CipherInput`、`CipherFacts` 和 `CipherSpecDraft` 设计完整文本优先 agentic 抽取系统。
+3. 深层性能重写前先 profile 模型生成过程。
