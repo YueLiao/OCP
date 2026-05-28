@@ -42,6 +42,7 @@ document, and extend.
 - Added analysis skill boundary validation for unsupported model types.
 - Added analysis skill boundary validation for non-positive solution counts.
 - Added built-in cipher version validation at the agent instantiation boundary.
+- Restricted Agent SHACAL2 instantiation to the implemented 256-bit variant and clarified Trivium catalog status.
 - Narrowed trail solution-bit error handling to numeric conversion failures.
 - Added DeepSeek and generic OpenAI-compatible provider support.
 - Added text-first cipher input dataclasses, Markdown/LaTeX normalization, deterministic fact validation, prompt/parse boundaries, and draft-to-spec conversion helpers.
@@ -90,7 +91,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `166 passed, 106 skipped`.
+Latest default pytest status: `167 passed, 106 skipped`.
 
 ## Next Work
 

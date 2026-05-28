@@ -316,8 +316,12 @@ helpers.
 
 ## Reference
 
-### Supported Built-in Ciphers (17)
-speck, aes, gift, simon, present, skinny, ascon, chacha, salsa, forro, led, siphash, shacal2, rocca, speedy, trivium
+### Supported Built-in Ciphers (16)
+speck, aes, gift, simon, present, skinny, ascon, chacha, salsa, forro, led, siphash, shacal2, rocca, speedy
+
+`shacal2` currently supports the implemented 256-bit variant through the Agent.
+The prototype `trivium` primitive remains outside the Agent catalog until its
+update equations and test vectors are completed.
 
 ### Custom Cipher Layer Types
 | Layer Type | Description | Parameters |

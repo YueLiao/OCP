@@ -128,3 +128,14 @@ def test_agent_exposes_solver_capabilities():
     assert capabilities["default"]["milp"] == "GUROBI"
     assert "GUROBI" in capabilities["milp"]
     assert "PySAT" in capabilities["sat"]
+
+
+def test_agent_rejects_unimplemented_shacal2_512_variant():
+    result = OCPAgent().instantiate_cipher(
+        "shacal2",
+        "blockcipher",
+        version=512,
+    )
+
+    assert not result.success
+    assert "Invalid version" in result.error

@@ -40,6 +40,7 @@
 - 为 analysis skill 添加不支持 model type 的边界校验。
 - 为 analysis skill 添加非正 solution count 的边界校验。
 - 在 agent 内置 cipher 实例化边界添加版本校验。
+- 将 Agent 中 SHACAL2 实例化限制为已实现的 256-bit 版本，并澄清 Trivium catalog 状态。
 - 将 trail solution-bit 的异常处理收窄到数值转换失败。
 - 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
 - 添加文本优先密码输入 dataclass、Markdown/LaTeX 规整、确定性 facts 校验、prompt/parse 边界和 draft-to-spec 转换 helper。
@@ -88,7 +89,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`166 passed, 106 skipped`。
+最新默认 pytest 状态：`167 passed, 106 skipped`。
 
 ## 后续工作
 

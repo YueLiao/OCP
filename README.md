@@ -130,7 +130,11 @@ generation, and visualization, with generated files returned through
 The Agent catalog currently includes:
 
 `speck`, `simon`, `aes`, `gift`, `present`, `skinny`, `ascon`, `chacha`,
-`salsa`, `forro`, `led`, `siphash`, `shacal2`, `rocca`, `speedy`, `trivium`.
+`salsa`, `forro`, `led`, `siphash`, `shacal2`, `rocca`, `speedy`.
+
+`shacal2` is currently exposed through the implemented 256-bit variant. The
+prototype `trivium` primitive exists in the core tree but is not part of the
+Agent catalog until its update equations and test vectors are completed.
 
 Supported primitive types vary by cipher: `permutation`, `blockcipher`, and
 `keypermutation`.

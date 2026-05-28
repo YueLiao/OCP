@@ -136,6 +136,9 @@ CIPHER_CATALOG = {
             "blockcipher": "SHACAL2_BLOCKCIPHER",
         },
         "default_version": {"blockcipher": None},
+        "valid_versions": {
+            "blockcipher": [256],
+        },
     },
     "rocca": {
         "module": "primitives.rocca",
