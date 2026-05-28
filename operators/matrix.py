@@ -528,6 +528,24 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
 
         return results
 
+    def _word_model_vars(self, dim=1):
+        var_in, var_out = [], []
+        for i in range(len(self.input_vars)):
+            var_in += self.get_var_model('in', i, bitwise=False, dim=dim)
+        for i in range(len(self.output_vars)):
+            var_out += self.get_var_model('out', i, bitwise=False, dim=dim)
+        return var_in, var_out
+
+    def _binary_matrix_representation(self):
+        # Polynomial matrices are expanded over GF(2^m); binary matrices are used directly.
+        if self.polynomial:
+            return generate_pmr_for_mds(self.mat, self.polynomial, self.input_vars[0].bitsize)
+        if len(self.input_vars) == len(self.mat):
+            return generate_bin_matrix(self.mat, self.input_vars[0].bitsize)
+        if self.input_vars[0].bitsize * len(self.input_vars) == len(self.mat):
+            return self.mat
+        raise ValueError(f"Matrix {self.mat} not supported.")
+
     def generate_implementation(self, implementation_type='python', unroll=False):
         if implementation_type == 'python':
             return ['(' + ''.join([self.get_var_ID('out', i, unroll) + ", " for i in range(len(self.output_vars))])[:-2] + ") = " + self.name + "(" + ''.join([self.get_var_ID('in', i, unroll) + ", " for i in range(len(self.input_vars))])[:-2] + ")"]
@@ -590,18 +608,7 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
     def generate_model(self, model_type='sat', branch_num=None, tool_type="minimize_logic", filename_load=True):
         # Modeling for differential / linear cryptanalysis
         if model_type in ['sat', 'milp'] and self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]:
-            # Convert the (word-level) matrix into a binary matrix representation:
-            # 1. polynomial is specified: expand the matrix over GF(2^m) into its binary PMR form.
-            if self.polynomial: # Example: AES MDS matrix
-                bin_matrix = generate_pmr_for_mds(self.mat, self.polynomial, self.input_vars[0].bitsize)
-            # 2. word-level matrix: expand each word coefficient into a binary submatrix
-            elif len(self.input_vars) == len(self.mat): # Example: SKINNY 4*4 matrix
-                bin_matrix = generate_bin_matrix(self.mat, self.input_vars[0].bitsize)
-            # 3. matrix is already given in binary form: use it directly
-            elif self.input_vars[0].bitsize * len(self.input_vars) == len(self.mat): # Example: SKINNY 64*64 binary matrix
-                bin_matrix = self.mat
-            else:
-                raise ValueError(f"Matrix {self.mat} not supported.")
+            bin_matrix = self._binary_matrix_representation()
             if self.model_version == self.__class__.__name__ + "_XORDIFF":
                 return self._generate_model_diff(model_type, bin_matrix)
             elif self.model_version == self.__class__.__name__ + "_LINEAR":
@@ -697,12 +704,7 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
     def _generate_model_truncated_diff_linear_branch_num(self, model_type, branch_num):
         # Generate the MILP model for truncated differential or truncated linear propagation using the branch number of the matrix.
         # The branch number enforces a lower bound on the total number of active input/output words when the propagation is nonzero.
-        var_in = []
-        for i in range(len(self.input_vars)):
-            var_in += self.get_var_model('in', i, bitwise=False)
-        var_out = []
-        for i in range(len(self.output_vars)):
-            var_out += self.get_var_model('out', i, bitwise=False)
+        var_in, var_out = self._word_model_vars()
         var_d = [f"{self.ID}_d"]
         if model_type == 'milp':
             # The first type of modeling. Reference: Nicky Mouha, Qingju Wang, Dawu Gu, and Bart Preneel. Differential and linear cryptanalysis using mixed-integer linear programming.
@@ -723,12 +725,7 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
     def _generate_model_truncated_diff_linear_valid_patterns(self, model_type, tool_type):
         input_words = len(self.input_vars)
         output_words = len(self.output_vars)
-        var_in = []
-        for i in range(input_words):
-            var_in += self.get_var_model('in', i, bitwise=False, dim=1)
-        var_out = []
-        for i in range(output_words):
-            var_out += self.get_var_model('out', i, bitwise=False, dim=1)
+        var_in, var_out = self._word_model_vars(dim=1)
 
         if self.filename_load and os.path.exists(self.model_filename):
             model_list, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
