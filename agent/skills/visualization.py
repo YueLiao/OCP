@@ -47,11 +47,11 @@ class VisualizationSkill(BaseSkill):
         params = request.params
         output_dir_param = params.get("output_dir")
         output_dir = Path(output_dir_param) if output_dir_param else get_files_dir()
-        output_dir.mkdir(parents=True, exist_ok=True)
         filename = params.get("filename", f"{cipher.name}.pdf")
         filepath = output_dir / filename
 
         try:
+            output_dir.mkdir(parents=True, exist_ok=True)
             vis.generate_figure(cipher, filepath)
             return SkillResult(
                 success=True,

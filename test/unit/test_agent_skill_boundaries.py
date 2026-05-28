@@ -114,3 +114,16 @@ def test_agent_visualization_uses_runtime_files_dir_by_default(monkeypatch, tmp_
     assert result.data["artifact_links"] == [
         {"label": "visualization", "path": str(tmp_path / "Tiny.pdf")}
     ]
+
+
+def test_agent_visualization_wraps_output_directory_errors(tmp_path):
+    blocked_output_dir = tmp_path / "not-a-dir"
+    blocked_output_dir.write_text("file blocks mkdir", encoding="utf-8")
+
+    agent = OCPAgent()
+    agent.session.set_cipher(SimpleNamespace(name="Tiny"))
+
+    result = agent.generate_visualization(output_dir=str(blocked_output_dir))
+
+    assert not result.success
+    assert result.error.startswith("Visualization failed:")
