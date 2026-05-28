@@ -15,6 +15,12 @@ from itertools import combinations
 CardEnc = None
 vpool = None
 pysat_import = find_spec("pysat") is not None
+_MODEL_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_])(-?)([A-Za-z][A-Za-z0-9_]*)(?![A-Za-z0-9_])")
+_NON_ELIDABLE_EQUAL_PREFIXES = (
+    "Equal:IN_LINK",
+    "Equal:OUT_LINK",
+    "Equal:LINK_EQ",
+)
 
 
 def _load_pysat_cardinality_backend():
@@ -170,6 +176,84 @@ def _profile_operator_prefix(cons, operator_name):
     return re.sub(r"(?:_\d+)+$", "", operator_id)
 
 
+def _identity_elision_prefix_key(cons):
+    operator_name = cons.__class__.__name__
+    return f"{operator_name}:{_profile_operator_prefix(cons, operator_name)}"
+
+
+def _is_identity_elision_candidate(cons):
+    prefix_key = _identity_elision_prefix_key(cons)
+    return prefix_key.startswith("Equal:") and not prefix_key.startswith(_NON_ELIDABLE_EQUAL_PREFIXES)
+
+
+def _resolve_identity_alias(aliases, var_id):
+    seen = set()
+    while var_id in aliases and var_id not in seen:
+        seen.add(var_id)
+        var_id = aliases[var_id]
+    return var_id
+
+
+def _build_identity_elision_aliases(cipher, config_model):
+    aliases = {}
+    functions, rounds, layers, positions = (
+        config_model.get("functions"),
+        config_model.get("rounds"),
+        config_model.get("layers"),
+        config_model.get("positions"),
+    )
+    for f in functions:
+        for r in rounds[f]:
+            for l in layers[f][r]:
+                for i in positions[f][r][l]:
+                    cons = cipher.functions[f].constraints[r][l][i]
+                    if _is_identity_elision_candidate(cons):
+                        aliases[cons.output_vars[0].ID] = cons.input_vars[0].ID
+    return {
+        var_id: _resolve_identity_alias(aliases, target)
+        for var_id, target in aliases.items()
+    }
+
+
+def _rewrite_token_with_alias(token, aliases):
+    parts = token.split("_")
+    for index in range(len(parts), 0, -1):
+        source = "_".join(parts[:index])
+        if source in aliases:
+            suffix = "_".join(parts[index:])
+            return aliases[source] if not suffix else aliases[source] + "_" + suffix
+    return token
+
+
+def _apply_identity_aliases_to_line(line, aliases):
+    if not aliases:
+        return line
+
+    def replace(match):
+        sign, token = match.groups()
+        return sign + _rewrite_token_with_alias(token, aliases)
+
+    return _MODEL_TOKEN_RE.sub(replace, line)
+
+
+def _apply_identity_aliases(model_lines, aliases):
+    if not aliases:
+        return model_lines
+    return [_apply_identity_aliases_to_line(line, aliases) for line in model_lines]
+
+
+def _configure_identity_elision(cipher, config_model):
+    if not config_model.get("identity_elision"):
+        config_model.pop("_identity_elision_aliases", None)
+        return
+    aliases = _build_identity_elision_aliases(cipher, config_model)
+    config_model["_identity_elision_aliases"] = aliases
+    config_model["identity_elision_profile"] = {
+        "aliases": len(aliases),
+        "skipped_constraints": 0,
+    }
+
+
 def _update_profile_bucket(bucket, generated_count, elapsed_s):
     bucket["calls"] += 1
     bucket["constraints"] += generated_count
@@ -198,9 +282,17 @@ def _record_model_generation_profile(config_model, cons, generated_count, elapse
 
 
 def _generate_model_with_profile(cons, model_type, config_model, **params):
+    aliases = config_model.get("_identity_elision_aliases") or {}
+    if aliases and _is_identity_elision_candidate(cons):
+        generated = []
+        _record_model_generation_profile(config_model, cons, 0, 0.0)
+        config_model["identity_elision_profile"]["skipped_constraints"] += 1
+        return generated
+
     time_start = time.perf_counter()
     generated = cons.generate_model(model_type=model_type, **params)
     elapsed_s = time.perf_counter() - time_start
+    generated = _apply_identity_aliases(generated, aliases)
     _record_model_generation_profile(
         config_model,
         cons,
@@ -213,6 +305,7 @@ def _generate_model_with_profile(cons, model_type, config_model, **params):
 def gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model): # Generate constraints for a given cipher based on user-specified parameters.
     configure_model_version(cipher, goal, config_model)
     _reset_model_generation_profile(config_model)
+    _configure_identity_elision(cipher, config_model)
     constraint = []
     obj_fun = [[] for _ in range(cipher.functions["PERMUTATION"].nbr_rounds)]
 
@@ -233,7 +326,7 @@ def gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model): 
                     params = (config_model.get("model_params") or {}).get(cons_class_name, {}) # get operator-specific params if available. Options: {cons_class_name: {parame_name: param_value}}. Example: config_model["model_params"] = {"PRESENT_Sbox": {"tool_type": "polyhedron"}}
                     constraint.extend(_generate_model_with_profile(cons, model_type, config_model, **params))
                     if hasattr(cons, 'weight'):
-                        obj_fun[r-1].extend(cons.weight)
+                        obj_fun[r-1].extend(_apply_identity_aliases(cons.weight, config_model.get("_identity_elision_aliases") or {}))
     return constraint, obj_fun
 
 

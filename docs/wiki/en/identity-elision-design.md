@@ -15,7 +15,8 @@ formatting, implementation generation, and solver behavior.
 
 ## Current Prototype
 
-The current implementation is diagnostic only:
+The current implementation has two modes. The default profiler reports
+diagnostic candidates only:
 
 ```bash
 python -m tools.profile_model_generation forro:1 --top-limit 5
@@ -32,15 +33,24 @@ such as `Equal:Add1_EQ` and excludes primitive input links, output links, and
 round-link constraints such as `Equal:IN_LINK_EQ`, `Equal:OUT_LINK_EQ`, and
 `Equal:LINK_EQ`.
 
+The opt-in prototype can also generate a model with those candidates skipped and
+their variable names rewritten through an alias map:
+
+```bash
+python -m tools.profile_model_generation forro:1 --identity-elision
+```
+
+For `forro:1`, the SAT model drops from 16,586 constraints to 5,066 constraints
+in the current baseline. This mode is still experimental and is not enabled by
+default.
+
 ## Implementation Plan
 
-1. Build an alias map for candidate identity operators after primitive graph
-   construction.
-2. Rewrite model-generation variable names through that alias map.
-3. Keep display dictionaries and trace metadata aware of aliases so users can
+1. Extend alias-map tests from SAT generation to MILP generation.
+2. Keep display dictionaries and trace metadata aware of aliases so users can
    still inspect the original layered graph.
-4. Add opt-in configuration, for example `config_model["identity_elision"]`.
-5. Compare profiler baselines before enabling it by default.
+3. Verify trail extraction and visualization with aliases.
+4. Compare profiler baselines before enabling it by default.
 
 ## Safety Rules
 

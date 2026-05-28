@@ -33,6 +33,7 @@ Profiler 还会输出 `operator_prefixes`，按 operator 类型和 ID 前缀聚�
 按生成约束数量排序。可以用 `--top-limit` 控制摘要行数。
 `identity_elision_candidates` 会保守估算未来基于 alias 的优化可能移除的内部
 identity 约束子集。详见 [Identity Elision 设计](identity-elision-design.md)。
+传入 `--identity-elision` 会启用实验性 alias pass，并报告模型生成阶段实际降低后的约束数量。
 
 ## 如何理解这些数字
 

@@ -38,6 +38,8 @@ For quick inspection, each report also includes `top_operators` and
 `identity_elision_candidates` estimates the conservative subset of internal
 identity constraints that could be removed by a future alias-based pass. See
 [Identity Elision Design](identity-elision-design.md).
+Passing `--identity-elision` enables the experimental alias pass and reports the
+actual reduced constraint count for model generation.
 
 ## Reading the Numbers
 

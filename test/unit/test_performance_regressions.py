@@ -152,3 +152,16 @@ def test_identity_elision_candidate_summary_is_conservative():
         },
     }
     assert summarize_identity_elision_candidates(profile)["estimated_constraints"] == 8
+
+
+def test_identity_elision_profile_can_skip_internal_equal_constraints():
+    report = profile_case("forro:1", top_limit=2, identity_elision=True)
+
+    assert report["identity_elision"] is True
+    assert report["constraint_count"] == 5066
+    assert report["identity_elision_profile"] == {
+        "aliases": 180,
+        "skipped_constraints": 180,
+    }
+    assert report["profile"]["operators"]["Equal"]["constraints"] == 2048
+    assert report["top_operators"][0]["name"] == "ModAdd"

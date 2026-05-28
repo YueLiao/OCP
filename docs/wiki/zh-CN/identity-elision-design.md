@@ -13,7 +13,7 @@ OCP 目前会在每个 layer 边界创建显式变量，并为未被当前 opera
 
 ## 当前原型
 
-当前实现只做诊断，不会删除约束：
+当前实现有两种模式。默认 profiler 只报告诊断候选：
 
 ```bash
 python -m tools.profile_model_generation forro:1 --top-limit 5
@@ -29,13 +29,21 @@ JSON 报告中会包含 `identity_elision_candidates`：
 但会排除 primitive 输入链接、输出链接和轮间链接，例如 `Equal:IN_LINK_EQ`、
 `Equal:OUT_LINK_EQ`、`Equal:LINK_EQ`。
 
+opt-in 原型也可以跳过这些候选约束，并通过 alias map 重写模型变量名：
+
+```bash
+python -m tools.profile_model_generation forro:1 --identity-elision
+```
+
+在当前基线里，`forro:1` 的 SAT 模型会从 16,586 条约束降到 5,066 条约束。
+该模式仍是实验性的，默认不会启用。
+
 ## 实现计划
 
-1. 在 primitive 图构建完成后，为候选 identity operator 构建 alias map。
-2. 模型生成阶段通过 alias map 重写变量名。
-3. display dictionary 和 trace metadata 需要感知 alias，这样用户仍然能检查原始分层图。
-4. 增加 opt-in 配置，例如 `config_model["identity_elision"]`。
-5. 对比 profiler baseline 后，再考虑是否默认启用。
+1. 把 alias-map 测试从 SAT 生成扩展到 MILP 生成。
+2. display dictionary 和 trace metadata 需要感知 alias，这样用户仍然能检查原始分层图。
+3. 验证 alias 下的 trail extraction 和 visualization。
+4. 对比 profiler baseline 后，再考虑是否默认启用。
 
 ## 安全规则
 

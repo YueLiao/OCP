@@ -94,7 +94,7 @@ def _parse_case(case):
     return name, int(rounds)
 
 
-def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit=8):
+def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit=8, identity_elision=False):
     """Profile model generation for one primitive case.
 
     Args:
@@ -102,6 +102,7 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit
         goal: OCP cryptanalysis goal passed to model configuration.
         model_type: Model backend type such as ``sat`` or ``milp``.
         top_limit: Number of hotspot rows to expose in summary fields.
+        identity_elision: Whether to enable the opt-in alias prototype.
 
     Returns:
         dict: JSON-serializable timing and constraint statistics.
@@ -118,7 +119,12 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit
         cipher,
         goal,
         "EXISTENCE",
-        {"model_type": model_type, "profile_model_generation": True, "verbose": False},
+        {
+            "model_type": model_type,
+            "profile_model_generation": True,
+            "verbose": False,
+            "identity_elision": identity_elision,
+        },
         {"verbose": False},
     )
 
@@ -134,27 +140,43 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit
     profile = config_model["model_generation_profile"]
     top_operators = _top_profile_entries(profile["operators"], top_limit)
     top_operator_prefixes = _top_profile_entries(profile["operator_prefixes"], top_limit)
-    identity_elision = summarize_identity_elision_candidates(profile, top_limit=top_limit)
-    return {
+    identity_candidates = summarize_identity_elision_candidates(profile, top_limit=top_limit)
+    report = {
         "case": case,
         "cipher": cipher.name,
         "rounds": cipher.functions["PERMUTATION"].nbr_rounds,
         "model_type": model_type,
         "goal": goal,
+        "identity_elision": identity_elision,
         "build_time_s": round(build_time_s, 6),
         "generation_time_s": round(generation_time_s, 6),
         "constraint_count": len(constraints),
         "objective_rows": len(objective),
         "top_operators": top_operators,
         "top_operator_prefixes": top_operator_prefixes,
-        "identity_elision_candidates": identity_elision,
+        "identity_elision_candidates": identity_candidates,
         "profile": profile,
     }
+    if identity_elision:
+        report["identity_elision_profile"] = config_model["identity_elision_profile"]
+    return report
 
 
-def profile_cases(cases=DEFAULT_CASES, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit=8):
+def profile_cases(
+    cases=DEFAULT_CASES,
+    goal="DIFFERENTIALPATH_PROB",
+    model_type="sat",
+    top_limit=8,
+    identity_elision=False,
+):
     return [
-        profile_case(case, goal=goal, model_type=model_type, top_limit=top_limit)
+        profile_case(
+            case,
+            goal=goal,
+            model_type=model_type,
+            top_limit=top_limit,
+            identity_elision=identity_elision,
+        )
         for case in cases
     ]
 
@@ -170,6 +192,7 @@ def main(argv=None):
     parser.add_argument("--goal", default="DIFFERENTIALPATH_PROB")
     parser.add_argument("--model-type", default="sat")
     parser.add_argument("--top-limit", type=int, default=8)
+    parser.add_argument("--identity-elision", action="store_true")
     parser.add_argument("--indent", type=int, default=2)
     args = parser.parse_args(argv)
 
@@ -180,6 +203,7 @@ def main(argv=None):
                 goal=args.goal,
                 model_type=args.model_type,
                 top_limit=args.top_limit,
+                identity_elision=args.identity_elision,
             ),
             indent=args.indent,
             sort_keys=True,
