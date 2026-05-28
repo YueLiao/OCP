@@ -5,7 +5,7 @@ from tools.paths import get_files_dir
 
 try:
     import pyeda
-except ImportError:
+except (ImportError, OSError):
     pyeda = None
 
 
