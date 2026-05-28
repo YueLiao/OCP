@@ -73,16 +73,21 @@ def test_model_constraints_defers_pysat_cardinality_import():
 
 
 class FakeInputConstraint:
+    ID = "IN_LINK_EQ_0"
+
     def generate_model(self, model_type):
         return ["input"]
 
 
 class FakeOutputConstraint:
+    ID = "OUT_LINK_EQ_0"
+
     def generate_model(self, model_type):
         return ["output"]
 
 
 class FakeRoundConstraint:
+    ID = "FakeRound_1_0_0"
     weight = ["w0"]
 
     def generate_model(self, model_type):
@@ -127,6 +132,8 @@ def test_round_model_generation_can_record_profile():
     assert profile["total_constraints"] == 4
     assert profile["operators"]["FakeInputConstraint"]["calls"] == 1
     assert profile["operators"]["FakeRoundConstraint"]["constraints"] == 2
+    assert profile["operator_prefixes"]["FakeInputConstraint:IN_LINK_EQ"]["calls"] == 1
+    assert profile["operator_prefixes"]["FakeRoundConstraint:FakeRound"]["constraints"] == 2
     assert profile["total_time_s"] >= 0
 
 

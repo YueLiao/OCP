@@ -26,6 +26,11 @@ Timings are intentionally not treated as hard assertions because they vary by
 machine and Python runtime. Constraint counts and operator call counts are more
 stable and are covered by regression tests.
 
+The profiler also reports `operator_prefixes`, which groups constraints by
+operator class and ID prefix. For example, `Equal:IN_LINK_EQ` identifies
+primitive input links, while `Equal:Add1_EQ` identifies identity propagation
+around an `Add1` layer.
+
 ## Reading the Numbers
 
 - `Equal` dominates ARX primitives because layer transitions and state links are
@@ -35,6 +40,10 @@ stable and are covered by regression tests.
   model is larger than ChaCha's.
 - Forro has fewer modular additions per subround, but a large share of its
   one-subround model is still structural linking.
+- Forro's one-subround `Equal` constraints are distributed across input links,
+  output links, and each ARX layer's untouched words. That means meaningful
+  constraint-count reduction would require a planned variable-aliasing or
+  identity-elision design, not a local deletion.
 
 ## Optimization Direction
 

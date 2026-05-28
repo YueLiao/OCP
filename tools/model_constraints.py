@@ -159,12 +159,27 @@ def _reset_model_generation_profile(config_model):
             "total_constraints": 0,
             "total_time_s": 0.0,
             "operators": {},
+            "operator_prefixes": {},
         }
 
 
-def _record_model_generation_profile(config_model, operator_name, generated_count, elapsed_s):
+def _profile_operator_prefix(cons, operator_name):
+    operator_id = getattr(cons, "ID", None)
+    if not operator_id:
+        return operator_name
+    return re.sub(r"(?:_\d+)+$", "", operator_id)
+
+
+def _update_profile_bucket(bucket, generated_count, elapsed_s):
+    bucket["calls"] += 1
+    bucket["constraints"] += generated_count
+    bucket["time_s"] = round(bucket["time_s"] + elapsed_s, 6)
+
+
+def _record_model_generation_profile(config_model, cons, generated_count, elapsed_s):
     if not config_model.get("profile_model_generation"):
         return
+    operator_name = cons.__class__.__name__
     profile = config_model["model_generation_profile"]
     profile["total_constraints"] += generated_count
     profile["total_time_s"] = round(profile["total_time_s"] + elapsed_s, 6)
@@ -172,9 +187,14 @@ def _record_model_generation_profile(config_model, operator_name, generated_coun
         operator_name,
         {"calls": 0, "constraints": 0, "time_s": 0.0},
     )
-    operator_profile["calls"] += 1
-    operator_profile["constraints"] += generated_count
-    operator_profile["time_s"] = round(operator_profile["time_s"] + elapsed_s, 6)
+    _update_profile_bucket(operator_profile, generated_count, elapsed_s)
+
+    prefix_key = f"{operator_name}:{_profile_operator_prefix(cons, operator_name)}"
+    prefix_profile = profile["operator_prefixes"].setdefault(
+        prefix_key,
+        {"calls": 0, "constraints": 0, "time_s": 0.0},
+    )
+    _update_profile_bucket(prefix_profile, generated_count, elapsed_s)
 
 
 def _generate_model_with_profile(cons, model_type, config_model, **params):
@@ -183,7 +203,7 @@ def _generate_model_with_profile(cons, model_type, config_model, **params):
     elapsed_s = time.perf_counter() - time_start
     _record_model_generation_profile(
         config_model,
-        cons.__class__.__name__,
+        cons,
         len(generated),
         elapsed_s,
     )

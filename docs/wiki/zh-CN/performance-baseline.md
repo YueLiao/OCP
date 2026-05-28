@@ -24,12 +24,19 @@ python -m tools.profile_model_generation --indent 0
 耗时会随机器和 Python 运行时波动，因此不作为硬性断言。约束数量和 operator
 调用次数更稳定，已经通过回归测试覆盖。
 
+Profiler 还会输出 `operator_prefixes`，按 operator 类型和 ID 前缀聚合约束。例如
+`Equal:IN_LINK_EQ` 表示 primitive 输入链接，`Equal:Add1_EQ` 表示 `Add1`
+层周围未被更新 word 的 identity 传播。
+
 ## 如何理解这些数字
 
 - ARX primitive 中 `Equal` 占比较高，因为层间状态传递和输入/输出链接都被显式建模。
 - 除状态链接外，`ModAdd` 是 ARX 模型中最主要的非线性建模成本。
 - Salsa 的 round function 使用临时 word，因此一轮 SAT 模型比 ChaCha 更大。
 - Forro 每个 subround 的 modular addition 更少，但结构链接仍占一轮模型的大头。
+- Forro 一个 subround 的 `Equal` 约束分散在输入链接、输出链接以及每个 ARX 层未被更新的
+  word 上。因此如果要显著减少约束数量，需要设计变量别名或 identity-elision 方案，
+  不能只做局部删除。
 
 ## 优化方向
 
