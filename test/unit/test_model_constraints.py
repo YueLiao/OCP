@@ -6,6 +6,7 @@ import pytest
 
 import variables.variables as var
 from tools.model_constraints import (
+    gen_round_model_constraint_obj_fun,
     gen_constraints_sum_at_most,
     gen_matrix_constraints,
     gen_predefined_constraints,
@@ -65,3 +66,61 @@ def test_model_constraints_defers_pysat_cardinality_import():
     )
 
     assert result.stdout.strip() == "True"
+
+
+class FakeInputConstraint:
+    def generate_model(self, model_type):
+        return ["input"]
+
+
+class FakeOutputConstraint:
+    def generate_model(self, model_type):
+        return ["output"]
+
+
+class FakeRoundConstraint:
+    weight = ["w0"]
+
+    def generate_model(self, model_type):
+        return ["round_a", "round_b"]
+
+
+class FakeFunction:
+    nbr_rounds = 1
+    nbr_layers = 0
+
+    def __init__(self):
+        self.constraints = {1: {0: [FakeRoundConstraint()]}}
+
+
+class FakeCipher:
+    inputs_constraints = [FakeInputConstraint()]
+    outputs_constraints = [FakeOutputConstraint()]
+
+    def __init__(self):
+        self.functions = {"PERMUTATION": FakeFunction()}
+
+
+def test_round_model_generation_can_record_profile():
+    config_model = {
+        "functions": ["PERMUTATION"],
+        "rounds": {"PERMUTATION": [1]},
+        "layers": {"PERMUTATION": {1: [0]}},
+        "positions": {"PERMUTATION": {1: {0: [0]}}},
+        "profile_model_generation": True,
+    }
+
+    constraints, obj_fun = gen_round_model_constraint_obj_fun(
+        FakeCipher(),
+        "DIFFERENTIAL_SBOXCOUNT",
+        "milp",
+        config_model,
+    )
+
+    assert constraints == ["input", "output", "round_a", "round_b"]
+    assert obj_fun == [["w0"]]
+    profile = config_model["model_generation_profile"]
+    assert profile["total_constraints"] == 4
+    assert profile["operators"]["FakeInputConstraint"]["calls"] == 1
+    assert profile["operators"]["FakeRoundConstraint"]["constraints"] == 2
+    assert profile["total_time_s"] >= 0

@@ -135,16 +135,54 @@ def set_model_versions(cipher, version, functions, rounds, layers, positions, op
                     _assgn_version(cons)
 
 
+def _reset_model_generation_profile(config_model):
+    if config_model.get("profile_model_generation"):
+        config_model["model_generation_profile"] = {
+            "total_constraints": 0,
+            "total_time_s": 0.0,
+            "operators": {},
+        }
+
+
+def _record_model_generation_profile(config_model, operator_name, generated_count, elapsed_s):
+    if not config_model.get("profile_model_generation"):
+        return
+    profile = config_model["model_generation_profile"]
+    profile["total_constraints"] += generated_count
+    profile["total_time_s"] = round(profile["total_time_s"] + elapsed_s, 6)
+    operator_profile = profile["operators"].setdefault(
+        operator_name,
+        {"calls": 0, "constraints": 0, "time_s": 0.0},
+    )
+    operator_profile["calls"] += 1
+    operator_profile["constraints"] += generated_count
+    operator_profile["time_s"] = round(operator_profile["time_s"] + elapsed_s, 6)
+
+
+def _generate_model_with_profile(cons, model_type, config_model, **params):
+    time_start = time.perf_counter()
+    generated = cons.generate_model(model_type=model_type, **params)
+    elapsed_s = time.perf_counter() - time_start
+    _record_model_generation_profile(
+        config_model,
+        cons.__class__.__name__,
+        len(generated),
+        elapsed_s,
+    )
+    return generated
+
+
 def gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model): # Generate constraints for a given cipher based on user-specified parameters.
     configure_model_version(cipher, goal, config_model)
+    _reset_model_generation_profile(config_model)
     constraint = []
     obj_fun = [[] for _ in range(cipher.functions["PERMUTATION"].nbr_rounds)]
 
     # Generate constraints linking input and output
     for cons in cipher.inputs_constraints:
-        constraint.extend(cons.generate_model(model_type=model_type))
+        constraint.extend(_generate_model_with_profile(cons, model_type, config_model))
     for cons in cipher.outputs_constraints:
-        constraint.extend(cons.generate_model(model_type=model_type))
+        constraint.extend(_generate_model_with_profile(cons, model_type, config_model))
 
     # Generate constraints and objective function for each round/layer/operator
     functions, rounds, layers, positions = config_model.get("functions"), config_model.get("rounds"), config_model.get("layers"), config_model.get("positions")
@@ -155,7 +193,7 @@ def gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model): 
                     cons = cipher.functions[f].constraints[r][l][i]
                     cons_class_name = cons.__class__.__name__
                     params = (config_model.get("model_params") or {}).get(cons_class_name, {}) # get operator-specific params if available. Options: {cons_class_name: {parame_name: param_value}}. Example: config_model["model_params"] = {"PRESENT_Sbox": {"tool_type": "polyhedron"}}
-                    constraint.extend(cons.generate_model(model_type=model_type, **params))
+                    constraint.extend(_generate_model_with_profile(cons, model_type, config_model, **params))
                     if hasattr(cons, 'weight'):
                         obj_fun[r-1].extend(cons.weight)
     return constraint, obj_fun

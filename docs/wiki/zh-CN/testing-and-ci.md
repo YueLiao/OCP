@@ -64,3 +64,14 @@ OCP_FILES_DIR=/tmp/ocp-files python -m pytest --run-implementations
 ```
 
 这样可以避免生成的模型、trail 和实现文件混入仓库已跟踪内容。
+
+## 模型生成 Profiling
+
+做聚焦性能优化时，可以通过 `config_model` 打开可选模型生成 profiling：
+
+```python
+config_model = {"profile_model_generation": True}
+```
+
+模型构建结束后，`config_model["model_generation_profile"]` 会包含每类 operator 的调用次数、
+生成约束数量和耗时。

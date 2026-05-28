@@ -43,6 +43,7 @@ document, and extend.
 - Routed attack/solver progress messages through verbose-aware logging and converted tool diagnostics to Python warnings.
 - Added explicit solver capability reporting for optional MILP/SAT backends and documented the current solver fallbacks.
 - Replaced repeated constraint/objective list concatenation in attack/model generation paths with explicit in-place extension.
+- Added opt-in model generation profiling to record per-operator constraint counts and timings.
 - Clarified legacy operator scripts as manual experiments.
 - Split documentation into English and Chinese pages with language switch links.
 
@@ -55,10 +56,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `88 passed, 106 skipped`.
+Latest default pytest status: `89 passed, 106 skipped`.
 
 ## Next Work
 
-1. Profile model generation before deeper performance rewrites.
+1. Use profiling results to prioritize deeper model generation optimizations.
 2. Continue narrowing broad exception handling in solver/model generation paths.
 3. Relegate PDF/image extraction to an explicitly experimental import helper.

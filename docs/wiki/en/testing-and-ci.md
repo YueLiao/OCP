@@ -69,3 +69,15 @@ OCP_FILES_DIR=/tmp/ocp-files python -m pytest --run-implementations
 
 This prevents generated models, trails, and implementation files from mixing
 with tracked repository content.
+
+## Model Generation Profiling
+
+For focused performance work, enable opt-in model generation profiling through
+`config_model`:
+
+```python
+config_model = {"profile_model_generation": True}
+```
+
+After model construction, `config_model["model_generation_profile"]` contains
+per-operator call counts, generated constraint counts, and elapsed time.
