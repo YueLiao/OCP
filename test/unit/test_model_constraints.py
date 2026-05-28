@@ -137,6 +137,26 @@ def test_round_model_generation_can_record_profile():
     assert profile["total_time_s"] >= 0
 
 
+def test_identity_alias_rewrite_preserves_model_token_boundaries():
+    aliases = {
+        "v_1_2_3": "v_1_1_3",
+        "v_1_2_30": "v_1_1_30",
+    }
+
+    assert model_constraints._apply_identity_aliases(
+        [
+            "-v_1_2_3_0 v_1_2_30_0",
+            "v_1_2_3_0 - v_1_2_30_0 = 0",
+            "Binary\nv_1_2_3_0 v_1_2_30_0",
+        ],
+        aliases,
+    ) == [
+        "-v_1_1_3_0 v_1_1_30_0",
+        "v_1_1_3_0 - v_1_1_30_0 = 0",
+        "Binary\nv_1_1_3_0 v_1_1_30_0",
+    ]
+
+
 def test_constraints_template_loading_is_cached(monkeypatch, tmp_path):
     template = tmp_path / "template.txt"
     template.write_text(

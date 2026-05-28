@@ -36,14 +36,13 @@ python -m tools.profile_model_generation forro:1 --identity-elision
 ```
 
 在当前基线里，`forro:1` 的 SAT 模型会从 16,586 条约束降到 5,066 条约束。
-该模式仍是实验性的，默认不会启用。
+MILP 模型会从 10,029 条约束降到 4,089 条约束。该模式仍是实验性的，默认不会启用。
 
 ## 实现计划
 
-1. 把 alias-map 测试从 SAT 生成扩展到 MILP 生成。
-2. display dictionary 和 trace metadata 需要感知 alias，这样用户仍然能检查原始分层图。
-3. 验证 alias 下的 trail extraction 和 visualization。
-4. 对比 profiler baseline 后，再考虑是否默认启用。
+1. display dictionary 和 trace metadata 需要感知 alias，这样用户仍然能检查原始分层图。
+2. 验证 alias 下的 trail extraction 和 visualization。
+3. 对比 profiler baseline 后，再考虑是否默认启用。
 
 ## 安全规则
 
@@ -51,4 +50,4 @@ python -m tools.profile_model_generation forro:1 --identity-elision
 - 在 trail extraction 和 visualization 完成 alias 验证前，不要 elide 轮间链接。
 - 不直接修改现有变量 ID，而是维护外部 alias map。
 - 保持生成实现代码不变。
-- 改默认行为前，至少为 PRESENT、ChaCha、Salsa、Forro 补 SAT 和 MILP 回归测试。
+- 改默认行为前，至少为 PRESENT、ChaCha、Salsa、Forro 补更广的回归测试。

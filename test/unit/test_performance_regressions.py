@@ -165,3 +165,22 @@ def test_identity_elision_profile_can_skip_internal_equal_constraints():
     }
     assert report["profile"]["operators"]["Equal"]["constraints"] == 2048
     assert report["top_operators"][0]["name"] == "ModAdd"
+
+
+def test_identity_elision_supports_milp_model_generation():
+    baseline = profile_case("forro:1", model_type="milp", top_limit=2)
+    elided = profile_case(
+        "forro:1",
+        model_type="milp",
+        top_limit=2,
+        identity_elision=True,
+    )
+
+    assert baseline["constraint_count"] == 10029
+    assert baseline["identity_elision_candidates"]["estimated_constraints"] == 5940
+    assert elided["constraint_count"] == 4089
+    assert elided["identity_elision_profile"] == {
+        "aliases": 180,
+        "skipped_constraints": 180,
+    }
+    assert elided["profile"]["operators"]["Equal"]["constraints"] == 1056

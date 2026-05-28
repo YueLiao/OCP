@@ -41,16 +41,15 @@ python -m tools.profile_model_generation forro:1 --identity-elision
 ```
 
 For `forro:1`, the SAT model drops from 16,586 constraints to 5,066 constraints
-in the current baseline. This mode is still experimental and is not enabled by
-default.
+in the current baseline. The MILP model drops from 10,029 constraints to 4,089.
+This mode is still experimental and is not enabled by default.
 
 ## Implementation Plan
 
-1. Extend alias-map tests from SAT generation to MILP generation.
-2. Keep display dictionaries and trace metadata aware of aliases so users can
+1. Keep display dictionaries and trace metadata aware of aliases so users can
    still inspect the original layered graph.
-3. Verify trail extraction and visualization with aliases.
-4. Compare profiler baselines before enabling it by default.
+2. Verify trail extraction and visualization with aliases.
+3. Compare profiler baselines before enabling it by default.
 
 ## Safety Rules
 
@@ -59,5 +58,5 @@ default.
   are verified with aliases.
 - Do not mutate existing variable IDs; maintain an external alias map.
 - Keep generated implementations unchanged.
-- Require SAT and MILP regression tests for at least PRESENT, ChaCha, Salsa,
-  and Forro before changing defaults.
+- Require broader regression tests for at least PRESENT, ChaCha, Salsa, and
+  Forro before changing defaults.
