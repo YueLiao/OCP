@@ -61,6 +61,16 @@ def test_json_endpoints_reject_missing_json_body():
         }
 
 
+def test_config_returns_400_for_unknown_provider():
+    client = web_app.app.test_client()
+
+    response = client.post("/api/config", json={"provider": "missing-provider"})
+
+    assert response.status_code == 400
+    assert response.get_json()["success"] is False
+    assert "Unknown provider" in response.get_json()["error"]
+
+
 def test_text_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):
     monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
     web_app.agent = OCPAgent(llm_provider=FakeFactsProvider())

@@ -39,6 +39,7 @@ document, and extend.
 - Added a CLI `draft <cipher text>` review-and-confirm flow for text-first cipher drafts.
 - Added web text draft/confirm endpoints and a `Draft` UI action for review-before-build workflows.
 - Added explicit 400 responses for missing JSON bodies on web JSON endpoints.
+- Returned HTTP 400 for invalid web provider configuration errors.
 - Added replayable JSON job records and artifact links for text-first extraction, draft, and confirmation.
 - Expanded the text-first Agentic roadmap into a reviewable implementation contract for schemas, web flow, providers, safety gates, and tests.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
@@ -66,7 +67,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `104 passed, 106 skipped`.
+Latest default pytest status: `105 passed, 106 skipped`.
 
 ## Next Work
 

@@ -75,6 +75,8 @@ def set_config():
             "connected": True,
         }
         return jsonify({"success": True, "config": config})
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
