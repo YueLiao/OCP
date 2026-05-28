@@ -130,6 +130,12 @@ def test_model_generation_profiler_rejects_invalid_cases():
             profile_case(case)
 
 
+def test_model_generation_profiler_rejects_invalid_top_limit():
+    for top_limit in (0, -1):
+        with pytest.raises(ValueError, match="top_limit"):
+            profile_case("present:1", top_limit=top_limit)
+
+
 def test_identity_elision_candidate_summary_is_conservative():
     report = profile_case("forro:1", top_limit=2)
     summary = report["identity_elision_candidates"]

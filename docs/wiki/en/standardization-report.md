@@ -66,7 +66,7 @@ document, and extend.
 - Narrowed PySAT cardinality fallback handling so unexpected programming errors propagate.
 - Replaced repeated constraint/objective list concatenation in attack/model generation paths with explicit in-place extension.
 - Added opt-in model generation profiling to record per-operator constraint counts and timings.
-- Added clearer validation for model-generation profiler case strings.
+- Added clearer validation for model-generation profiler case strings and top limits.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
 - Replaced repeated per-variable template regex passes with single-pass token substitution during constraint template instantiation.
 - Added opt-in identity elision for conservative internal Equal chains in model generation.
@@ -86,7 +86,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `158 passed, 106 skipped`.
+Latest default pytest status: `159 passed, 106 skipped`.
 
 ## Next Work
 

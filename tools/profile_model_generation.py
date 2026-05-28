@@ -122,6 +122,8 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit
         dict: JSON-serializable timing and constraint statistics.
     """
 
+    if top_limit <= 0:
+        raise ValueError("top_limit must be a positive integer.")
     name, rounds = _parse_case(case)
     factory = _cipher_factory(name)
 
