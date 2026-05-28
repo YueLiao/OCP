@@ -4,6 +4,7 @@ from agent.types import SkillName, SkillRequest, SkillResult, UserIntent
 from agent.session import Session
 from agent.skills import SkillRegistry, create_default_registry
 from agent.llm.provider import LLMProvider
+from agent.llm.response_parser import parse_llm_json_object
 
 
 class AgentCore:
@@ -254,34 +255,7 @@ class AgentCore:
     @staticmethod
     def _parse_json_from_llm(raw: str) -> dict:
         """Extract a JSON object from LLM response text."""
-        import json
-        import re
-
-        text = raw.strip()
-        fence = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
-        if fence:
-            text = fence.group(1).strip()
-
-        brace_start = text.find("{")
-        if brace_start == -1:
-            raise ValueError(f"No JSON found in LLM response: {raw[:300]}")
-
-        depth, brace_end = 0, -1
-        for i in range(brace_start, len(text)):
-            if text[i] == "{":
-                depth += 1
-            elif text[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    brace_end = i
-                    break
-
-        if brace_end == -1:
-            raise ValueError("Incomplete JSON in LLM response")
-
-        json_str = text[brace_start:brace_end + 1]
-        try:
-            return json.loads(json_str)
-        except json.JSONDecodeError:
-            fixed = re.sub(r",\s*([}\]])", r"\1", json_str)
-            return json.loads(fixed)
+        data = parse_llm_json_object(raw)
+        if data is None:
+            raise ValueError(f"No parseable JSON object found in LLM response: {raw[:300]}")
+        return data

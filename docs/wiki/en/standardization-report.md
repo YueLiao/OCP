@@ -34,6 +34,7 @@ document, and extend.
 - Narrowed trail solution-bit error handling to numeric conversion failures.
 - Added DeepSeek and generic OpenAI-compatible provider support.
 - Added text-first cipher input dataclasses, Markdown/LaTeX normalization, deterministic fact validation, prompt/parse boundaries, and draft-to-spec conversion helpers.
+- Reused the shared LLM JSON response parser inside `AgentCore` extraction flows.
 - Added direct `OCPAgent` APIs for text-first fact extraction, draft creation, and explicit confirmation before building.
 - Added a CLI `draft <cipher text>` review-and-confirm flow for text-first cipher drafts.
 - Added web text draft/confirm endpoints and a `Draft` UI action for review-before-build workflows.
@@ -65,7 +66,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `102 passed, 106 skipped`.
+Latest default pytest status: `104 passed, 106 skipped`.
 
 ## Next Work
 
