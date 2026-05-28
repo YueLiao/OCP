@@ -107,6 +107,12 @@ class DifferentialAnalysisSkill(BaseSkill):
                 skill=self.name,
                 error=f"Invalid goal: '{goal}'. Valid: {VALID_GOALS}",
             )
+        if model_type not in ("milp", "sat"):
+            return SkillResult(
+                success=False,
+                skill=self.name,
+                error=f"Invalid model_type: '{model_type}'. Use 'milp' or 'sat'.",
+            )
 
         # Build config_model
         config_model = {"model_type": model_type}

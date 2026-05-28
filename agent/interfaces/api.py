@@ -85,7 +85,7 @@ class OCPAgent:
         language: str = "python",
         unroll: bool = False,
         test: bool = True,
-        output_dir: str = "files",
+        output_dir: Optional[str] = None,
     ) -> SkillResult:
         """Generate implementation code for the current cipher.
 
@@ -105,7 +105,7 @@ class OCPAgent:
 
     def generate_visualization(
         self,
-        output_dir: str = "files",
+        output_dir: Optional[str] = None,
         filename: Optional[str] = None,
     ) -> SkillResult:
         """Generate a visualization figure for the current cipher.

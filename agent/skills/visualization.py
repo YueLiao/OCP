@@ -4,6 +4,7 @@ from typing import Any, Dict
 from agent.types import SkillName, SkillRequest, SkillResult
 from agent.session import Session
 from agent.skills.base import BaseSkill
+from tools.paths import get_files_dir
 
 
 class VisualizationSkill(BaseSkill):
@@ -22,7 +23,7 @@ class VisualizationSkill(BaseSkill):
             "output_dir": {
                 "type": "string",
                 "required": False,
-                "default": "files",
+                "default": "OCP_FILES_DIR or files/",
                 "description": "Output directory for the figure",
             },
             "filename": {
@@ -44,7 +45,8 @@ class VisualizationSkill(BaseSkill):
             )
 
         params = request.params
-        output_dir = Path(params.get("output_dir", "files"))
+        output_dir_param = params.get("output_dir")
+        output_dir = Path(output_dir_param) if output_dir_param else get_files_dir()
         output_dir.mkdir(parents=True, exist_ok=True)
         filename = params.get("filename", f"{cipher.name}.pdf")
         filepath = output_dir / filename
