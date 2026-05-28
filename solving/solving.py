@@ -1,7 +1,7 @@
 """
 This module provides tools for solving MILP/SAT models. Supports multiple solvers and configurations.
-    - MILP solvers: Gurobi, SCIP, OR-Tools
-    - SAT solvers: PySAT, OR-Tools
+    - MILP solvers: Gurobi, SCIP
+    - SAT solvers: PySAT (OR-Tools route reserved but not implemented)
 """
 from importlib import import_module
 from importlib.util import find_spec
@@ -11,12 +11,100 @@ from tools.resource_monitor import RuntimeResourceMonitor
 from tools.search_reporting import log
 
 
-gurobipy_import = find_spec("gurobipy") is not None
-scip_import = find_spec("pyscipopt") is not None
-ortools_import = (
-    find_spec("ortools") is not None and find_spec("ortoolslpparser") is not None
+DEFAULT_MILP_SOLVER = "GUROBI"
+DEFAULT_SAT_BACKEND = "PySAT"
+MILP_SOLVERS = ("GUROBI", "SCIP")
+PYSAT_SOLVERS = (
+    "Cadical103",
+    "Cadical153",
+    "Cadical195",
+    "CryptoMinisat",
+    "Gluecard3",
+    "Gluecard4",
+    "Glucose3",
+    "Glucose4",
+    "Lingeling",
+    "MapleChrono",
+    "MapleCM",
+    "Maplesat",
+    "Mergesat3",
+    "Minicard",
+    "Minisat22",
+    "MinisatGH",
 )
-pysat_import = find_spec("pysat") is not None
+SAT_SOLVERS = ("DEFAULT", *PYSAT_SOLVERS, "ORTools")
+
+
+def _modules_available(*module_names):
+    return all(find_spec(module_name) is not None for module_name in module_names)
+
+
+gurobipy_import = _modules_available("gurobipy")
+scip_import = _modules_available("pyscipopt")
+ortools_import = _modules_available("ortools", "ortoolslpparser")
+pysat_import = _modules_available("pysat")
+
+
+def _backend_status(available, *, implemented=True, solvers=None):
+    status = {
+        "available": bool(available),
+        "implemented": bool(implemented),
+    }
+    if solvers is not None:
+        status["solvers"] = list(solvers)
+    return status
+
+
+def solver_capabilities():
+    """Return optional solver backend availability without importing backends."""
+    return {
+        "milp": {
+            "GUROBI": _backend_status(
+                _modules_available("gurobipy"),
+                solvers=("DEFAULT", "GUROBI"),
+            ),
+            "SCIP": _backend_status(
+                _modules_available("pyscipopt"),
+                solvers=("SCIP",),
+            ),
+        },
+        "sat": {
+            "PySAT": _backend_status(
+                _modules_available("pysat"),
+                solvers=("DEFAULT", *PYSAT_SOLVERS),
+            ),
+            "ORTools": _backend_status(
+                _modules_available("ortools", "ortoolslpparser"),
+                implemented=False,
+                solvers=("ORTools",),
+            ),
+        },
+        "default": {
+            "milp": DEFAULT_MILP_SOLVER,
+            "sat": DEFAULT_SAT_BACKEND,
+        },
+    }
+
+
+def is_solver_available(kind, solver="DEFAULT"):
+    """Return whether a configured solver route is both installed and implemented."""
+    kind = kind.lower()
+    capabilities = solver_capabilities()
+
+    if kind == "milp":
+        solver_name = DEFAULT_MILP_SOLVER if solver.upper() == "DEFAULT" else solver.upper()
+        backend = capabilities["milp"].get(solver_name)
+    elif kind == "sat":
+        if solver == "DEFAULT" or solver in PYSAT_SOLVERS:
+            backend = capabilities["sat"]["PySAT"]
+        elif solver == "ORTools":
+            backend = capabilities["sat"]["ORTools"]
+        else:
+            backend = None
+    else:
+        raise ValueError(f"Unsupported solver kind: {kind!r}. Supported: 'milp', 'sat'.")
+
+    return bool(backend and backend["available"] and backend["implemented"])
 
 
 def _load_gurobi():
@@ -61,7 +149,7 @@ def solve_milp(filename, config_solver=None):
     monitor.start()
     time_start = time.time()
     try:
-        if solver.upper() in ["GUROBI", "DEFAULT"]:
+        if solver.upper() in [DEFAULT_MILP_SOLVER, "DEFAULT"]:
             return solve_milp_gurobi(filename, config_solver)
         elif solver.upper() == "SCIP":
             return solve_milp_scip(filename, config_solver)
@@ -181,7 +269,7 @@ def solve_sat(filename, variable_map, config_solver=None):
     monitor.start()
     time_start = time.time()
     try:
-        if solver in ["DEFAULT", "Cadical103", "Cadical153", "Cadical195", "CryptoMinisat", "Gluecard3", "Gluecard4", "Glucose3", "Glucose4", "Lingeling", "MapleChrono", "MapleCM", "Maplesat", "Mergesat3", "Minicard", "Minisat22", "MinisatGH"]:
+        if solver in ("DEFAULT", *PYSAT_SOLVERS):
             return solve_sat_pysat(filename, variable_map, config_solver)
         elif solver == "ORTools":
             return solve_sat_ortools(filename, variable_map, config_solver)

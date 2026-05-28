@@ -44,6 +44,23 @@ python -m pytest
 CI intentionally avoids optional solver dependencies. Solver-backed tests should
 be added as a separate workflow after backend setup is stable.
 
+## Solver Capability Checks
+
+Optional solver backends can be checked without importing native solver modules:
+
+```python
+from solving.solving import is_solver_available, solver_capabilities
+
+solver_capabilities()
+is_solver_available("milp", "DEFAULT")
+is_solver_available("sat", "Glucose3")
+```
+
+`DEFAULT` MILP maps to Gurobi. `DEFAULT` SAT and named PySAT engines map to the
+PySAT backend. The OR-Tools SAT route is reserved but not implemented yet, so it
+is reported as unavailable for execution even when its Python packages are
+installed.
+
 ## Local Output Isolation
 
 ```bash

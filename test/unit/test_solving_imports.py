@@ -5,6 +5,51 @@ import sys
 import solving.solving as solving
 
 
+def test_solver_capabilities_are_queryable_without_importing_backends(monkeypatch):
+    available_modules = {"gurobipy", "pysat"}
+
+    monkeypatch.setattr(
+        solving,
+        "find_spec",
+        lambda module_name: object() if module_name in available_modules else None,
+    )
+
+    capabilities = solving.solver_capabilities()
+
+    assert capabilities["default"] == {"milp": "GUROBI", "sat": "PySAT"}
+    assert capabilities["milp"]["GUROBI"]["available"] is True
+    assert capabilities["milp"]["SCIP"]["available"] is False
+    assert capabilities["sat"]["PySAT"]["available"] is True
+    assert capabilities["sat"]["ORTools"]["available"] is False
+    assert capabilities["sat"]["ORTools"]["implemented"] is False
+
+
+def test_is_solver_available_respects_defaults_and_implemented_backends(monkeypatch):
+    available_modules = {"gurobipy", "pysat", "ortools", "ortoolslpparser"}
+
+    monkeypatch.setattr(
+        solving,
+        "find_spec",
+        lambda module_name: object() if module_name in available_modules else None,
+    )
+
+    assert solving.is_solver_available("milp", "DEFAULT") is True
+    assert solving.is_solver_available("milp", "SCIP") is False
+    assert solving.is_solver_available("sat", "DEFAULT") is True
+    assert solving.is_solver_available("sat", "Glucose3") is True
+    assert solving.is_solver_available("sat", "ORTools") is False
+    assert solving.is_solver_available("sat", "UnknownSAT") is False
+
+
+def test_is_solver_available_rejects_unknown_solver_kind():
+    try:
+        solving.is_solver_available("cp", "DEFAULT")
+    except ValueError as exc:
+        assert "Unsupported solver kind" in str(exc)
+    else:
+        raise AssertionError("Expected unknown solver kind to raise ValueError")
+
+
 def test_solving_module_import_is_quiet():
     env = os.environ.copy()
     env["PYTHONPATH"] = os.getcwd()

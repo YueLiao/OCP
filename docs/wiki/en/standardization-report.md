@@ -11,7 +11,7 @@ document, and extend.
 | Area | Status | Notes |
 |---|---:|---|
 | Repository structure | Needs work | Core engine, tests, agent, docs, and generated files are clearer; deeper module boundaries still need work. |
-| Architecture boundaries | Needs work | Agent provider creation, output paths, attack helpers, operator helpers, primitive layer/link helpers, and verbose-aware solver/tool diagnostics were tightened. |
+| Architecture boundaries | Needs work | Agent provider creation, output paths, attack helpers, operator helpers, primitive layer/link helpers, verbose-aware diagnostics, and solver capability reporting were tightened. |
 | Public interfaces | Needs work | `OCPAgent` and provider launchers are clearer; operator/model APIs still need typed contracts over time. |
 | Readability | Needs work | Low-risk cleanup completed across operators and primitive scaffolding; attack modules and solver/modeling boundaries remain complex. |
 | Style tooling | Pass | `pyproject.toml` defines package metadata and pytest settings. |
@@ -36,6 +36,7 @@ document, and extend.
 - Refined S-box weighted truth-table generation, matrix bit-model generation, explicit modular arithmetic, and unfinished operator abstractions.
 - Consolidated primitive layer Equal constraints, graph iteration, input/output link helpers, and faster layer output lookups.
 - Routed attack/solver progress messages through verbose-aware logging and converted tool diagnostics to Python warnings.
+- Added explicit solver capability reporting for optional MILP/SAT backends and documented the current solver fallbacks.
 - Clarified legacy operator scripts as manual experiments.
 - Split documentation into English and Chinese pages with language switch links.
 
@@ -48,10 +49,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `69 passed, 106 skipped`.
+Latest default pytest status: `72 passed, 106 skipped`.
 
 ## Next Work
 
-1. Isolate solver capability detection and document supported solver fallbacks more explicitly.
-2. Add the full text-first agentic extraction design around `CipherInput`, `CipherFacts`, and `CipherSpecDraft`.
-3. Profile model generation before deeper performance rewrites.
+1. Add the full text-first agentic extraction design around `CipherInput`, `CipherFacts`, and `CipherSpecDraft`.
+2. Profile model generation before deeper performance rewrites.
+3. Continue narrowing broad exception handling in solver/model generation paths.

@@ -9,7 +9,7 @@
 | 领域 | 状态 | 说明 |
 |---|---:|---|
 | 仓库结构 | 需继续改进 | 核心引擎、测试、agent、文档和生成文件边界更清楚了；更深模块边界仍需整理。 |
-| 架构边界 | 需继续改进 | Agent provider、输出路径、attack 公共 helper、operator helper、primitive layer/link helper，以及支持 verbose 的 solver/tool 诊断已收紧。 |
+| 架构边界 | 需继续改进 | Agent provider、输出路径、attack 公共 helper、operator helper、primitive layer/link helper、verbose-aware 诊断和 solver 能力报告已收紧。 |
 | 公共接口 | 需继续改进 | `OCPAgent` 和 provider 启动入口更清楚；operator/model API 后续仍需要类型化契约。 |
 | 可读性 | 需继续改进 | operator 和 primitive 框架已完成多轮低风险清理；attack 模块和 solver/modeling 边界仍较复杂。 |
 | 风格工具 | 通过 | `pyproject.toml` 已定义 package metadata 和 pytest 设置。 |
@@ -34,6 +34,7 @@
 - 清理 S-box 带权 truth-table、matrix bit-model、显式 modular arithmetic 和未完成 operator 抽象。
 - 收拢 primitive layer 的 Equal 约束、图遍历、输入/输出链接 helper，并优化 layer 输出查找。
 - 将 attack/solver 进度消息接入 verbose-aware logging，并把工具诊断改为 Python warnings。
+- 添加显式 solver 能力报告，用于检查可选 MILP/SAT 后端，并文档化当前 solver fallback。
 - 明确旧式 operator 文件是人工实验脚本。
 - 将文档拆为英文和中文页面，并在顶部提供语言切换链接。
 
@@ -46,10 +47,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`69 passed, 106 skipped`。
+最新默认 pytest 状态：`72 passed, 106 skipped`。
 
 ## 后续工作
 
-1. 隔离 solver 能力检测，并更明确地文档化支持的 solver fallback。
-2. 围绕 `CipherInput`、`CipherFacts` 和 `CipherSpecDraft` 设计完整文本优先 agentic 抽取系统。
-3. 深层性能重写前先 profile 模型生成过程。
+1. 围绕 `CipherInput`、`CipherFacts` 和 `CipherSpecDraft` 设计完整文本优先 agentic 抽取系统。
+2. 深层性能重写前先 profile 模型生成过程。
+3. 继续收窄 solver/model generation 路径里的宽泛异常处理。

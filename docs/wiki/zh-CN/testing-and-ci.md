@@ -41,6 +41,22 @@ python -m pytest
 
 CI 有意不安装可选求解器依赖。求解器测试应在后端安装方式稳定后，作为独立 workflow 添加。
 
+## 求解器能力检查
+
+可选求解器后端可以在不 import 原生求解器模块的情况下检查：
+
+```python
+from solving.solving import is_solver_available, solver_capabilities
+
+solver_capabilities()
+is_solver_available("milp", "DEFAULT")
+is_solver_available("sat", "Glucose3")
+```
+
+`DEFAULT` MILP 会映射到 Gurobi。`DEFAULT` SAT 和具名 PySAT 引擎会映射到
+PySAT 后端。OR-Tools SAT 路径目前是预留接口，尚未实现，因此即使 Python
+包已安装，也不会被报告为可执行可用。
+
 ## 本地输出隔离
 
 ```bash
