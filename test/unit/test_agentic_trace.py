@@ -13,6 +13,7 @@ def test_direct_skill_execution_records_trace():
     assert trace[0]["payload"]["skill"] == "cipher_instantiation"
     assert trace[1]["event"] == "skill_finish"
     assert trace[1]["payload"]["success"] is True
+    assert "artifact_count" in trace[1]["payload"]
     assert agent.session.get_context()["trace_length"] == 2
 
 

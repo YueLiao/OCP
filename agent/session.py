@@ -10,6 +10,7 @@ class Session:
         self._results = []
         self._metadata = {}
         self._trace = []
+        self._artifacts = []
 
     def set_cipher(self, cipher):
         self._cipher = cipher
@@ -39,6 +40,12 @@ class Session:
     def get_trace(self):
         return list(self._trace)
 
+    def add_artifacts(self, artifacts):
+        self._artifacts.extend(artifacts or [])
+
+    def get_artifacts(self):
+        return list(self._artifacts)
+
     def set_metadata(self, key, value):
         self._metadata[key] = value
 
@@ -54,6 +61,7 @@ class Session:
             "cipher_rounds": None,
             "recent_results": [],
             "trace_length": len(self._trace),
+            "artifact_count": len(self._artifacts),
         }
         if self._cipher is not None:
             ctx["cipher_name"] = self._cipher.name
@@ -78,3 +86,4 @@ class Session:
         self._results.clear()
         self._metadata.clear()
         self._trace.clear()
+        self._artifacts.clear()

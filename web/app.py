@@ -23,6 +23,7 @@ from agent.interfaces.api import OCPAgent
 from agent.llm.factory import create_llm_provider
 from agent.llm.provider_config import default_model, get_provider_defaults
 from agent.result_payload import skill_result_payload
+from agent.verifier import verify_action
 from solving.solving import solver_capabilities
 
 app = Flask(__name__)
@@ -91,6 +92,19 @@ def _require_confirmation(data, action):
             action=action,
         )
     return None
+
+
+def _verification_response(action, data):
+    result = verify_action(action, agent.session, data)
+    if result.ok:
+        return None
+    return _error_response(
+        "Preflight verification failed.",
+        400,
+        "verification_failed",
+        verification=result.to_dict(),
+        context=agent.session.get_context(),
+    )
 
 
 @app.route("/")
@@ -219,6 +233,8 @@ def run_analysis():
         return confirmation_error
 
     analysis_type = data.get("analysis_type", "differential")
+    if analysis_type not in {"differential", "linear"}:
+        return _error_response("analysis_type must be 'differential' or 'linear'.", 400, "invalid_analysis_type")
     model_type = data.get("model_type", "milp")
     goal = data.get("goal")
     params = {
@@ -234,12 +250,14 @@ def run_analysis():
     if "solution_number" in data:
         params["solution_number"] = data["solution_number"]
 
+    verification_error = _verification_response("analyze", params)
+    if verification_error:
+        return verification_error
+
     if analysis_type == "differential":
         result = agent.differential_analysis(**params)
-    elif analysis_type == "linear":
-        result = agent.linear_analysis(**params)
     else:
-        return _error_response("analysis_type must be 'differential' or 'linear'.", 400, "invalid_analysis_type")
+        result = agent.linear_analysis(**params)
     return _skill_response(result)
 
 
@@ -256,11 +274,15 @@ def generate_code():
     if confirmation_error:
         return confirmation_error
 
-    result = agent.generate_code(
-        language=data.get("language", "python"),
-        unroll=bool(data.get("unroll", False)),
-        test=bool(data.get("test", True)),
-    )
+    params = {
+        "language": data.get("language", "python"),
+        "unroll": bool(data.get("unroll", False)),
+        "test": bool(data.get("test", True)),
+    }
+    verification_error = _verification_response("code", params)
+    if verification_error:
+        return verification_error
+    result = agent.generate_code(**params)
     return _skill_response(result)
 
 
@@ -274,6 +296,9 @@ def generate_visualization():
     confirmation_error = _require_confirmation(data, "visualize")
     if confirmation_error:
         return confirmation_error
+    verification_error = _verification_response("visualize", data)
+    if verification_error:
+        return verification_error
     result = agent.generate_visualization()
     return _skill_response(result)
 
@@ -328,7 +353,14 @@ def status():
     """Get current agent status."""
     ctx = agent.session.get_context() if agent else {}
     trace = agent.session.get_trace() if agent else []
-    return jsonify({"connected": config.get("connected", False), "config": config, "context": ctx, "trace": trace[-10:]})
+    artifacts = agent.session.get_artifacts() if agent else []
+    return jsonify({
+        "connected": config.get("connected", False),
+        "config": config,
+        "context": ctx,
+        "trace": trace[-10:],
+        "artifacts": artifacts,
+    })
 
 
 if __name__ == "__main__":

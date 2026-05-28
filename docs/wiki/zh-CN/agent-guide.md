@@ -63,6 +63,7 @@ python3 web/app.py --port 5001
 构建 cipher 之后，网页端还提供差分分析、线性分析、Python 代码生成和可视化的直接动作。
 执行 skill 的 endpoint 会返回统一 JSON 结构，包括 `success`、`skill`、`summary`、
 `error`、`data`、`artifact_links` 和 `context`。
+侧边栏会展示当前 cipher、最近 artifacts 和执行 trace。
 
 ## 文本优先密码输入
 

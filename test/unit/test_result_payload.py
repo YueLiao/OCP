@@ -32,4 +32,5 @@ def test_skill_result_payload_preserves_artifact_links():
     assert payload["skill"] == "code_generation"
     assert payload["data"]["artifact_links"][0]["path"] == "/tmp/a.py"
     assert payload["artifact_links"][0]["path"] == "/tmp/a.py"
+    assert payload["artifacts"][0]["source_skill"] == "code_generation"
     assert payload["context"]["has_cipher"] is True

@@ -182,6 +182,7 @@ def test_workflow_endpoints_return_standard_skill_payloads(monkeypatch, tmp_path
     assert code_data["success"] is True
     assert code_data["skill"] == "code_generation"
     assert code_data["artifact_links"][0]["label"] == "generated_code"
+    assert code_data["artifacts"][0]["source_skill"] == "code_generation"
     assert visualize_response.status_code == 200
     assert visualize_data["skill"] == "visualization"
     assert visualize_data["artifact_links"][0]["label"] == "visualization"
@@ -191,3 +192,16 @@ def test_workflow_endpoints_return_standard_skill_payloads(monkeypatch, tmp_path
     assert invalid_analysis_data["error_code"] == "invalid_analysis_type"
     assert solver_response.status_code == 200
     assert solver_data["capabilities"]["default"]["milp"] == "GUROBI"
+
+
+def test_workflow_preflight_blocks_without_cipher():
+    web_app.agent = OCPAgent()
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    response = client.post("/api/code", json={"language": "python", "confirmed": True})
+    data = response.get_json()
+
+    assert response.status_code == 400
+    assert data["error_code"] == "verification_failed"
+    assert "No cipher is loaded" in data["verification"]["blocking_errors"][0]

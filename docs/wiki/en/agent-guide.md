@@ -66,6 +66,7 @@ After a cipher is built, the web UI also exposes direct actions for
 differential analysis, linear analysis, Python code generation, and
 visualization. Skill endpoints return a common JSON shape with `success`,
 `skill`, `summary`, `error`, `data`, `artifact_links`, and `context`.
+The sidebar shows the current cipher, recent artifacts, and execution trace.
 
 ## Text-First Cipher Input
 

@@ -80,6 +80,14 @@
   }
   .cipher-info .label { color: var(--text-secondary); }
   .cipher-info .value { color: var(--green); font-weight: 600; }
+  .side-list {
+    margin-top: 10px; display: flex; flex-direction: column; gap: 8px;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .side-list div {
+    padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border);
+    border-radius: 6px; overflow-wrap: anywhere;
+  }
 
   /* Chat area */
   .chat-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -248,6 +256,16 @@
       <div><span class="label">Type: </span><span class="value" id="cipherType">-</span></div>
       <div><span class="label">Rounds: </span><span class="value" id="cipherRounds">-</span></div>
     </div>
+
+    <div class="settings-section">
+      <h2>Artifacts</h2>
+      <div class="side-list" id="artifactList"><div>No artifacts yet.</div></div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Trace</h2>
+      <div class="side-list" id="traceList"><div>No trace yet.</div></div>
+    </div>
   </div>
 
   <div class="chat-area">
@@ -339,6 +357,7 @@ async function connect() {
       document.getElementById('statusDot').classList.add('connected');
       document.getElementById('statusText').textContent = `${provider} / ${data.config.model}`;
       addMessage('system', `Connected to ${provider} (${data.config.model})`);
+      await refreshStatus();
     } else {
       addMessage('error', `Connection failed: ${data.error}`);
     }
@@ -371,6 +390,7 @@ async function sendMessage() {
       addMessage('assistant', data.response);
       updateCipherInfo(data.context);
       showArtifacts(data.artifact_links || []);
+      await refreshStatus();
     } else {
       addMessage('error', data.error);
     }
@@ -428,6 +448,7 @@ async function confirmCipherDraft() {
       addMessage('assistant', data.summary || `Built cipher: ${data.data?.cipher_name || 'custom cipher'}`);
       updateCipherInfo(data.context);
       showArtifacts(data.artifact_links || []);
+      await refreshStatus();
     } else {
       addMessage('error', data.error || 'Build failed');
     }
@@ -459,6 +480,7 @@ async function uploadFile(event) {
       addMessage('assistant', data.summary);
       updateCipherInfo(data.context);
       showArtifacts(data.artifact_links || []);
+      await refreshStatus();
     } else {
       addMessage('error', data.error || data.summary);
     }
@@ -497,6 +519,7 @@ async function runWorkflow(type) {
       addMessage('assistant', data.summary || `${type} analysis complete.`);
       updateCipherInfo(data.context);
       showArtifacts(data.artifact_links || []);
+      await refreshStatus();
     } else {
       addMessage('error', data.error || `${type} analysis failed.`);
     }
@@ -523,6 +546,7 @@ async function generateCode() {
     if (data.success) {
       addMessage('assistant', data.summary || 'Code generated.');
       showArtifacts(data.artifact_links || []);
+      await refreshStatus();
     } else {
       addMessage('error', data.error || 'Code generation failed.');
     }
@@ -548,6 +572,7 @@ async function generateVisualization() {
     if (data.success) {
       addMessage('assistant', data.summary || 'Visualization generated.');
       showArtifacts(data.artifact_links || []);
+      await refreshStatus();
     } else {
       addMessage('error', data.error || 'Visualization failed.');
     }
@@ -581,6 +606,8 @@ async function resetSession() {
   await fetch('/api/reset', {method: 'POST'});
   document.getElementById('messages').innerHTML = '';
   document.getElementById('cipherInfo').style.display = 'none';
+  renderArtifacts([]);
+  renderTrace([]);
   addMessage('system', 'Session reset.');
 }
 
@@ -625,6 +652,40 @@ function updateCipherInfo(ctx) {
   document.getElementById('cipherName').textContent = ctx.cipher_name || '-';
   document.getElementById('cipherType').textContent = ctx.cipher_type || '-';
   document.getElementById('cipherRounds').textContent = ctx.cipher_rounds || '-';
+}
+
+async function refreshStatus() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    updateCipherInfo(data.context);
+    renderArtifacts(data.artifacts || []);
+    renderTrace(data.trace || []);
+  } catch (e) {
+    addMessage('error', `Status refresh failed: ${e.message}`);
+  }
+}
+
+function renderArtifacts(artifacts) {
+  const list = document.getElementById('artifactList');
+  if (!artifacts || !artifacts.length) {
+    list.innerHTML = '<div>No artifacts yet.</div>';
+    return;
+  }
+  list.innerHTML = artifacts.slice(-6).reverse().map(a =>
+    `<div><strong>${renderText(a.label || 'artifact')}</strong><br>${renderText(a.type || 'file')} · ${a.exists ? 'exists' : 'missing'}<br><code>${renderText(a.path || '')}</code></div>`
+  ).join('');
+}
+
+function renderTrace(trace) {
+  const list = document.getElementById('traceList');
+  if (!trace || !trace.length) {
+    list.innerHTML = '<div>No trace yet.</div>';
+    return;
+  }
+  list.innerHTML = trace.slice(-6).reverse().map(t =>
+    `<div>#${t.step} ${renderText(t.event)}<br><code>${renderText(JSON.stringify(t.payload || {}))}</code></div>`
+  ).join('');
 }
 
 function handleKey(e) {

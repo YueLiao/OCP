@@ -53,6 +53,23 @@ Web endpoints that execute skills should return:
 `artifact_links` is the stable place for generated code, trail JSON/TXT files,
 visualization PDFs, and job records.
 
+The Agent also expands links into structured `artifacts`:
+
+```json
+{
+  "id": "stable-ish id",
+  "label": "generated_code",
+  "path": "/tmp/ocp-files/SPECK32_64.py",
+  "type": "source",
+  "source_skill": "code_generation",
+  "exists": true,
+  "created_at": "2026-05-28T..."
+}
+```
+
+`/api/status` returns recent trace entries and the session artifact registry for
+the web sidebar.
+
 ## Text-First Flow
 
 1. User submits plain text, Markdown, LaTeX, or pseudocode.

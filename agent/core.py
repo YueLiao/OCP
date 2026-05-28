@@ -5,6 +5,7 @@ from agent.session import Session
 from agent.skills import SkillRegistry, create_default_registry
 from agent.llm.provider import LLMProvider
 from agent.llm.response_parser import parse_llm_json_object
+from agent.artifacts import artifacts_from_result_data
 
 
 class AgentCore:
@@ -98,9 +99,17 @@ class AgentCore:
         self.session.add_trace("skill_start", {"skill": request.skill.value, "params": request.params})
         result = self._execute_skill(request)
         self.session.add_result(result)
+        artifacts = artifacts_from_result_data(result.data, source_skill=request.skill.value)
+        self.session.add_artifacts(artifacts)
         self.session.add_trace(
             "skill_finish",
-            {"skill": request.skill.value, "success": result.success, "summary": result.summary, "error": result.error},
+            {
+                "skill": request.skill.value,
+                "success": result.success,
+                "summary": result.summary,
+                "error": result.error,
+                "artifact_count": len(artifacts),
+            },
         )
         return result
 

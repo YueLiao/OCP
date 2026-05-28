@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from agent.types import SkillResult
+from agent.artifacts import artifacts_from_result_data
 
 
 def artifact_links_from_data(data: Any) -> list:
@@ -46,6 +47,7 @@ def skill_result_payload(
         "error": result.error,
         "data": json_safe(data),
         "artifact_links": json_safe(artifact_links_from_data(data)),
+        "artifacts": json_safe(artifacts_from_result_data(data, source_skill=result.skill.value)),
     }
     if isinstance(data, dict):
         if "job" in data:

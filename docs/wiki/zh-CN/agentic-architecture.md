@@ -50,6 +50,22 @@
 
 `artifact_links` 是生成代码、trail JSON/TXT、可视化 PDF 和 job 记录的稳定出口。
 
+Agent 也会把 links 扩展为结构化 `artifacts`：
+
+```json
+{
+  "id": "stable-ish id",
+  "label": "generated_code",
+  "path": "/tmp/ocp-files/SPECK32_64.py",
+  "type": "source",
+  "source_skill": "code_generation",
+  "exists": true,
+  "created_at": "2026-05-28T..."
+}
+```
+
+`/api/status` 会返回最近 trace 和 session artifact registry，供网页侧边栏展示。
+
 ## 文本优先流程
 
 1. 用户提交纯文本、Markdown、LaTeX 或伪代码。
