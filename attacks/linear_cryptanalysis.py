@@ -7,6 +7,7 @@ import tools.model_objective as model_objective
 import tools.milp_search as milp_search
 import tools.sat_search as sat_search
 from tools.paths import get_files_dir
+from tools.search_reporting import log
 
 FILES_DIR = get_files_dir()
 
@@ -147,7 +148,7 @@ def extract_and_format_linear_trails(cipher, goal, config_model, config_solver, 
                 "rounds_linear_weight": sol.get("rounds_obj_fun_values")}
         trail = LinearTrail(data, solution_trace=sol)
         if i > 0:
-            print(f"[INFO] Saving the {i+1}-th Trail.")
+            log(f"[INFO] Saving the {i+1}-th Trail.", config_model, config_solver)
             trail.json_filename = trail.json_filename.replace(".json", f"_{i}.json") if trail.json_filename else str(FILES_DIR / f"{trail.data['cipher']}_trail_{i}.json")
             trail.txt_filename = trail.txt_filename.replace(".txt", f"_{i}.txt") if trail.txt_filename else str(FILES_DIR / f"{trail.data['cipher']}_trail_{i}.txt")
         trail.save_json()
@@ -155,7 +156,7 @@ def extract_and_format_linear_trails(cipher, goal, config_model, config_solver, 
         trails.append(trail)
         pr += 2 ** ( - trail.data['linear_weight'] ) if trail.data['linear_weight'] is not None else 0
     if solutions and goal == "LINEARHULL_CORR":
-        print(f"[INFO] Total correlation of all found trails: 2^{log2(pr) if pr > 0 else 'undefined'}")
+        log(f"[INFO] Total correlation of all found trails: 2^{log2(pr) if pr > 0 else 'undefined'}", config_model, config_solver)
     return trails
 
 def extract_trail_structures(cipher, goal, solution):

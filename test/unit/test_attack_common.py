@@ -90,3 +90,41 @@ def test_decimal_weight_detection_uses_lat_for_linear_goals():
     assert model_objective.has_Sbox_with_decimal_weights(cipher, "LINEARPATH_CORR")
     assert fake_sbox.lat_called
     assert not fake_sbox.ddt_called
+
+
+def test_attack_trail_formatting_respects_verbose_false(monkeypatch, capsys):
+    class FakeTrail:
+        def __init__(self, data, solution_trace=None):
+            self.data = data
+            self.solution_trace = solution_trace
+            self.json_filename = "trail.json"
+            self.txt_filename = "trail.txt"
+
+        def save_json(self):
+            return None
+
+        def save_txt(self, show_mode=0, emit_print=True):
+            if emit_print:
+                print("unexpected trail output")
+            return ""
+
+    cipher = SimpleNamespace(
+        name="toy",
+        functions={"PERMUTATION": SimpleNamespace(nbr_rounds=1)},
+    )
+    config_model = {"functions": ["PERMUTATION"], "rounds": {"PERMUTATION": [1]}, "verbose": False}
+    config_solver = {"verbose": False}
+    solutions = [
+        {"obj_fun_value": 1, "rounds_obj_fun_values": [1]},
+        {"obj_fun_value": 2, "rounds_obj_fun_values": [2]},
+    ]
+
+    monkeypatch.setattr(diff, "DifferentialTrail", FakeTrail)
+    monkeypatch.setattr(linear, "LinearTrail", FakeTrail)
+    monkeypatch.setattr(diff, "extract_trail_structures", lambda cipher, goal, sol: {"id": sol["obj_fun_value"]})
+    monkeypatch.setattr(linear, "extract_trail_structures", lambda cipher, goal, sol: {"id": sol["obj_fun_value"]})
+
+    diff.extract_and_format_diff_trails(cipher, "DIFFERENTIAL_PROB", config_model, config_solver, 2, solutions)
+    linear.extract_and_format_linear_trails(cipher, "LINEARHULL_CORR", config_model, config_solver, 2, solutions)
+
+    assert capsys.readouterr().out == ""

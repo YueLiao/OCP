@@ -8,6 +8,7 @@ from importlib.util import find_spec
 import time
 
 from tools.resource_monitor import RuntimeResourceMonitor
+from tools.search_reporting import log
 
 
 gurobipy_import = find_spec("gurobipy") is not None
@@ -55,7 +56,7 @@ def solve_milp(filename, config_solver=None):
 
     config_solver = config_solver or {}
     solver = config_solver.get("solver", "DEFAULT")
-    print(f"[INFO] Solving MILP model with settings: {config_solver}")
+    log(f"[INFO] Solving MILP model with settings: {config_solver}", config_solver=config_solver)
     monitor = RuntimeResourceMonitor(interval=0.2)
     monitor.start()
     time_start = time.time()
@@ -74,7 +75,7 @@ def solve_milp(filename, config_solver=None):
 def solve_milp_gurobi(filename, config_solver): # Solve a MILP model using Gurobi.
     gp = _load_gurobi()
     if gp is None:
-        print("[WARNING] gurobipy module can't be loaded ... skipping test")
+        log("[WARNING] gurobipy module can't be loaded ... skipping test", config_solver=config_solver)
         return []
 
     try:
@@ -91,20 +92,20 @@ def solve_milp_gurobi(filename, config_solver): # Solve a MILP model using Gurob
         model.optimize()
         sol_count = getattr(model, "SolCount", 0)
     except gp.GurobiError:
-        print("[ERROR] Check your Gurobi license, visit https://gurobi.com/unrestricted for more information")
+        log("[ERROR] Check your Gurobi license, visit https://gurobi.com/unrestricted for more information", config_solver=config_solver)
         return []
 
     # Return a list of solutions
     # Case 1: No solution found
     if sol_count == 0:
-        print(f"[INFO] Found no solution from Gurobi.")
+        log("[INFO] Found no solution from Gurobi.", config_solver=config_solver)
         return []
 
     # Case 2: Single optimal solution found
     elif solution_number == 1 and getattr(model.Params, "PoolSearchMode", 0) == 0:
         sol = {v.VarName: v.X for v in model.getVars()}
         sol["obj_fun_value"] = model.ObjVal
-        print(f"[INFO] Found 1 solution from Gurobi.")
+        log("[INFO] Found 1 solution from Gurobi.", config_solver=config_solver)
         return [sol]
 
     # Case 3: Multiple solutions found
@@ -115,14 +116,14 @@ def solve_milp_gurobi(filename, config_solver): # Solve a MILP model using Gurob
             sol = {v.VarName: v.Xn for v in model.getVars()}
             sol.update({"obj_fun_value": model.PoolObjVal})
             sol_list.append(sol)
-        print(f"[INFO] Found {len(sol_list)} solution(s) from Gurobi.")
+        log(f"[INFO] Found {len(sol_list)} solution(s) from Gurobi.", config_solver=config_solver)
         return sol_list
 
 
 def solve_milp_scip(filename, config_solver): # Solve a MILP model using SCIP.
     Model = _load_scip_model()
     if Model is None:
-        print("[WARNING] PySCIPOpt module can't be loaded ... skipping SCIP test")
+        log("[WARNING] PySCIPOpt module can't be loaded ... skipping SCIP test", config_solver=config_solver)
         return []
 
     try:
@@ -133,25 +134,25 @@ def solve_milp_scip(filename, config_solver): # Solve a MILP model using SCIP.
             model.setRealParam("limits/time", config_solver["time_limit"])
         solution_number = config_solver.get("solution_number", 1)
         if isinstance(solution_number, int) and solution_number > 1: # TO DO: support multiple solutions
-            print("[WARNING] It currently does not support finding multiple solutions ... returning only one solution")
+            log("[WARNING] It currently does not support finding multiple solutions ... returning only one solution", config_solver=config_solver)
             model.setIntParam("limits/solutions", solution_number)
         # Solve the model
         model.optimize()
         sol_count = model.getNSols()
     except Exception as e:
-        print(f"[WARNING] SCIP solver error: {e} ... skipping test")
+        log(f"[WARNING] SCIP solver error: {e} ... skipping test", config_solver=config_solver)
         return []
 
     # Return a list of solutions
     if sol_count == 0:
-        print(f"[INFO] Found no solution from SCIP.")
+        log("[INFO] Found no solution from SCIP.", config_solver=config_solver)
         return []
 
     else:
         sol = model.getBestSol()
         sol_dic = {v.name: model.getSolVal(sol, v) for v in model.getVars()}
         sol_dic["obj_fun_value"] = model.getSolObjVal(sol)
-        print(f"[INFO] Found 1 solution from SCIP.")
+        log("[INFO] Found 1 solution from SCIP.", config_solver=config_solver)
         return [sol_dic]
 
 
@@ -175,7 +176,7 @@ def solve_sat(filename, variable_map, config_solver=None):
 
     config_solver = config_solver or {}
     solver = config_solver.get("solver", "DEFAULT")
-    print(f"[INFO] Solving SAT model with settings: {config_solver}")
+    log(f"[INFO] Solving SAT model with settings: {config_solver}", config_solver=config_solver)
     monitor = RuntimeResourceMonitor(interval=0.2)
     monitor.start()
     time_start = time.time()
@@ -194,7 +195,7 @@ def solve_sat(filename, variable_map, config_solver=None):
 def solve_sat_pysat(filename, variable_map, config_solver):
     CNF, Solver = _load_pysat()
     if CNF is None or Solver is None:
-        print("[WARNING] pysat module can't be loaded ... skipping test")
+        log("[WARNING] pysat module can't be loaded ... skipping test", config_solver=config_solver)
         return None
 
     solver = config_solver.get("solver", "DEFAULT")
@@ -222,7 +223,7 @@ def solve_sat_pysat(filename, variable_map, config_solver):
         solver.add_clause(block_clause)
         sol_count += 1
     solver.delete()
-    print(f"[INFO] Found {len(sol_list)} solution(s) from PySAT.")
+    log(f"[INFO] Found {len(sol_list)} solution(s) from PySAT.", config_solver=config_solver)
     return sol_list
 
 
