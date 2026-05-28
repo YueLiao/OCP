@@ -44,17 +44,23 @@ For `forro:1`, the SAT model drops from 16,586 constraints to 5,066 constraints
 in the current baseline. The MILP model drops from 10,029 constraints to 4,089.
 This mode is still experimental and is not enabled by default.
 
+## Verified Boundaries
+
+- Trail extraction resolves missing original-layer variables through the alias
+  map while keeping the original layered graph in rendered trails.
+- Visualization continues to read the primitive graph. Identity elision does not
+  mutate constraint IDs, variable IDs, or Equal edges in the primitive object.
+
 ## Implementation Plan
 
-1. Verify visualization with aliases.
-2. Add solver-backed smoke tests when optional solver CI is available.
-3. Compare profiler baselines before enabling it by default.
+1. Add solver-backed smoke tests when optional solver CI is available.
+2. Compare profiler baselines before enabling it by default.
 
 ## Safety Rules
 
 - Do not elide primitive input/output links in the first implementation.
-- Do not elide round-link constraints until trail extraction and visualization
-  are verified with aliases.
+- Do not elide round-link constraints; current verification only covers
+  conservative internal identities.
 - Do not mutate existing variable IDs; maintain an external alias map.
 - Keep generated implementations unchanged.
 - Require broader regression tests for at least PRESENT, ChaCha, Salsa, and

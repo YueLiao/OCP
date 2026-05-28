@@ -1,4 +1,5 @@
 import variables.variables as var
+from attacks.common import parse_and_set_configs
 from operators.Sbox import PRESENT_Sbox, _compute_ddt_cached, _compute_lat_cached
 from operators.matrix import (
     _generate_binary_matrix_2_cached,
@@ -15,6 +16,7 @@ from primitives.forro import (
     _forro_subround_selection,
 )
 from primitives.salsa import SALSA_KEYPERMUTATION, SALSA_PERMUTATION
+from tools.model_constraints import gen_round_model_constraint_obj_fun
 from tools.profile_model_generation import profile_case, summarize_identity_elision_candidates
 
 
@@ -184,3 +186,66 @@ def test_identity_elision_supports_milp_model_generation():
         "skipped_constraints": 180,
     }
     assert elided["profile"]["operators"]["Equal"]["constraints"] == 1056
+
+
+def test_identity_elision_does_not_mutate_primitive_graph():
+    cipher = FORRO_PERMUTATION(r=1)
+    permutation = cipher.functions["PERMUTATION"]
+
+    before_equal_edges = [
+        (
+            cons.ID,
+            cons.input_vars[0].ID,
+            cons.output_vars[0].ID,
+        )
+        for layer in range(permutation.nbr_layers)
+        for cons in permutation.constraints[1][layer]
+        if cons.__class__.__name__ == "Equal"
+    ]
+    before_var_ids = [
+        var.ID
+        for layer in range(permutation.nbr_layers + 1)
+        for var in permutation.vars[1][layer]
+    ]
+
+    config_model, _ = parse_and_set_configs(
+        cipher,
+        "DIFFERENTIALPATH_PROB",
+        "EXISTENCE",
+        {
+            "identity_elision": True,
+            "model_type": "sat",
+            "profile_model_generation": True,
+        },
+        {},
+    )
+    constraints, _ = gen_round_model_constraint_obj_fun(
+        cipher,
+        "DIFFERENTIALPATH_PROB",
+        "sat",
+        config_model,
+    )
+
+    after_equal_edges = [
+        (
+            cons.ID,
+            cons.input_vars[0].ID,
+            cons.output_vars[0].ID,
+        )
+        for layer in range(permutation.nbr_layers)
+        for cons in permutation.constraints[1][layer]
+        if cons.__class__.__name__ == "Equal"
+    ]
+    after_var_ids = [
+        var.ID
+        for layer in range(permutation.nbr_layers + 1)
+        for var in permutation.vars[1][layer]
+    ]
+
+    assert len(constraints) == 5066
+    assert config_model["identity_elision_profile"] == {
+        "aliases": 180,
+        "skipped_constraints": 180,
+    }
+    assert before_equal_edges == after_equal_edges
+    assert before_var_ids == after_var_ids

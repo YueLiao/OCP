@@ -38,16 +38,22 @@ python -m tools.profile_model_generation forro:1 --identity-elision
 在当前基线里，`forro:1` 的 SAT 模型会从 16,586 条约束降到 5,066 条约束。
 MILP 模型会从 10,029 条约束降到 4,089 条约束。该模式仍是实验性的，默认不会启用。
 
+## 已验证边界
+
+- Trail extraction 会通过 alias map 解析缺失的原始层变量，同时在渲染 trail
+  时保留原始分层图。
+- Visualization 继续读取 primitive graph。Identity elision 不会修改 primitive
+  对象中的 constraint ID、variable ID 或 Equal 边。
+
 ## 实现计划
 
-1. 验证 alias 下的 visualization。
-2. 当可选 solver CI 可用后，增加 solver-backed smoke test。
-3. 对比 profiler baseline 后，再考虑是否默认启用。
+1. 当可选 solver CI 可用后，增加 solver-backed smoke test。
+2. 对比 profiler baseline 后，再考虑是否默认启用。
 
 ## 安全规则
 
 - 第一版不要 elide primitive 输入/输出链接。
-- 在 trail extraction 和 visualization 完成 alias 验证前，不要 elide 轮间链接。
+- 不 elide 轮间链接；当前验证只覆盖保守的内部 identity。
 - 不直接修改现有变量 ID，而是维护外部 alias map。
 - 保持生成实现代码不变。
 - 改默认行为前，至少为 PRESENT、ChaCha、Salsa、Forro 补更广的回归测试。
