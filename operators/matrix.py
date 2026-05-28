@@ -1,14 +1,13 @@
 import numpy as np
 import os
 import copy
-from pathlib import Path
+from functools import lru_cache
 from operators.operators import Operator, UnaryOperator, RaiseExceptionVersionNotExisting
 from tools.model_constraints import gen_matrix_constraints, gen_constraints_obj_func_from_template, generate_and_save_constraints, gen_word_matrix_constraints, gen_word_nxor_constraints
+from tools.paths import get_files_dir
 from itertools import product
 
-ROOT = Path(__file__).resolve().parents[1]  # this file -> operators -> <ROOT>
-BASE_PATH = ROOT / "files/matrix_modeling"
-BASE_PATH.mkdir(parents=True, exist_ok=True)
+BASE_PATH = get_files_dir("matrix_modeling")
 
 
 def find_primitive_element_gf2m(mod_poly, degree): # Find a primitive root for GF(2^m)
@@ -120,12 +119,11 @@ def generate_binary_matrix_3(mod_poly, degree): # Generate the binary matrix rep
 
 
 def matrix_multiply_mod2(A, B): # Multiply two matrices in GF(2) (mod 2).
-    size = len(A)
-    result = [[0 for _ in range(size)] for _ in range(size)]
-    for i in range(size):
-        for j in range(size):
-            result[i][j] = sum(A[i][k] * B[k][j] for k in range(size)) % 2
-    return result
+    columns = list(zip(*B))
+    return [
+        [sum(a & b for a, b in zip(row, col)) & 1 for col in columns]
+        for row in A
+    ]
 
 
 def matrix_power_mod2(matrix, power): # Compute the power of a matrix (mod 2).
@@ -133,14 +131,21 @@ def matrix_power_mod2(matrix, power): # Compute the power of a matrix (mod 2).
     result = [[1 if i == j else 0 for j in range(size)] for i in range(size)]  # Identity matrix.
     base = matrix
     while power:
-        if power % 2 == 1:
+        if power & 1:
             result = matrix_multiply_mod2(result, base)
         base = matrix_multiply_mod2(base, base)
-        power //= 2
+        power >>= 1
     return result
 
 
-def generate_pmr_for_mds(mds, mod_poly, degree): # Generate the Primitive Matrix Representation (PMR) for a given MDS matrix.
+@lru_cache(maxsize=None)
+def _matrix_power_mod2_cached(matrix_tuple, power):
+    return tuple(tuple(row) for row in matrix_power_mod2([list(row) for row in matrix_tuple], power))
+
+
+@lru_cache(maxsize=None)
+def _generate_pmr_for_mds_cached(mds_tuple, mod_poly, degree):
+    mds = [list(row) for row in mds_tuple]
     sig_degree = (1 << degree)
     if isinstance(mod_poly, str):
         mod_poly = int(mod_poly, 0)
@@ -151,7 +156,12 @@ def generate_pmr_for_mds(mds, mod_poly, degree): # Generate the Primitive Matrix
     elements_to_exponents, exponents_to_elements = generate_gf2_elements_and_exponents(pri, mod_poly, degree)
     if pri == 2: companion_matrix = matrix2
     elif pri == 3: companion_matrix = matrix3
-    matrix_representation = {exp: matrix_power_mod2(companion_matrix, exp) for exp in range((1 << degree) - 1)}
+    else: companion_matrix = matrix_power_mod2(matrix2, elements_to_exponents[pri])
+    companion_tuple = tuple(tuple(row) for row in companion_matrix)
+    matrix_representation = {
+        exp: [list(row) for row in _matrix_power_mod2_cached(companion_tuple, exp)]
+        for exp in range((1 << degree) - 1)
+    }
     size = len(mds)
     pmr = [[matrix_representation[elements_to_exponents[mds[i][j]]]for j in range(size)] for i in range(size)]
     pmr_new = [[0 for _ in range(size * degree)] for _ in range(size * degree)]
@@ -162,8 +172,13 @@ def generate_pmr_for_mds(mds, mod_poly, degree): # Generate the Primitive Matrix
             for j in range(size):
                 start_index = j * degree
                 end_index = start_index + degree
-                pmr_new[base_index][start_index:end_index] = pmr[i][j][row_offset]
+            pmr_new[base_index][start_index:end_index] = pmr[i][j][row_offset]
     return pmr_new
+
+
+def generate_pmr_for_mds(mds, mod_poly, degree): # Generate the Primitive Matrix Representation (PMR) for a given MDS matrix.
+    mds_tuple = tuple(tuple(row) for row in mds)
+    return [list(row) for row in _generate_pmr_for_mds_cached(mds_tuple, mod_poly, degree)]
 
 
 def generate_bin_matrix(mat, bitsize):

@@ -5,7 +5,7 @@ Usage:
     cd /path/to/OCP
     python3 web/app.py
 
-Then open http://localhost:5000 in your browser.
+Then open http://localhost:5001 in your browser.
 """
 
 import os
@@ -18,31 +18,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from flask import Flask, render_template, request, jsonify
 
 from agent.interfaces.api import OCPAgent
-from agent.types import SkillName, SkillRequest
+from agent.llm.factory import create_llm_provider
+from agent.llm.provider_config import default_model, get_provider_defaults
 
 app = Flask(__name__)
 
 # Global state (single-user for simplicity)
 agent = None
 config = {"provider": None, "model": None, "connected": False}
-
-
-def create_provider(provider_name, api_key, model, base_url=None):
-    """Create an LLM provider instance."""
-    if provider_name == "openai":
-        from agent.llm.openai_provider import OpenAIProvider
-        return OpenAIProvider(api_key=api_key, model=model or "gpt-4o", base_url=base_url)
-    elif provider_name == "anthropic":
-        from agent.llm.anthropic_provider import AnthropicProvider
-        return AnthropicProvider(api_key=api_key, model=model or "claude-sonnet-4-20250514")
-    elif provider_name == "gemini":
-        from agent.llm.gemini_provider import GeminiProvider
-        return GeminiProvider(api_key=api_key, model=model or "gemini-2.5-flash")
-    elif provider_name == "ollama":
-        from agent.llm.ollama_provider import OllamaProvider
-        return OllamaProvider(model=model or "llama3", host=base_url or "http://localhost:11434")
-    else:
-        raise ValueError(f"Unknown provider: {provider_name}")
 
 
 @app.route("/")
@@ -60,16 +43,16 @@ def set_config():
     model = data.get("model", "")
     base_url = data.get("base_url", "")
 
-    if provider_name != "ollama" and not api_key:
-        return jsonify({"success": False, "error": "API key is required."}), 400
-
     try:
-        provider = create_provider(provider_name, api_key, model, base_url or None)
+        provider_defaults = get_provider_defaults(provider_name)
+        if provider_defaults.requires_api_key and not api_key:
+            return jsonify({"success": False, "error": "API key is required."}), 400
+
+        provider = create_llm_provider(provider_name, api_key=api_key, model=model, base_url=base_url or None)
         agent = OCPAgent(llm_provider=provider)
         config = {
             "provider": provider_name,
-            "model": model or {"openai": "gpt-4o", "anthropic": "claude-sonnet-4-20250514",
-                               "gemini": "gemini-2.5-flash", "ollama": "llama3"}.get(provider_name, ""),
+            "model": model or default_model(provider_name),
             "connected": True,
         }
         return jsonify({"success": True, "config": config})
@@ -103,7 +86,7 @@ def chat():
 
 @app.route("/api/upload", methods=["POST"])
 def upload_file():
-    """Upload a PDF/image file for cipher extraction."""
+    """Upload a text/PDF/image file for cipher extraction."""
     global agent
     if agent is None:
         return jsonify({"success": False, "error": "Not connected. Configure provider first."}), 400

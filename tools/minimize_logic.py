@@ -1,13 +1,12 @@
 import subprocess
 from pathlib import Path
+from tools.paths import get_files_dir
 
-ROOT = Path(__file__).resolve().parents[1] # this file -> tools -> <ROOT>
-FILES_DIR = ROOT / "files" / "sbox_modeling"
-FILES_DIR.mkdir(parents=True, exist_ok=True)
+FILES_DIR = get_files_dir("sbox_modeling")
 try:
     import pyeda
 except ImportError:
-    print("[WARNING] Failed to import PyEDA. Please check whether PyEDA is installed correctly. Install it by 'pip3 install pyeda', refer to https://pyeda.readthedocs.io/en/latest/")
+    pyeda = None
 
 
 def espresso_pattern_to_ineq(pattern): # Convert the Espresso output into a list of integer coefficients representing a linear inequality of the form: sum_i (coeff_i * x_i) >= rhs
@@ -68,18 +67,18 @@ def ttb_to_ineq_logic(ttable, variables, mode=0, tool_type="espresso_pyeda", tim
         list:
             A list of inequalities.
     """
-    cont_ttable = ''
     num_vars = len(variables)
+    pla_rows = []
     for n in range(2**num_vars):
         bit = '1' if ttable[n] == '0' else '0'
-        cont_ttable += f'{bin(n)[2:].zfill(num_vars)} {bit}\n'
+        pla_rows.append(f'{bin(n)[2:].zfill(num_vars)} {bit}')
     file_contents = f".i {num_vars}\n"
     file_contents += ".o 1\n"
     file_contents += f".p {2**(num_vars)}\n"
     file_contents += ".ilb " + " ".join(variables) + "\n"
     file_contents += ".ob F\n"
     file_contents += ".type fr\n"
-    file_contents += cont_ttable
+    file_contents += "\n".join(pla_rows) + "\n"
 
     # Setup paths
     pla_file = str(FILES_DIR / 'ttable.txt')
@@ -93,6 +92,11 @@ def ttb_to_ineq_logic(ttable, variables, mode=0, tool_type="espresso_pyeda", tim
     espresso_options =  [['-estrong', '-eonset'], [], ['-eonset']] # Espresso Script of Pyeda provides the parameters: "-e {fast,ness,nirr,nunwrap,onset,strong}"
 
     if tool_type == "minimize_logic": # Generate inequalities from the truth table using Espresso via pyeda
+        if pyeda is None:
+            raise ImportError(
+                "PyEDA is required for tool_type='minimize_logic'. "
+                "Install it with: pip install pyeda"
+            )
         backend_name = "espresso_pyeda"
         try:
             backend_version = getattr(pyeda, "__version__", "unknown")

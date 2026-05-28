@@ -1,0 +1,10 @@
+# Optional solver/modeling dependencies.
+# Install only the backends you need.
+
+gurobipy
+python-sat
+ortools
+pyscipopt
+pyeda
+pycddlib
+psutil

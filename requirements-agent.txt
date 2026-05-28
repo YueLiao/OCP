@@ -1,0 +1,9 @@
+-r requirements.txt
+
+openai
+anthropic
+google-genai
+ollama
+flask
+PyMuPDF
+pdfplumber

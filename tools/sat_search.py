@@ -2,6 +2,7 @@ import os
 
 import tools.model_constraints as model_constraints
 import tools.model_objective as model_objective
+from tools.search_reporting import log, log_search_summary
 import solving.solving as solving
 
 
@@ -43,11 +44,13 @@ def modeling_solving_sat(objective_target, constraints, objective_function, conf
     else:
         raise ValueError(f"Invalid objective_target: {objective_target}")
 
-    print("====== Modeling and Solving SAT Information ======")
-    print(f"--- Found {len(solutions)} solution(s) ---")
-    for key, value in {**config_model, **config_solver}.items():
-        if key not in ["positions", "decimal_objective_function"]:
-            print(f"--- {key} ---: {value}")
+    log_search_summary(
+        "Modeling and Solving SAT Information",
+        solutions,
+        config_model,
+        config_solver,
+        hidden_keys={"positions", "decimal_objective_function"},
+    )
     return solutions
 
 
@@ -60,7 +63,7 @@ def modeling_solving_optimal(constraints, objective_function, config_model, conf
 
 
 def modeling_solving_optimal_intobj(constraints, objective_function, config_model, config_solver):
-    print(f"[INFO] Search for the optimal solutions.")
+    log("[INFO] Search for the optimal solutions.", config_model, config_solver)
 
     optimal_search_strategy_sat = config_model.get("optimal_search_strategy_sat", "INCREASING FROM AT MOST 0") # Strategy for searching optimal SAT solutions. Options: "INCREASING FROM AT MOST X", "INCREASING FROM EXACTLY X", "DECREASING FROM AT MOST X", "DECREASING FROM EXACTLY X".
     try:
@@ -94,7 +97,7 @@ def modeling_solving_optimal_intobj(constraints, objective_function, config_mode
         raise ValueError(f"Invalid optimal_search_strategy_sat: {optimal_search_strategy_sat}.")
 
     while obj_val != end_obj_value:
-        print("[INFO] Current SAT objective value: ", obj_val)
+        log(f"[INFO] Current SAT objective value: {obj_val}", config_model, config_solver)
         if strategy == "AT MOST":
             obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_MOST", obj_val, obj_val_decimal=None)
         elif strategy == "EXACTLY":
@@ -107,7 +110,11 @@ def modeling_solving_optimal_intobj(constraints, objective_function, config_mode
             return current_solutions
         elif optimal_search_strategy_sat.startswith("DECREASING FROM") and not current_solutions:
             if solutions is None:
-                print(f"[INFO] No feasible solution found. Please set the strategy {optimal_search_strategy_sat} with an appropriate starting value.")
+                log(
+                    f"[INFO] No feasible solution found. Please set the strategy {optimal_search_strategy_sat} with an appropriate starting value.",
+                    config_model,
+                    config_solver,
+                )
                 return []
             return solutions
         elif optimal_search_strategy_sat.startswith("ADAPTIVE FROM"):
@@ -127,7 +134,7 @@ def modeling_solving_optimal_intobj(constraints, objective_function, config_mode
 
 
 def modeling_solving_optimal_decimalobj(constraints, objective_function, config_model, config_solver):
-    print(f"[INFO] Search for the optimal solutions with decimal objective function value.")
+    log("[INFO] Search for the optimal solutions with decimal objective function value.", config_model, config_solver)
 
     # Step 1: Find the optimal solution with integer objective function value
     solutions = modeling_solving_optimal_intobj(constraints, objective_function, config_model, config_solver)
@@ -138,7 +145,11 @@ def modeling_solving_optimal_decimalobj(constraints, objective_function, config_
     optimal_search_strategy_sat = config_model.get("optimal_search_strategy_sat", "INCREASING FROM AT MOST 0")
     max_obj_val = solutions[0]["obj_fun_value"] # The current objective function value is the upper bound
     int_obj_val = solutions[0]["integer_obj_fun_value"] # Start searching from the minimal integer objective function value
-    print(f"[INFO] True objective function value = {max_obj_val} with integer value = {int_obj_val}")
+    log(
+        f"[INFO] True objective function value = {max_obj_val} with integer value = {int_obj_val}",
+        config_model,
+        config_solver,
+    )
 
     if max_obj_val == int_obj_val:
         return solutions
@@ -151,7 +162,11 @@ def modeling_solving_optimal_decimalobj(constraints, objective_function, config_
     for (true_obj, obj_integer, obj_decimal) in obj_decimal_list:
         if true_obj >= max_obj_val:
             continue
-        print("[INFO] Trying decimal combination with true_obj =", true_obj, ", int_obj =", obj_integer, ", obj_decimal =", obj_decimal)
+        log(
+            f"[INFO] Trying decimal combination with true_obj = {true_obj}, int_obj = {obj_integer}, obj_decimal = {obj_decimal}",
+            config_model,
+            config_solver,
+        )
         if "AT MOST" in optimal_search_strategy_sat:
             obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_MOST", obj_integer, obj_val_decimal=obj_decimal)
         elif "EXACTLY" in optimal_search_strategy_sat:
@@ -168,7 +183,11 @@ def modeling_solving_optimal_decimalobj(constraints, objective_function, config_
 
 # ------------------------- AT MOST Search Strategy --------------------------
 def modeling_solving_at_most(constraints, objective_function, config_model, config_solver, at_most_value):
-    print(f"[INFO] Search for solutions with the objective function value <= {at_most_value}.")
+    log(
+        f"[INFO] Search for solutions with the objective function value <= {at_most_value}.",
+        config_model,
+        config_solver,
+    )
 
     # Search for solutions with integer objective function values <= int(at_most_value)
     obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_MOST", int(at_most_value), obj_val_decimal=None)
@@ -180,7 +199,7 @@ def modeling_solving_at_most(constraints, objective_function, config_model, conf
             try:
                 true_obj = sol.get("obj_fun_value")
             except KeyError:
-                print("[WARNING] Solution does not contain 'obj_fun_value'. Skipping.")
+                log("[WARNING] Solution does not contain 'obj_fun_value'. Skipping.", config_model, config_solver)
             if true_obj <= at_most_value:
                 return [sol]
         # If no solution meets the true objective value <= atmost_value, further search
@@ -194,7 +213,11 @@ def modeling_solving_at_most(constraints, objective_function, config_model, conf
             for (true_obj, obj_integer, obj_decimal) in reversed(obj_decimal_list):
                 if obj_integer > int_obj_val:
                     continue
-                print("[INFO] Trying decimal combination with true_obj =", true_obj, ", int_obj =", obj_integer, ", obj_decimal =", obj_decimal)
+                log(
+                    f"[INFO] Trying decimal combination with true_obj = {true_obj}, int_obj = {obj_integer}, obj_decimal = {obj_decimal}",
+                    config_model,
+                    config_solver,
+                )
                 obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_MOST", int_obj_val, obj_val_decimal=obj_decimal)
                 decimal_solutions = modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
                 if isinstance(decimal_solutions, list) and len(decimal_solutions) > 0: # Support searching only a subset of solutions in the multiple-solution setting. TO DO.
@@ -207,7 +230,11 @@ def modeling_solving_at_most(constraints, objective_function, config_model, conf
 
 # ------------------------- EXACTLY Search Strategy --------------------------
 def modeling_solving_exactly(constraints, objective_function, config_model, config_solver, exactly_value):
-    print(f"[INFO] Search for solutions with the objective function value = {exactly_value}")
+    log(
+        f"[INFO] Search for solutions with the objective function value = {exactly_value}",
+        config_model,
+        config_solver,
+    )
 
     decimal_objective_function = config_model.get("decimal_objective_function", False)
     if not decimal_objective_function:
@@ -222,7 +249,11 @@ def modeling_solving_exactly(constraints, objective_function, config_model, conf
     obj_decimal_list = model_objective.generate_obj_decimal_coms(Sbox, table, -1, exactly_value)
     for (true_obj, obj_integer, obj_decimal) in reversed(obj_decimal_list):
         if abs(true_obj - exactly_value) < EPS: # Allow a small tolerance for floating-point comparison
-            print("[INFO] Trying decimal combination with true_obj =", true_obj, ", int_obj =", obj_integer, ", obj_decimal =", obj_decimal)
+            log(
+                f"[INFO] Trying decimal combination with true_obj = {true_obj}, int_obj = {obj_integer}, obj_decimal = {obj_decimal}",
+                config_model,
+                config_solver,
+            )
             obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_EXACTLY", obj_integer, obj_val_decimal=obj_decimal)
             solutions = modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
             if isinstance(solutions, list) and len(solutions) > 0:
@@ -232,7 +263,11 @@ def modeling_solving_exactly(constraints, objective_function, config_model, conf
 
 # ------------------------- AT LEAST Search Strategy -------------------------
 def modeling_solving_at_least(constraints, objective_function, config_model, config_solver, at_least_value):
-    print(f"[INFO] Search for solutions with objective function value >= {at_least_value}")
+    log(
+        f"[INFO] Search for solutions with objective function value >= {at_least_value}",
+        config_model,
+        config_solver,
+    )
 
     # Search for solutions with integer objective function values >= int(at_least_value)
     obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_LEAST", int(at_least_value), obj_val_decimal=None)
@@ -245,7 +280,7 @@ def modeling_solving_at_least(constraints, objective_function, config_model, con
                 true_obj = sol.get("obj_fun_value")
                 if true_obj >= at_least_value:
                     return [sol]
-        print(f"[INFO] No solution found. Need to search further.") # TO DO
+        log("[INFO] No solution found. Need to search further.", config_model, config_solver) # TO DO
         return []
     return solutions
 
@@ -273,7 +308,7 @@ def gen_sat_constraints_from_objective_target(objective_function, config_model, 
         obj_fun_vars = model_objective.gen_obj_fun_variables(objective_function, obj_fun_decimal=False)
 
     if "matsui_constraint" in config_model and obj_val > 0: # Add Matsui constraints
-        print(f"[INFO] Applying Matsui constraints for SAT modeling.")
+        log("[INFO] Applying Matsui constraints for SAT modeling.", config_model)
         assert cons_type == "SUM_AT_MOST", "Matsui constraints only support 'AT MOST' objective target."
         Round = config_model.get("matsui_constraint").get("Round")
         best_obj = config_model.get("matsui_constraint").get("best_obj")
@@ -284,7 +319,10 @@ def gen_sat_constraints_from_objective_target(objective_function, config_model, 
         if obj_val >= best_obj[-1]:
             constraints += model_constraints.gen_matsui_constraints_sat(Round, best_obj, obj_val, obj_fun_vars, GroupConstraintChoice, GroupNumForChoice)
         else:
-            print(f"[WARNING] Skipping Matsui constraints since obj_val = {obj_val} < best_obj[-1] = {best_obj[-1]}.")
+            log(
+                f"[WARNING] Skipping Matsui constraints since obj_val = {obj_val} < best_obj[-1] = {best_obj[-1]}.",
+                config_model,
+            )
             hw_list = [obj for row in obj_fun_vars for obj in row]
             constraints += model_constraints.gen_predefined_constraints("sat", cons_type, hw_list, obj_val, encoding=encoding)
     else: # Add constraints for integer objective function values
@@ -294,7 +332,7 @@ def gen_sat_constraints_from_objective_target(objective_function, config_model, 
 
 # Core function for modeling and solving SAT.
 def modeling_solving(constraints, objective_function, config_model, config_solver):
-    print(f"[INFO] Modeling and solving SAT.")
+    log("[INFO] Modeling and solving SAT.", config_model, config_solver)
     model = write_sat_model(constraints=constraints, filename=config_model.get("filename"))
     solutions = solving.solve_sat(config_model.get("filename"), model["variable_map"], config_solver)
 
@@ -324,7 +362,8 @@ def create_numerical_cnf(cnf): # Convert a given CNF formula into numerical CNF 
         numerical_cnf.append(numerical_clause)
     return len(variables), variable2number, numerical_cnf
 
-def write_sat_model(constraints=[], filename="sat.cnf"): # Generate and write the SAT model.
+def write_sat_model(constraints=None, filename="sat.cnf"): # Generate and write the SAT model.
+    constraints = constraints or []
     dir_path = os.path.dirname(filename)
     if dir_path:
         os.makedirs(dir_path, exist_ok=True)

@@ -1,0 +1,97 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ocp-cryptanalysis"
+version = "0.1.0"
+description = "Open Cryptanalysis Platform with an agentic workflow layer"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Open-CP contributors" },
+  { name = "OCP Agent contributors" },
+]
+keywords = [
+  "cryptanalysis",
+  "symmetric cryptography",
+  "MILP",
+  "SAT",
+  "agent",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Security :: Cryptography",
+]
+dependencies = [
+  "numpy",
+  "matplotlib",
+  "kiwisolver",
+]
+
+[project.optional-dependencies]
+agent = [
+  "openai",
+  "anthropic",
+  "google-genai",
+  "ollama",
+  "flask",
+  "PyMuPDF",
+  "pdfplumber",
+]
+solvers = [
+  "gurobipy",
+  "python-sat",
+  "ortools",
+  "pyscipopt",
+  "pyeda",
+  "pycddlib",
+  "psutil",
+]
+test = [
+  "pytest",
+]
+dev = [
+  "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/YueLiao/OCP"
+Upstream = "https://github.com/Open-CP/OCP"
+Documentation = "https://github.com/YueLiao/OCP/tree/main/docs/wiki"
+
+[project.scripts]
+ocp-agent = "run_agent:main"
+
+[tool.setuptools]
+py-modules = ["OCP", "run_agent"]
+
+[tool.setuptools.packages.find]
+include = [
+  "agent*",
+  "attacks*",
+  "implementations*",
+  "operators*",
+  "primitives*",
+  "solving*",
+  "tools*",
+  "variables*",
+  "visualisations*",
+  "web*",
+]
+namespaces = true
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+addopts = "-ra"
+markers = [
+  "legacy_script: script-style tests kept for manual experimentation",
+  "solver: tests that require external MILP/SAT solver backends",
+  "implementation: generated implementation tests that may compile or execute generated files",
+  "slow: long-running cryptanalysis or exhaustive model tests",
+]

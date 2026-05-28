@@ -6,8 +6,8 @@ try:
     import cdd
     backend_version = getattr(cdd, "__version__", "unknown")
 except Exception:
+    cdd = None
     backend_version = "unknown"
-    print("[WARNING] Failed to import cdd. Please check whether pycddlib is installed correctly. Install it by 'pip install pycddlib', refer to https://pypi.org/project/pycddlib/")
 
 
 def cdd_ineq_to_coeff_rhs(ineq): # Convert a cddlib-style inequality of the form: [b, a1, a2, ..., an] to the coefficients [a1, a2, ..., an, -b], which represents 'a1*x1 + ... + an*xn >= -b'
@@ -80,6 +80,11 @@ def extract_equalities_indices(poly): # Parse the H-representation text of the p
 
 
 def ttb_to_ineq_convex_hull(ttable, variables): # Convert a truth table to CNF or MILP constraints using the convex hull method via pycddlib.
+    if cdd is None:
+        raise ImportError(
+            "pycddlib is required for convex-hull constraint generation. "
+            "Install it with: pip install pycddlib"
+        )
     num_vars = len(variables)
     all_points = [list(map(int, bin(i)[2:].zfill(num_vars))) for i in range(2 ** num_vars)]
     possible_points = [pt for i, pt in enumerate(all_points) if ttable[i] == '1']

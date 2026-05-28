@@ -3,6 +3,7 @@ import copy
 
 import tools.model_constraints as model_constraints
 import tools.model_objective as model_objective
+from tools.search_reporting import log_search_summary
 import solving.solving as solving
 
 
@@ -122,9 +123,11 @@ def modeling_solving_milp(objective_target, constraints, objective_function, con
         if "obj_fun_value" not in sol or sol["obj_fun_value"] == 0: sol["obj_fun_value"] = sum(sol["rounds_obj_fun_values"])
 
     # Step 5. Print modeling and solving information.
-    print("====== Modeling and Solving MILP Information ======")
-    print(f"--- Found {len(solutions)} solution(s) ---")
-    for key, value in {**config_model, **config_solver}.items():
-        if key not in ["positions"]:
-            print(f"--- {key} ---: {value}")
+    log_search_summary(
+        "Modeling and Solving MILP Information",
+        solutions,
+        config_model,
+        config_solver,
+        hidden_keys={"positions"},
+    )
     return solutions

@@ -16,52 +16,41 @@ from kiwisolver import Variable
 import implementations.implementations as imp
 import visualisations.visualisations as vis
 import attacks.attacks as attacks
+from tools.paths import get_files_dir
 
-FILES_DIR = Path("files")
-FILES_DIR.mkdir(parents=True, exist_ok=True)
+FILES_DIR = get_files_dir()
 
 # ********************* IMPLEMENTATIONS ********************* #
-def test_python_imp(cipher): # Generate Python implementation and test it with the test vectors
-    imp.generate_implementation(cipher, FILES_DIR / f"{cipher.name}.py", "python")
-    if cipher.test_vectors==[]:
+def _test_generated_implementation(cipher, language, extension, tester, unroll=False):
+    suffix = "_unrolled" if unroll else ""
+    output_path = FILES_DIR / f"{cipher.name}{suffix}.{extension}"
+    imp.generate_implementation(cipher, output_path, language, unroll)
+    if cipher.test_vectors == []:
         print("warning: no test vector defined!")
         return False
-    for tv in cipher.test_vectors: imp.test_implementation_python(cipher, cipher.name, tv[0], tv[1])
+    implementation_name = cipher.name + suffix
+    for tv in cipher.test_vectors:
+        tester(cipher, implementation_name, tv[0], tv[1])
+    return True
+
+
+def test_python_imp(cipher): # Generate Python implementation and test it with the test vectors
+    return _test_generated_implementation(cipher, "python", "py", imp.test_implementation_python)
 
 def test_python_unrolled_imp(cipher): # Generate unrolled Python implementation and test it with the test vectors
-    imp.generate_implementation(cipher, FILES_DIR / f"{cipher.name}_unrolled.py", "python", True)
-    if cipher.test_vectors==[]:
-        print("warning: no test vector defined!")
-        return False
-    for tv in cipher.test_vectors: imp.test_implementation_python(cipher, cipher.name + "_unrolled", tv[0], tv[1])
+    return _test_generated_implementation(cipher, "python", "py", imp.test_implementation_python, unroll=True)
 
 def test_c_imp(cipher): # Generate C implementation and test it with the test vectors
-    imp.generate_implementation(cipher, FILES_DIR / f"{cipher.name}.c", "c")
-    if cipher.test_vectors==[]:
-        print("warning: no test vector defined!")
-        return False
-    for tv in cipher.test_vectors: imp.test_implementation_c(cipher, cipher.name, tv[0], tv[1])
+    return _test_generated_implementation(cipher, "c", "c", imp.test_implementation_c)
 
 def test_c_unrolled_imp(cipher): # Generate unrolled C implementation and test it with the test vectors
-    imp.generate_implementation(cipher, FILES_DIR / f"{cipher.name}_unrolled.c", "c", True)
-    if cipher.test_vectors==[]:
-        print("warning: no test vector defined!")
-        return False
-    for tv in cipher.test_vectors: imp.test_implementation_c(cipher, cipher.name + "_unrolled", tv[0], tv[1])
+    return _test_generated_implementation(cipher, "c", "c", imp.test_implementation_c, unroll=True)
 
 def test_verilog_imp(cipher): # Generate Verilog implementation and test it with the test vectors
-    imp.generate_implementation(cipher, FILES_DIR / f"{cipher.name}.sv", "verilog")
-    if cipher.test_vectors==[]:
-        print("warning: no test vector defined!")
-        return False
-    for tv in cipher.test_vectors: imp.test_implementation_verilog(cipher, cipher.name, tv[0], tv[1])
+    return _test_generated_implementation(cipher, "verilog", "sv", imp.test_implementation_verilog)
 
 def test_verilog_unrolled_imp(cipher): # Generate unrolled Verilog implementation and test it with the test vectors
-    imp.generate_implementation(cipher, FILES_DIR / f"{cipher.name}_unrolled.sv", "verilog", True)
-    if cipher.test_vectors==[]:
-        print("warning: no test vector defined!")
-        return False
-    for tv in cipher.test_vectors: imp.test_implementation_verilog(cipher, cipher.name + "_unrolled", tv[0], tv[1])
+    return _test_generated_implementation(cipher, "verilog", "sv", imp.test_implementation_verilog, unroll=True)
 
 def test_all_implementations(cipher): # Generate all implementations
     #test_python_imp(cipher)

@@ -1,24 +1,31 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import json
+from tools.paths import get_files_dir
 
-ROOT = Path(__file__).resolve().parents[1] # this file -> attacks -> <ROOT>
-FILES_DIR = ROOT / "files"
-FILES_DIR.mkdir(parents=True, exist_ok=True)
+FILES_DIR = get_files_dir()
 
 
-def bin_to_hex(bits): # Format bits as hex (with "-" for unknown nibbles).
+def _emit_warning(message, warn=True):
+    if warn:
+        print(message)
+
+
+def bin_to_hex(bits, warn=True): # Format bits as hex (with "-" for unknown nibbles).
     if len(bits) % 4 != 0:
         pad = 4 - len(bits) % 4
         bits += "0" * pad  # Pad with zeros to make length a multiple of 4
-        print(f"[WARNING] Padded {pad} trailing '0'(s) to align to 4-bit nibbles for hex formatting.")
+        _emit_warning(f"[WARNING] Padded {pad} trailing '0'(s) to align to 4-bit nibbles for hex formatting.", warn=warn)
     hex_digits = []
     # Convert each 4-bit group to hex, but keep "-" when any bit is unknown.
     for i in range(0, len(bits), 4):
         chunk = bits[i:i + 4]
         if "-" in chunk:
             if chunk != "----":
-                print(f"[WARNING] Nibble '{chunk}' contains mixed unknown bits; using '-' as a lossy representation.")
+                _emit_warning(
+                    f"[WARNING] Nibble '{chunk}' contains mixed unknown bits; using '-' as a lossy representation.",
+                    warn=warn,
+                )
             hex_digits.append("-")
         else:
             hex_digits.append(hex(int(chunk, 2))[2:])
@@ -101,8 +108,8 @@ class Trail(AttackTrace):
         with open(self.json_filename, "w") as f:
             json.dump(trail_dict, f, ensure_ascii=False, indent='\t')
 
-    def save_txt(self, show_mode=2, hex_format=True):
-        lines = self.print_trail(show_mode, hex_format=hex_format)
+    def save_txt(self, show_mode=2, hex_format=True, emit_print=True):
+        lines = self.print_trail(show_mode, hex_format=hex_format, emit_print=emit_print)
         with open(self.txt_filename, "w") as f:
             f.write(lines)
         return lines
@@ -114,7 +121,7 @@ class Trail(AttackTrace):
         raise NotImplementedError("PDF export is not implemented yet.")
 
     @abstractmethod
-    def print_trail(self, show_mode, hex_format=True):
+    def print_trail(self, show_mode, hex_format=True, emit_print=True):
         """
         Print the trail in a human-readable format.
 
@@ -204,7 +211,7 @@ class Trail(AttackTrace):
             lines += "######## Input: ########\n"
             for name, node_list in trail_struct["inputs"].items():
                 state = "".join(node["bin_values"] for node in node_list)
-                lines += f"{name}: " + (bin_to_hex(state) if hex_format else state) + "\n"
+                lines += f"{name}: " + (bin_to_hex(state, warn=emit_print) if hex_format else state) + "\n"
 
         # Print functions
         for fun, fun_struct in trail_struct["functions"].items():
@@ -229,11 +236,11 @@ class Trail(AttackTrace):
                     layer_nodes = fun_struct[r][l]
 
                     state = "".join(layer_nodes[i]["bin_values"] for i in range(nbr_words))
-                    lines += bin_to_hex(state) if hex_format else state
+                    lines += bin_to_hex(state, warn=emit_print) if hex_format else state
 
                     if show_mode == 3 and nbr_temp_words > 0:
                         temp_state = "".join(layer_nodes[nbr_words + i]["bin_values"] for i in range(nbr_temp_words))
-                        lines += bin_to_hex(temp_state) if hex_format else temp_state
+                        lines += bin_to_hex(temp_state, warn=emit_print) if hex_format else temp_state
                     lines += "\n"
 
         # Print outputs
@@ -241,7 +248,7 @@ class Trail(AttackTrace):
             lines += "######## Output: ########\n"
             for name, node_list in trail_struct["outputs"].items():
                 state = "".join(node["bin_values"] for node in node_list)
-                lines += f"{name}: " + (bin_to_hex(state) if hex_format else state) + "\n"
+                lines += f"{name}: " + (bin_to_hex(state, warn=emit_print) if hex_format else state) + "\n"
 
         return lines
 
@@ -258,14 +265,15 @@ class DifferentialTrail(Trail):
         super().__init__("differential", data, solution_trace=solution_trace)
 
 
-    def print_trail(self, show_mode=2, hex_format=True):
-        lines = super().print_trail(show_mode, hex_format=hex_format)
+    def print_trail(self, show_mode=2, hex_format=True, emit_print=True):
+        lines = super().print_trail(show_mode, hex_format=hex_format, emit_print=emit_print)
 
         if "diff_weight" in self.data and self.data["diff_weight"] is not None:
             lines += f"\nTotal Weight: {self.data['diff_weight']}\n"
         if "rounds_diff_weight" in self.data and self.data["rounds_diff_weight"] is not None:
             lines += f"rounds_diff_weight: {self.data['rounds_diff_weight']}\n"
-        print(lines)
+        if emit_print:
+            print(lines)
         return lines
 
 
@@ -281,12 +289,13 @@ class LinearTrail(Trail):
         super().__init__("linear", data, solution_trace=solution_trace)
 
 
-    def print_trail(self, show_mode=2, hex_format=True):
-        lines = super().print_trail(show_mode, hex_format=hex_format)
+    def print_trail(self, show_mode=2, hex_format=True, emit_print=True):
+        lines = super().print_trail(show_mode, hex_format=hex_format, emit_print=emit_print)
 
         if "linear_weight" in self.data and self.data["linear_weight"] is not None:
             lines += f"\nTotal Weight: {self.data['linear_weight']}\n"
         if "rounds_linear_weight" in self.data and self.data["rounds_linear_weight"] is not None:
             lines += f"rounds_linear_weight: {self.data['rounds_linear_weight']}\n"
-        print(lines)
+        if emit_print:
+            print(lines)
         return lines

@@ -1,12 +1,17 @@
 import math
 import os
-from pathlib import Path
 from operators.operators import Operator, RaiseExceptionVersionNotExisting
 from tools.model_constraints import generate_and_save_constraints, gen_constraints_obj_func_from_template
+from tools.paths import get_files_dir
 
-ROOT = Path(__file__).resolve().parents[1]  # this file -> operators -> <ROOT>
-BASE_PATH = ROOT / "files/sbox_modeling"
-BASE_PATH.mkdir(parents=True, exist_ok=True)
+BASE_PATH = get_files_dir("sbox_modeling")
+
+
+def _truth_table(total_bits, predicate):
+    """Build a compact truth-table string from a boolean predicate."""
+
+    return "".join("1" if predicate(n) else "0" for n in range(1 << total_bits))
+
 
 class Sbox(Operator):  # Generic operator assigning a Sbox relationship between the input variable and output variable (must be of same bitsize)
     def __init__(self, input_vars, output_vars, input_bitsize, output_bitsize, ID = None):
@@ -19,24 +24,32 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
         self.lat = None
 
     def computeDDT(self): # Compute the differential Distribution Table (DDT) of the Sbox
-        if self.ddt is not None: return self.ddt
-        ddt = [[0]*(2**self.output_bitsize) for _ in range(2**self.input_bitsize)]
-        for in_diff in range(2**self.input_bitsize):
-            for j in range(2**self.input_bitsize):
-                out_diff = self.table[j] ^ self.table[j^in_diff]
+        if self.ddt is not None:
+            return self.ddt
+        input_size = 1 << self.input_bitsize
+        output_size = 1 << self.output_bitsize
+        table = self.table
+        ddt = [[0] * output_size for _ in range(input_size)]
+        for in_diff in range(input_size):
+            for x in range(input_size):
+                out_diff = table[x] ^ table[x ^ in_diff]
                 ddt[in_diff][out_diff] += 1
         self.ddt = ddt
         return ddt
 
     def computeLAT(self): # Compute the Linear Approximation Table (LAT) of the S-box.
-        if self.lat is not None: return self.lat
-        lat = [[0] * 2**self.output_bitsize for _ in range(2**self.input_bitsize)]
-        for a in range(2**self.input_bitsize):
-            for b in range(2**self.output_bitsize):
+        if self.lat is not None:
+            return self.lat
+        input_size = 1 << self.input_bitsize
+        output_size = 1 << self.output_bitsize
+        table = self.table
+        lat = [[0] * output_size for _ in range(input_size)]
+        for a in range(input_size):
+            for b in range(output_size):
                 acc = 0
-                for x in range(2**self.input_bitsize):
-                    ax = bin(a & x).count("1") & 1
-                    bs = bin(b & self.table[x]).count("1") & 1
+                for x in range(input_size):
+                    ax = (a & x).bit_count() & 1
+                    bs = (b & table[x]).bit_count() & 1
                     acc += 1 if (ax ^ bs) == 0 else -1
                 lat[a][b] = acc
         self.lat = lat
@@ -49,8 +62,9 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                 if a != b:
                     x = a ^ b
                     y = self.table[a] ^ self.table[b]
-                    w = bin(x).count('1') + bin(y).count('1')
-                    if w < ret: ret = w
+                    w = x.bit_count() + y.bit_count()
+                    if w < ret:
+                        ret = w
         return ret
 
     def linear_branch_number(self):
@@ -60,7 +74,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
         for a in range(1 << m):
             for b in range(1, 1 << n):
                 if lat[a][b] != 0:
-                    w = bin(a).count("1") + bin(b).count("1")
+                    w = a.bit_count() + b.bit_count()
                     if w < ret:
                         ret = w
         return ret
@@ -71,116 +85,126 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
     # ---------------- Truth Table Generation ---------------- #
     def star_ddt_to_truthtable(self): # Convert star-DDT into a truthtable, which encode the differential propagations without probalities
         ddt = self.computeDDT()
-        ttable = ''
-        for n in range(2**(self.input_bitsize+self.output_bitsize)):
+        output_mask = (1 << self.output_bitsize) - 1
+
+        def is_possible(n):
             dx = n >> self.output_bitsize
-            dy = n & ((1 << self.output_bitsize) - 1)
-            if ddt[dx][dy] > 0: ttable += '1'
-            else: ttable += '0'
-        return ttable
+            dy = n & output_mask
+            return ddt[dx][dy] > 0
+
+        return _truth_table(self.input_bitsize + self.output_bitsize, is_possible)
 
     def pddt_to_truthtable(self, p): # Convert p-DDT into a truthtable, which encode the differential propagations with the item in ddt equal to p.
         ddt = self.computeDDT()
-        ttable = ''
-        for n in range(2**(self.input_bitsize+self.output_bitsize)):
+        output_mask = (1 << self.output_bitsize) - 1
+
+        def has_probability_count(n):
             dx = n >> self.output_bitsize
-            dy = n & ((1 << self.output_bitsize) - 1)
-            if ddt[dx][dy] == p: ttable += '1'
-            else: ttable += '0'
-        return ttable
+            dy = n & output_mask
+            return ddt[dx][dy] == p
+
+        return _truth_table(self.input_bitsize + self.output_bitsize, has_probability_count)
 
     def ddt_to_truthtable_milp(self): # Convert the DDT into a truthtable, which encode the differential propagations with probalities.
         ddt = self.computeDDT()
-        ttable = ''
         diff_weights = self.gen_weights(ddt)
         len_diff_weights = len(diff_weights)
-        for n in range(2**(self.input_bitsize+self.output_bitsize+len_diff_weights)):
+        output_mask = (1 << self.output_bitsize) - 1
+        weight_mask = (1 << len_diff_weights) - 1
+
+        def is_weighted_transition(n):
             dx = n >> (self.output_bitsize + len_diff_weights)
-            dy = (n >> len_diff_weights) & ((1 << self.output_bitsize) - 1)
+            dy = (n >> len_diff_weights) & output_mask
             if ddt[dx][dy] > 0:
-                p = bin(n & ((1 << (len_diff_weights)) - 1))[2:].zfill(len_diff_weights)
-                w = 0
-                for i in range(len_diff_weights):
-                    w += diff_weights[i] * int(p[i])
-                if abs(float(math.log(ddt[dx][dy]/(2**self.input_bitsize), 2))) == w: ttable += '1'
-                else: ttable += '0'
-            else: ttable += '0'
-        return ttable
+                p = bin(n & weight_mask)[2:].zfill(len_diff_weights)
+                w = sum(diff_weights[i] * int(p[i]) for i in range(len_diff_weights))
+                return abs(float(math.log(ddt[dx][dy] / (1 << self.input_bitsize), 2))) == w
+            return False
+
+        return _truth_table(self.input_bitsize + self.output_bitsize + len_diff_weights, is_weighted_transition)
 
     def ddt_to_truthtable_sat(self): # Convert the DDT, which encode the differential propagations with probalities into a truthtable in sat.
         ddt = self.computeDDT()
-        ttable = ''
         integers_weight, floats_weight = self.gen_integer_float_weight(ddt)
         len_diff_weights = int(max(integers_weight)+len(floats_weight))
-        for n in range(2**(self.input_bitsize+self.output_bitsize+len_diff_weights)):
+        output_mask = (1 << self.output_bitsize) - 1
+        weight_mask = (1 << len_diff_weights) - 1
+
+        def is_weighted_transition(n):
             dx = n >> (self.output_bitsize + len_diff_weights)
-            dy = (n >> len_diff_weights) & ((1 << self.output_bitsize) - 1)
+            dy = (n >> len_diff_weights) & output_mask
             if ddt[dx][dy] > 0:
-                p = tuple(int(x) for x in bin(n & ((1 << len_diff_weights) - 1))[2:].zfill(len_diff_weights))
-                w = abs(float(math.log(ddt[dx][dy]/(2**self.input_bitsize), 2)))
+                p = tuple(int(x) for x in bin(n & weight_mask)[2:].zfill(len_diff_weights))
+                w = abs(float(math.log(ddt[dx][dy] / (1 << self.input_bitsize), 2)))
                 pattern = self.gen_weight_pattern_sat(integers_weight, floats_weight, w)
-                if p == tuple(pattern):  ttable += '1'
-                else: ttable += '0'
-            else: ttable += '0'
-        return ttable
+                return p == tuple(pattern)
+            return False
+
+        return _truth_table(self.input_bitsize + self.output_bitsize + len_diff_weights, is_weighted_transition)
 
     def star_lat_to_truthtable(self): # Convert star-LAT into a truthtable, which encode the linear mask propagations without correlations.
         lat = self.computeLAT()
-        ttable = ''
-        for n in range(2**(self.input_bitsize+self.output_bitsize)):
+        output_mask = (1 << self.output_bitsize) - 1
+
+        def is_possible(n):
             lx = n >> self.output_bitsize
-            ly = n & ((1 << self.output_bitsize) - 1)
-            if lat[lx][ly] != 0: ttable += '1'
-            else: ttable += '0'
-        return ttable
+            ly = n & output_mask
+            return lat[lx][ly] != 0
+
+        return _truth_table(self.input_bitsize + self.output_bitsize, is_possible)
 
     def plat_to_truthtable(self, p): # Convert p-LAT into a truthtable, which encode the linear mask propagations with the item in lat equal to p.
         lat = self.computeLAT()
-        ttable = ''
-        for n in range(2**(self.input_bitsize+self.output_bitsize)):
+        output_mask = (1 << self.output_bitsize) - 1
+
+        def has_correlation_count(n):
             lx = n >> self.output_bitsize
-            ly = n & ((1 << self.output_bitsize) - 1)
-            if lat[lx][ly] == p or lat[lx][ly] == -p: ttable += '1'
-            else: ttable += '0'
-        return ttable
+            ly = n & output_mask
+            return lat[lx][ly] == p or lat[lx][ly] == -p
+
+        return _truth_table(self.input_bitsize + self.output_bitsize, has_correlation_count)
 
     def lat_to_truthtable_milp(self): # Convert the LAT into a truthtable, which encode the linear mask propagations with correlations.
         lat = self.computeLAT()
-        ttable = ''
         linear_weights = self.gen_weights(lat)
         len_linear_weights = len(linear_weights)
-        for n in range(2**(self.input_bitsize+self.output_bitsize+len_linear_weights)):
+        output_mask = (1 << self.output_bitsize) - 1
+        weight_mask = (1 << len_linear_weights) - 1
+
+        def is_weighted_transition(n):
             lx = n >> (self.output_bitsize + len_linear_weights)
-            ly = (n >> len_linear_weights) & ((1 << self.output_bitsize) - 1)
+            ly = (n >> len_linear_weights) & output_mask
             if lat[lx][ly] != 0:
-                p = bin(n & ((1 << (len_linear_weights)) - 1))[2:].zfill(len_linear_weights)
-                w = 0
-                for i in range(len_linear_weights):
-                    w += linear_weights[i] * int(p[i])
-                if abs(float(math.log(abs(lat[lx][ly])/(2**self.input_bitsize), 2))) == w: ttable += '1'
-                else: ttable += '0'
-            else: ttable += '0'
-        return ttable
+                p = bin(n & weight_mask)[2:].zfill(len_linear_weights)
+                w = sum(linear_weights[i] * int(p[i]) for i in range(len_linear_weights))
+                return abs(float(math.log(abs(lat[lx][ly]) / (1 << self.input_bitsize), 2))) == w
+            return False
+
+        return _truth_table(self.input_bitsize + self.output_bitsize + len_linear_weights, is_weighted_transition)
 
     def lat_to_truthtable_sat(self): # Convert the LAT, which encode the linear mask propagations with correlations into a truthtable in sat.
         lat = self.computeLAT()
-        ttable = ''
         integers_weight, floats_weight = self.gen_integer_float_weight(lat)
         len_linear_weights = int(max(integers_weight)+len(floats_weight))
-        for n in range(2**(self.input_bitsize+self.output_bitsize+len_linear_weights)):
+        output_mask = (1 << self.output_bitsize) - 1
+        weight_mask = (1 << len_linear_weights) - 1
+
+        def is_weighted_transition(n):
             lx = n >> (self.output_bitsize + len_linear_weights)
-            ly = (n >> len_linear_weights) & ((1 << self.output_bitsize) - 1)
+            ly = (n >> len_linear_weights) & output_mask
             if lat[lx][ly] != 0:
-                p = tuple(int(x) for x in bin(n & ((1 << len_linear_weights) - 1))[2:].zfill(len_linear_weights))
-                w = abs(float(math.log(abs(lat[lx][ly])/(2**self.input_bitsize), 2)))
+                p = tuple(int(x) for x in bin(n & weight_mask)[2:].zfill(len_linear_weights))
+                w = abs(float(math.log(abs(lat[lx][ly]) / (1 << self.input_bitsize), 2)))
                 pattern = self.gen_weight_pattern_sat(integers_weight, floats_weight, w)
-                if p == tuple(pattern):  ttable += '1'
-                else: ttable += '0'
-            else: ttable += '0'
-        return ttable
+                return p == tuple(pattern)
+            return False
+
+        return _truth_table(self.input_bitsize + self.output_bitsize + len_linear_weights, is_weighted_transition)
 
     def gen_spectrum(self, table):
-        spectrum = sorted(list(set([abs(table[i][j]) for i in range(2**self.input_bitsize) for j in range(2**self.output_bitsize)]) - {0, 2**self.input_bitsize}))
+        spectrum = sorted(
+            set(abs(value) for row in table for value in row) - {0, 1 << self.input_bitsize}
+        )
         return spectrum
 
     def gen_weights(self, table):

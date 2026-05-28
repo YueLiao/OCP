@@ -31,6 +31,14 @@ cd /path/to/OCP
 export OPENAI_API_KEY="sk-xxx"
 python3 run_agent.py
 
+# DeepSeek (OpenAI-compatible API)
+export DEEPSEEK_API_KEY="sk-xxx"
+python3 run_agent.py --provider deepseek
+
+# Custom OpenAI-compatible endpoint
+export OPENAI_COMPATIBLE_API_KEY="your-key"
+python3 run_agent.py --provider openai-compatible --base-url http://localhost:8000/v1
+
 # Anthropic Claude
 export ANTHROPIC_API_KEY="sk-ant-xxx"
 python3 run_agent.py --provider anthropic
@@ -49,8 +57,8 @@ python3 run_agent.py --provider anthropic --model claude-sonnet-4-20250514
 python3 run_agent.py --provider gemini --model gemini-2.5-flash
 python3 run_agent.py --provider ollama --model llama3
 
-# Use a local/custom OpenAI-compatible endpoint
-python3 run_agent.py --base-url http://localhost:8000/v1
+# DeepSeek reasoning model
+python3 run_agent.py --provider deepseek --model deepseek-reasoner
 ```
 
 Once launched, you enter an interactive session:
@@ -141,13 +149,14 @@ You> Both differential and linear
 Assistant> Differential analysis complete... Linear analysis complete...
 ```
 
-### Example 4: Extract Cipher from a PDF Paper
+### Example 4: Parse Cipher from Text
 
 ```
-You> Analyze the cipher described in /path/to/paper.pdf
+You> Parse this Markdown/LaTeX cipher description:
+     x_0 \leftarrow (x_0 \ggg 7) \boxplus x_1
+     x_1 \leftarrow (x_1 \lll 2) \oplus x_0
 
-Assistant> Loaded PDF file: paper.pdf. Extracting cipher specification...
-           Extracted cipher "NewCipher": permutation, 128-bit, 4x32-bit words, 20 rounds.
+Assistant> Normalized the text and extracted candidate cipher facts...
            Building cipher... Built successfully.
            What analysis would you like to run?
 
@@ -161,7 +170,9 @@ You can also specify a section or page range:
 You> Extract the cipher from pages 3-5 of /path/to/paper.pdf, focus on the KATAN cipher
 ```
 
-Supported file formats: PDF (.pdf), images (.png, .jpg), plain text (.txt).
+Text input is the preferred path. PDF/image extraction remains experimental
+because visual recognition can miss mathematical details. Supported uploads:
+`.txt`, `.md`, `.tex`, `.rst`, PDF, and common image formats.
 
 ---
 
@@ -252,15 +263,23 @@ agent.define_custom_cipher(spec)
 agent.differential_analysis(model_type="milp")
 ```
 
-### Extract Cipher from a PDF Paper
+### Extract Cipher from Text or a File
 
 ```python
 from agent import OCPAgent
 from agent.llm.openai_provider import OpenAIProvider
+from agent.skills.cipher_text_input import CipherInput
 
 agent = OCPAgent(llm_provider=OpenAIProvider(api_key="sk-xxx"))
 
-# Extract cipher from a PDF and auto-build
+# Normalize direct text before sending it through an extraction workflow.
+cipher_input = CipherInput(
+    raw_text=r"x_0 \leftarrow (x_0 \ggg 7) \boxplus x_1",
+    format_hint="latex",
+)
+print(cipher_input.normalized_text)
+
+# PDF/image extraction is still available, but text input is preferred.
 agent.extract_cipher_from_file(
     "path/to/crypto_paper.pdf",
     focus="the new lightweight cipher in Section 3",
@@ -273,7 +292,8 @@ agent.differential_analysis(model_type="milp")
 agent.generate_code(language="python")
 ```
 
-Supported file formats: PDF (requires `pip install PyMuPDF`), images (PNG/JPG), plain text.
+Supported file formats: text/Markdown/LaTeX first; PDF requires `pip install PyMuPDF`;
+images require a vision-capable provider and should be treated as experimental.
 
 ---
 

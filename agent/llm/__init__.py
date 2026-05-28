@@ -1,11 +1,31 @@
 from agent.llm.provider import LLMProvider
 
-__all__ = ["LLMProvider", "OpenAIProvider", "AnthropicProvider", "GeminiProvider", "OllamaProvider"]
+__all__ = [
+    "LLMProvider",
+    "OpenAIProvider",
+    "OpenAICompatibleProvider",
+    "DeepSeekProvider",
+    "AnthropicProvider",
+    "GeminiProvider",
+    "OllamaProvider",
+]
 
 
 def OpenAIProvider(*args, **kwargs):
     """Lazy import to avoid requiring openai as a dependency."""
     from agent.llm.openai_provider import OpenAIProvider as _Cls
+    return _Cls(*args, **kwargs)
+
+
+def OpenAICompatibleProvider(*args, **kwargs):
+    """Lazy import to avoid requiring openai as a dependency."""
+    from agent.llm.openai_compatible_provider import OpenAICompatibleProvider as _Cls
+    return _Cls(*args, **kwargs)
+
+
+def DeepSeekProvider(*args, **kwargs):
+    """Lazy import to avoid requiring openai as a dependency."""
+    from agent.llm.openai_compatible_provider import DeepSeekProvider as _Cls
     return _Cls(*args, **kwargs)
 
 

@@ -4,8 +4,9 @@ from typing import Any, Dict
 from agent.types import SkillName, SkillRequest, SkillResult
 from agent.session import Session
 from agent.skills.base import BaseSkill
+from tools.paths import get_files_dir
 
-DEFAULT_OUTPUT_DIR = Path("files")
+DEFAULT_OUTPUT_DIR = get_files_dir(create=False)
 
 
 class CodeGenerationSkill(BaseSkill):

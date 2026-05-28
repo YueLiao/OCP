@@ -1,7 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-*.c
-*.lp
-*.pdf
-*.pyc
-files/*
+# Local environments
+.env
+.venv/
+venv/
+
+# OS/editor noise
 .DS_Store
+.idea/
+.vscode/
+
+# Runtime and generated outputs
+files/*.py
+files/*.c
+files/*.sv
+files/*.pdf
+files/*.json
+files/*.txt
+
+# Keep checked-in modeling templates under files/*_modeling tracked for now.
+# They are part of the current upstream history and should be removed only in a
+# dedicated cleanup commit if the project decides to regenerate them on demand.

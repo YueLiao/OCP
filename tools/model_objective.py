@@ -23,9 +23,11 @@ def detect_Sbox(cipher): # Detect and return the first Sbox operator in the ciph
 
 def has_Sbox_with_decimal_weights(cipher, goal):
     Sbox = detect_Sbox(cipher)
-    if Sbox and goal in {'DIFFERENTIALPATH_PROB', 'DIFFERENTIAL_PROB'}:
+    if Sbox and goal in {'DIFFERENTIALPATH_PROB', 'DIFFERENTIAL_PROB', 'LINEARPATH_CORR', 'LINEARHULL_CORR'}:
         if goal in {'DIFFERENTIALPATH_PROB', 'DIFFERENTIAL_PROB'}:
             table = Sbox.computeDDT()
+        else:
+            table = Sbox.computeLAT()
         weights = Sbox.gen_weights(table)
         return any(not float(w).is_integer() for w in weights)
     return False
@@ -78,6 +80,23 @@ def generate_obj_decimal_coms(Sbox, table, min_int_obj_value, max_obj_value): # 
 
 
 # ------------------ Objective Function Variable Processing -------------------
+def parse_objective_term(term):
+    """Parse an objective term into ``(coefficient, variable)``.
+
+    Supported examples: ``x``, ``2 x``, ``0.5000 p0`` and ``2x``.
+    Returns ``None`` for empty or unsupported terms.
+    """
+
+    term = term.strip()
+    if not term:
+        return None
+    match = re.match(r"^(\d*\.?\d*)\s*([A-Za-z_]\w*)$", term)
+    if not match:
+        return None
+    coefficient = float(match.group(1)) if match.group(1) != "" else 1.0
+    return coefficient, match.group(2)
+
+
 def gen_obj_fun_variables(obj_fun, obj_fun_decimal=False): # In the case of a decimal-weighted objective function, parse objective function variables and group them into separate components for SAT modeling
     obj_fun_var_int = []
     for obj_fun_r in obj_fun:
@@ -85,28 +104,27 @@ def gen_obj_fun_variables(obj_fun, obj_fun_decimal=False): # In the case of a de
         for obj in obj_fun_r:
             terms = [t.strip() for t in obj.split('+')]
             for term in terms:
-                parts = term.split()
-                if len(parts) == 1:
-                    obj_fun_var_r_int.append(parts[0])
-                elif len(parts) >= 2:
-                    coef, var = parts[0], parts[1]
-                    if float(coef).is_integer():
-                        obj_fun_var_r_int.append(var)
+                parsed = parse_objective_term(term)
+                if parsed is None:
+                    continue
+                coefficient, variable = parsed
+                if coefficient.is_integer():
+                    obj_fun_var_r_int.append(variable)
         obj_fun_var_int.append(obj_fun_var_r_int)
     if not obj_fun_decimal:
         return obj_fun_var_int
     else:
         decimal_vars = []
         for obj_fun_r in obj_fun:
-            if obj_fun_r:
-                terms = [t.strip() for t in obj_fun_r[0].split('+')]
-                break
-        for term in terms:
-            parts = term.split()
-            if len(parts) >= 2:
-                coef, var = parts[0], parts[1]
-                if not float(coef).is_integer():
-                    decimal_vars.append(coef)
+            for obj in obj_fun_r:
+                for term in (t.strip() for t in obj.split('+')):
+                    parsed = parse_objective_term(term)
+                    if parsed is None:
+                        continue
+                    coefficient, _ = parsed
+                    key = str(coefficient)
+                    if not coefficient.is_integer() and key not in decimal_vars:
+                        decimal_vars.append(key)
 
         obj_fun_var_dec = {k: [] for k in decimal_vars}
 
@@ -115,9 +133,13 @@ def gen_obj_fun_variables(obj_fun, obj_fun_decimal=False): # In the case of a de
             for obj in obj_fun_r:
                 terms = [t.strip() for t in obj.split('+')]
                 for term in terms:
-                    parts = term.split()
-                    if len(parts) >= 2 and (not float(parts[0]).is_integer()):
-                        obj_fun_var_r_dec[coef].append(parts[1])
+                    parsed = parse_objective_term(term)
+                    if parsed is None:
+                        continue
+                    coefficient, variable = parsed
+                    key = str(coefficient)
+                    if key in obj_fun_var_r_dec:
+                        obj_fun_var_r_dec[key].append(variable)
             for k in decimal_vars:
                 obj_fun_var_dec[k].append(obj_fun_var_r_dec[k])
         return obj_fun_var_int, [obj_fun_var_dec[k] for k in decimal_vars]
@@ -131,10 +153,9 @@ def cal_round_obj_fun_values_from_solution(obj_fun, solution): # Calculate the o
         for obj_fun_r_i in obj_fun_r:
             terms = [t.strip() for t in obj_fun_r_i.split('+')]
             for term in terms:
-                match = re.match(r'(\d*\.?\d*)\s*(\w+)', term.strip())
-                if match:
-                    coefficient = float(match.group(1)) if match.group(1) != '' else 1  # Default coefficient is 1 if not found
-                    variable = match.group(2)
+                parsed = parse_objective_term(term)
+                if parsed is not None:
+                    coefficient, variable = parsed
                     if variable in solution:
                         w += coefficient * solution[variable]
                 else:

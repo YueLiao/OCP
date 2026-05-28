@@ -154,6 +154,17 @@ CIPHER_CATALOG = {
 }
 
 
+def _format_instantiation_error(cipher_name: str, exc: Exception) -> str:
+    """Return an actionable error for common setup and import failures."""
+    if isinstance(exc, ModuleNotFoundError):
+        missing = exc.name or str(exc)
+        return (
+            f"Failed to instantiate {cipher_name}: missing Python module '{missing}'. "
+            "Install the base dependencies with: pip install -r requirements.txt"
+        )
+    return f"Failed to instantiate {cipher_name}: {exc}"
+
+
 class CipherInstantiationSkill(BaseSkill):
 
     @property
@@ -248,5 +259,5 @@ class CipherInstantiationSkill(BaseSkill):
             return SkillResult(
                 success=False,
                 skill=self.name,
-                error=f"Failed to instantiate {cipher_name}: {e}",
+                error=_format_instantiation_error(cipher_name, e),
             )

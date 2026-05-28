@@ -6,7 +6,6 @@ try:
     import psutil
     HAS_PSUTIL = True
 except ImportError:
-    print("[WARNING] psutil is not installed. To record runtime information such as CPU usage, used cores, threads, RAM, and platform information, please run: pip install psutil")
     HAS_PSUTIL = False
 
 

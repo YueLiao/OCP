@@ -13,7 +13,8 @@ try:
     vpool = IDPool(start_from=1000)
     pysat_import = True
 except ImportError:
-    print("[WARNING] pysat module can't be loaded")
+    CardEnc = None
+    vpool = None
     pysat_import = False
 
 
@@ -140,6 +141,45 @@ def gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model): 
 
 
 # -------------------- Predefined Constraint Generation --------------------
+def _expand_constraint_vars(cons_vars, bitwise=True):
+    cons_vars_name = []
+    for var in cons_vars:
+        if isinstance(var, str):
+            cons_vars_name.append(var)
+        elif bitwise and var.bitsize > 1:
+            cons_vars_name.extend(f"{var.ID}_{j}" for j in range(var.bitsize))
+        else:
+            cons_vars_name.append(var.ID)
+    return cons_vars_name
+
+
+def _readable_cardinality_clauses(cnf, reverse_map):
+    readable_clauses = []
+    for clause in cnf.clauses:
+        readable = " ".join(
+            f"-{reverse_map.get(abs(lit), f'dummy_{abs(lit)}')}"
+            if lit < 0
+            else reverse_map.get(abs(lit), f"dummy_{abs(lit)}")
+            for lit in clause
+        )
+        readable_clauses.append(readable)
+    return readable_clauses
+
+
+def _pysat_cardinality_constraints(cons_vars, cons_value, encoding, encoder, encoder_name):
+    if not encoding:
+        encoding = 1
+    variable_map = {name: idx + 1 for idx, name in enumerate(cons_vars)}
+    reverse_map = {v: k for k, v in variable_map.items()}
+    lits = [variable_map[name] for name in cons_vars]
+    try:
+        cnf = encoder(lits=lits, bound=cons_value, vpool=vpool, encoding=encoding)
+    except Exception:
+        print(f"[WARNING] Don't support encoding {encoding} in CardEnc.{encoder_name}. Passing...")
+        return []
+    return _readable_cardinality_clauses(cnf, reverse_map)
+
+
 def gen_predefined_constraints(model_type, cons_type, cons_vars, cons_value, bitwise=True, encoding=None):
     """
     Generate commonly used, predefined model constraints based on type and parameters.
@@ -161,15 +201,7 @@ def gen_predefined_constraints(model_type, cons_type, cons_vars, cons_value, bit
 
     """
     if cons_type in ["EXACTLY", "SUM_EXACTLY", "AT_LEAST", "SUM_AT_LEAST", "AT_MOST", "SUM_AT_MOST"]:
-        cons_vars_name = []
-        for var in cons_vars:
-            if isinstance(var, str):
-                cons_vars_name.append(var)
-            else:
-                if bitwise and var.bitsize > 1:
-                    cons_vars_name.extend([f"{var.ID}_{j}" for j in range(var.bitsize)])
-                else:
-                    cons_vars_name.append(var.ID)
+        cons_vars_name = _expand_constraint_vars(cons_vars, bitwise=bitwise)
         if cons_type == "EXACTLY":
             return gen_constraints_exactly(model_type, cons_vars_name, cons_value)
         elif cons_type == "SUM_EXACTLY":
@@ -203,19 +235,7 @@ def gen_constraints_sum_exactly(model_type, cons_vars, cons_value, encoding=1):
         if not encoding:
             encoding = 1  # Default to 1 if not specified
         assert encoding in [0,1,2,3,4,5,6,7,8,9], f"[ERROR] Invalid encoding = {encoding}, refer https://pysathq.github.io/docs/html/api/card.html"
-        variable_map = {name: idx + 1 for idx, name in enumerate(cons_vars)}
-        reverse_map = {v: k for k, v in variable_map.items()}
-        lits = [variable_map[name] for name in cons_vars]
-        try:
-            cnf = CardEnc.equals(lits=lits, bound=cons_value, vpool=vpool, encoding=encoding)
-        except Exception as e:
-            print(f"[WARNING] Don't support encoding {encoding} in CardEnc.equals. Passing...")
-            return []
-        readable_clauses = []
-        for clause in cnf.clauses:
-            readable = " ".join(f"-{reverse_map.get(abs(lit), f'dummy_{abs(lit)}')}" if lit < 0 else reverse_map.get(abs(lit), f'dummy_{abs(lit)}') for lit in clause)
-            readable_clauses.append(readable)
-        return readable_clauses
+        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, CardEnc.equals, "equals")
     else:
         raise ValueError(f"Unsupported model_type '{model_type}' for SUM_EXACTLY constraint.")
 
@@ -237,19 +257,7 @@ def gen_constraints_sum_at_most(model_type, cons_vars, cons_value, encoding="SEQ
     elif model_type == "sat" and pysat_import:
         if not isinstance(encoding, int):
             encoding = 1  # Default to 1 if the encoding is not specified as an integer
-        variable_map = {name: idx + 1 for idx, name in enumerate(cons_vars)}
-        reverse_map = {v: k for k, v in variable_map.items()}
-        lits = [variable_map[name] for name in cons_vars]
-        try:
-            cnf = CardEnc.atmost(lits=lits, bound=cons_value, vpool=vpool, encoding=encoding)
-        except Exception as e:
-            print(f"[WARNING] Don't support encoding {encoding} in CardEnc.atmost. Passing...")
-            return []
-        readable_clauses = []
-        for clause in cnf.clauses:
-            readable = " ".join(f"-{reverse_map.get(abs(lit), f'dummy_{abs(lit)}')}" if lit < 0 else reverse_map.get(abs(lit), f'dummy_{abs(lit)}') for lit in clause)
-            readable_clauses.append(readable)
-        return readable_clauses
+        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, CardEnc.atmost, "atmost")
     else:
         raise ValueError(f"Unsupported model_type '{model_type}' for SUM_AT_MOST constraint.")
 
@@ -269,21 +277,7 @@ def gen_constraints_sum_at_least(model_type, cons_vars, cons_value, encoding=1):
     elif model_type == "sat" and cons_value == 1:
         return [' '.join(f"{cons_vars[i]}" for i in range(len(cons_vars)))]
     elif model_type == "sat" and pysat_import:
-        if not encoding:
-            encoding = 1  # Default to 1 if not specified
-        variable_map = {name: idx + 1 for idx, name in enumerate(cons_vars)}
-        reverse_map = {v: k for k, v in variable_map.items()}
-        lits = [variable_map[name] for name in cons_vars]
-        try:
-            cnf = CardEnc.atleast(lits=lits, bound=cons_value, vpool=vpool, encoding=encoding)
-        except Exception as e:
-            print(f"[WARNING] Don't support encoding {encoding} in CardEnc.atleast. Passing...")
-            return []
-        readable_clauses = []
-        for clause in cnf.clauses:
-            readable = " ".join(f"-{reverse_map.get(abs(lit), f'dummy_{abs(lit)}')}" if lit < 0 else reverse_map.get(abs(lit), f'dummy_{abs(lit)}') for lit in clause)
-            readable_clauses.append(readable)
-        return readable_clauses
+        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, CardEnc.atleast, "atleast")
     else:
         raise ValueError(f"Unsupported model_type '{model_type}' for SUM_GREATER_EQUAL constraint.")
 
@@ -295,6 +289,8 @@ def gen_sequential_encoding_sat(hw_list, weight, dummy_variables=None): # Genera
         raise ValueError(f"weight should be an integer: 0 <= weight <= n (n={n}), got {weight}")
     if weight == 0:
         return [f'-{var}' for var in hw_list]
+    if weight >= n:
+        return []
     if dummy_variables is None:
         gen_sequential_encoding_sat._counter += 1
         prefix = f'dummy_seq_{gen_sequential_encoding_sat._counter}'

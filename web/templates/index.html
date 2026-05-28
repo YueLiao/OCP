@@ -181,6 +181,8 @@
       <label>Provider</label>
       <select id="provider" onchange="onProviderChange()">
         <option value="openai">OpenAI</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="openai-compatible">OpenAI-Compatible</option>
         <option value="anthropic">Anthropic Claude</option>
         <option value="gemini">Google Gemini</option>
         <option value="ollama">Ollama (Local)</option>
@@ -233,9 +235,9 @@
       <textarea id="input" placeholder="Describe a cipher or analysis task..." rows="1"
                 onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
       <div class="input-actions">
-        <button class="btn upload-btn" title="Upload PDF/Image">
+        <button class="btn upload-btn" title="Upload text/PDF/Image">
           &#128206;
-          <input type="file" accept=".pdf,.png,.jpg,.jpeg,.txt" onchange="uploadFile(event)">
+          <input type="file" accept=".txt,.md,.tex,.rst,.pdf,.png,.jpg,.jpeg" onchange="uploadFile(event)">
         </button>
         <button class="btn btn-primary" onclick="sendMessage()">Send</button>
       </div>
@@ -246,9 +248,11 @@
 <script>
 const defaults = {
   openai: {model: 'gpt-4o', placeholder: 'sk-...', needsKey: true},
+  deepseek: {model: 'deepseek-chat', placeholder: 'sk-...', needsKey: true, baseUrl: 'https://api.deepseek.com'},
+  'openai-compatible': {model: 'gpt-4o', placeholder: 'key', needsKey: true, baseUrl: 'http://localhost:8000/v1'},
   anthropic: {model: 'claude-sonnet-4-20250514', placeholder: 'sk-ant-...', needsKey: true},
   gemini: {model: 'gemini-2.5-flash', placeholder: 'AIza...', needsKey: true},
-  ollama: {model: 'llama3', placeholder: '', needsKey: false},
+  ollama: {model: 'llama3', placeholder: '', needsKey: false, baseUrl: 'http://localhost:11434'},
 };
 
 function onProviderChange() {
@@ -258,7 +262,9 @@ function onProviderChange() {
   document.getElementById('model').value = '';
   document.getElementById('apiKey').placeholder = d.placeholder;
   document.getElementById('apiKeyGroup').style.display = d.needsKey ? 'block' : 'none';
-  document.getElementById('baseUrlGroup').style.display = (p === 'ollama' || p === 'openai') ? 'block' : 'none';
+  document.getElementById('baseUrlGroup').style.display =
+    (p === 'ollama' || p === 'openai' || p === 'deepseek' || p === 'openai-compatible') ? 'block' : 'none';
+  document.getElementById('baseUrl').placeholder = d.baseUrl || '';
 }
 
 function toggleSettings() {
@@ -413,6 +419,8 @@ function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 150) + 'px';
 }
+
+onProviderChange();
 </script>
 </body>
 </html>

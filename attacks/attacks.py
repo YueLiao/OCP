@@ -2,6 +2,7 @@ import time
 
 import attacks.differential_cryptanalysis as diff
 import attacks.linear_cryptanalysis as linear
+from tools.search_reporting import log
 
 # **************************************************************************** #
 # This module provides a high-level attack interfaces, including:
@@ -20,7 +21,7 @@ def diff_attacks(cipher, goal="DIFFERENTIALPATH_PROB", constraints=["INPUT_NOT_Z
     else:
         raise ValueError(f"[WARNING] Invalid goal: {goal}.")
 
-    print(f"--- Total Time ---: {time.time() - time_start:.2f} seconds")
+    log(f"--- Total Time ---: {time.time() - time_start:.2f} seconds", config_model)
     return trails
 
 
@@ -33,5 +34,5 @@ def linear_attacks(cipher, goal="LINEARPATH_CORR", constraints=["INPUT_NOT_ZERO"
     else:
         raise ValueError(f"[WARNING] Invalid goal: {goal}.")
 
-    print(f"--- Total Time ---: {time.time() - time_start:.2f} seconds")
+    log(f"--- Total Time ---: {time.time() - time_start:.2f} seconds", config_model)
     return trails

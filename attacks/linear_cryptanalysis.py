@@ -1,16 +1,14 @@
-from pathlib import Path
 from math import log2
 
+from attacks import common
 from attacks.attack_trace import LinearTrail
 import tools.model_constraints as model_constraints
 import tools.model_objective as model_objective
 import tools.milp_search as milp_search
 import tools.sat_search as sat_search
-import visualisations.visualisations as vis
+from tools.paths import get_files_dir
 
-ROOT = Path(__file__).resolve().parents[1] # linear_cryptanalysis.py -> attacks -> <ROOT>
-FILES_DIR = ROOT / "files"
-FILES_DIR.mkdir(parents=True, exist_ok=True)
+FILES_DIR = get_files_dir()
 
 
 # **************************************************************************** #
@@ -21,111 +19,22 @@ FILES_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------------- Model and Solver Configuration ----------------------
 def parse_and_set_configs(cipher, goal, objective_target, config_model, config_solver): # Parse input parameters and apply default values for model and solver configurations.
-    # ===== Set Default config_model and config_solver =====
-    config_model = config_model or {}
-    config_solver = config_solver or {}
-
-    # Set "model_type", the automated model framework, 'milp' or 'sat'
-    config_model["model_type"] = config_model.get("model_type", "milp").lower()
-
-    # Set "functions", "rounds", "layers", "positions" for modeling
-    functions, rounds, layers, positions = model_constraints.fill_functions_rounds_layers_positions(cipher, functions=None, rounds=None, layers=None, positions=None)
-    config_model.setdefault("functions", functions)
-    config_model.setdefault("rounds", rounds)
-    config_model.setdefault("layers", layers)
-    config_model.setdefault("positions", positions)
-
-    # Set "solver" for solving the model
-    config_solver.setdefault("solver", "DEFAULT")
-
-    if config_model["model_type"] == "milp":
-        # Set the model "filename".
-        config_model["filename"] = str(FILES_DIR / f"{cipher.nbr_rounds}round_{cipher.name}_{goal}_{objective_target}_milp_model.lp")
-
-    elif config_model["model_type"] == "sat":
-        # Set the model "filename".
-        config_model["filename"] = str(FILES_DIR / f"{cipher.nbr_rounds}round_{cipher.name}_{goal}_{objective_target}_sat_model.cnf")
-
-    # Set solution_number to a large value if not defined when searching for linear hull
-    if goal == "LINEARHULL_CORR":
-        config_solver.setdefault("solution_number", 1000000)
-
-    return config_model, config_solver
+    return common.parse_and_set_configs(
+        cipher, goal, objective_target, config_model, config_solver, many_solution_goal="LINEARHULL_CORR"
+    )
 
 
 # -------------------- Predefined Additional Constraints --------------------
 def expand_var_ids(var, bitwise=False): # Expand variable IDs by bits if necessary.
-    if bitwise and var.bitsize > 1:
-        return [f"{var.ID}_{i}" for i in range(var.bitsize)]
-    return [var.ID]
+    return common.expand_var_ids(var, bitwise=bitwise)
 
 def gen_input_non_zero_constraints(cipher, goal, config_model): # Generate input non-zero constraints for the cipher based on the goal and model type.
-    cons_vars = [var for cons in cipher.inputs_constraints for var in cons.input_vars]
-    model_type = config_model.get("model_type", "milp").lower()
-    encoding = config_model.get("atleast_encoding_sat", "SEQUENTIAL") if model_type == "sat" else None
-    bitwise = "TRUNCATEDLINEAR" not in goal
-    constraints = model_constraints.gen_predefined_constraints(
-        model_type=model_type,
-        cons_type="SUM_AT_LEAST",
-        cons_vars=cons_vars,
-        cons_value=1,
-        bitwise=bitwise,
-        encoding=encoding,
-    )
-    # MILP-specific: declare decision variables as binary
-    if model_type == "milp":
-        binary_vars = []
-        for var in cons_vars:
-            binary_vars += (expand_var_ids(var, bitwise=bitwise))
-        if binary_vars:
-            constraints.append("Binary\n" + " ".join(binary_vars))
-    return constraints
+    return common.gen_input_non_zero_constraints(cipher, goal, config_model, truncated_marker="TRUNCATEDLINEAR")
 
 def gen_fixed_input_output_constraints(in_out, fix_mask, cipher, config_model):
-    cons_vars = []
-    if in_out == "input":
-        assert hasattr(cipher, "inputs") and isinstance(cipher.inputs, dict), "[WARNING] Cipher 'inputs' attribute invalid."
-        for input_name in cipher.inputs.keys():
-            cons_vars += cipher.inputs[input_name]
-    elif in_out == "output":
-        assert hasattr(cipher, "outputs") and isinstance(cipher.outputs, dict), "[WARNING] Cipher 'outputs' attribute invalid."
-        for output_name in cipher.outputs.keys():
-            cons_vars += cipher.outputs[output_name]
-    else:
-        raise ValueError(f"[WARNING] Invalid in_out: {in_out}. Expected 'input' or 'output'.")
-    n = len(cons_vars) * cons_vars[0].bitsize
-    s = fix_mask.strip().lower()
-    if s.startswith("0b"):
-        mask = s[2:].zfill(n)
-    elif s.startswith("0x"):
-        mask = bin(int(s, 16))[2:].zfill(n)
-    else:
-        raise ValueError(f"[WARNING] Invalid fix_mask format: {fix_mask}. Expected binary (0b...) or hexadecimal (0x...) string.")
-
-    model_type = config_model.get("model_type", "milp").lower()
-    constraints = []
-    if cons_vars[0].bitsize == 1:
-        for i in range(len(cons_vars)):
-            if model_type == "sat":
-                if mask[i] == '1':
-                    constraints.append(f"{cons_vars[i].ID}")
-                elif mask[i] == '0':
-                    constraints.append(f"-{cons_vars[i].ID}")
-            elif model_type == "milp":
-                constraints.append(f"{cons_vars[i].ID} = {mask[i]}")
-                constraints.append("Binary\n" + f"{cons_vars[i].ID}")
-        return constraints
-    for i in range(len(cons_vars)):
-        for j in range(cons_vars[i].bitsize):
-            if model_type == "sat":
-                if mask[i] == '1':
-                    constraints.append(f"{cons_vars[i].ID}_{j}")
-                elif mask[i] == '0':
-                    constraints.append(f"-{cons_vars[i].ID}_{j}")
-            elif model_type == "milp":
-                constraints.append(f"{cons_vars[i].ID}_{j} = {mask[i*cons_vars[i].bitsize+j]}")
-                constraints.append("Binary\n" + f"{cons_vars[i].ID}_{j}")
-    return constraints
+    return common.gen_fixed_input_output_constraints(
+        in_out, fix_mask, cipher, config_model, value_name="fix_mask"
+    )
 
 
 # ------------------------ Linear Trail Search -------------------------
@@ -200,12 +109,11 @@ def search_linear_trail(cipher, goal="LINEARPATH_CORR", constraints=["INPUT_NOT_
         solutions = milp_search.modeling_solving_milp(objective_target, model_cons, obj_fun, config_model, config_solver)
 
     elif model_type == "sat":
-        if goal in ["LINEARPATH_CORR", "LINEAR_CORR"] and model_objective.has_Sbox_with_decimal_weights(cipher, goal):
+        if goal in ["LINEARPATH_CORR", "LINEARHULL_CORR"] and model_objective.has_Sbox_with_decimal_weights(cipher, goal):
             config_model["decimal_objective_function"] = {}
             Sbox = model_objective.detect_Sbox(cipher)
             config_model["decimal_objective_function"]["Sbox"] = Sbox
-            if goal in {'LINEARPATH_CORR', 'LINEAR_CORR'}:
-                config_model["decimal_objective_function"]["table"] = Sbox.computeDDT()
+            config_model["decimal_objective_function"]["table"] = Sbox.computeLAT()
 
         solutions = sat_search.modeling_solving_sat(objective_target, model_cons, obj_fun, config_model, config_solver)
 
@@ -243,7 +151,7 @@ def extract_and_format_linear_trails(cipher, goal, config_model, config_solver, 
             trail.json_filename = trail.json_filename.replace(".json", f"_{i}.json") if trail.json_filename else str(FILES_DIR / f"{trail.data['cipher']}_trail_{i}.json")
             trail.txt_filename = trail.txt_filename.replace(".txt", f"_{i}.txt") if trail.txt_filename else str(FILES_DIR / f"{trail.data['cipher']}_trail_{i}.txt")
         trail.save_json()
-        trail.save_txt(show_mode=show_mode)  # Print the trail in a human-readable format and save it to a file.
+        trail.save_txt(show_mode=show_mode, emit_print=config_model.get("verbose", True))
         trails.append(trail)
         pr += 2 ** ( - trail.data['linear_weight'] ) if trail.data['linear_weight'] is not None else 0
     if solutions and goal == "LINEARHULL_CORR":
@@ -256,55 +164,4 @@ def extract_trail_structures(cipher, goal, solution):
 
     Returned structure (example):
     """
-    bitwise = "TRUNCATEDLINEAR" not in goal
-    def _get_solution_bit(var_id): # Map a variable id to '0'/'1'/'-'.
-        v = solution.get(var_id, None)
-        if v is None:
-            return "-"
-        try: # robust handling for bool/int/float
-            return "1" if int(round(v)) == 1 else "0"
-        except Exception:
-            return "-"
-
-    def node(var):
-        """Build a per-variable node."""
-        ids = expand_var_ids(var, bitwise=bitwise)
-        bits = "".join(_get_solution_bit(v_id) for v_id in ids)
-        return {
-            "var_ID": getattr(var, "ID", str(var)), # ID of var
-            "variables": ids, # List of extended word/bit variables from the given var
-            "bin_values": bits, # Binary string value
-            }
-
-    # ------------------------------ Build trail_struct ------------------------------
-    trail_struct = {
-        "bitwise": bitwise,
-        "inputs": {},
-        "outputs": {},
-        "functions": {}
-    }
-
-    # ------------------------------ Inputs / Outputs ------------------------------
-    # Prefer cipher.inputs/cipher.outputs if present; otherwise fall back to constraints.
-    if hasattr(cipher, "inputs") and isinstance(cipher.inputs, dict):
-        for name, var_list in cipher.inputs.items():
-            trail_struct["inputs"][name] = [node(v) for v in var_list]
-    if hasattr(cipher, "outputs") and isinstance(cipher.outputs, dict):
-        for name, var_list in cipher.outputs.items():
-            trail_struct["outputs"][name] = [node(v) for v in var_list]
-
-    # ------------------------------ Functions / Rounds / Layers ------------------------------
-    for fun in cipher.functions:
-        fun_store = {
-        "rounds": list(range(1, cipher.functions[fun].nbr_rounds + 1)),
-        "nbr_words": cipher.functions[fun].nbr_words if hasattr(cipher.functions[fun], "nbr_words") else None,
-        "nbr_temp_words": cipher.functions[fun].nbr_temp_words if hasattr(cipher.functions[fun], "nbr_temp_words") else None
-        }
-        for r in range(1, cipher.functions[fun].nbr_rounds + 1):
-            round_store = {}
-            for l in range(cipher.functions[fun].nbr_layers + 1):
-                layer_nodes = [node(v) for v in cipher.functions[fun].vars[r][l]]
-                round_store[l] = layer_nodes
-            fun_store[r] = round_store
-        trail_struct["functions"][fun] = fun_store
-    return trail_struct
+    return common.extract_trail_structures(cipher, goal, solution, truncated_marker="TRUNCATEDLINEAR")
