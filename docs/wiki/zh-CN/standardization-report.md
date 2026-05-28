@@ -29,6 +29,7 @@
 - 减少 solver/modeling 可选后端在 import 阶段的噪声。
 - 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
 - 添加文本优先的密码输入 dataclass 与 Markdown/LaTeX 规整。
+- 将文本优先 Agentic 路线图扩展为可评审实现契约，覆盖 schema、网页流程、provider、安全确认和测试。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
 - 收拢 Boolean、modular、S-box 和 matrix operator 中重复的模型生成 helper。
 - 清理 S-box 带权 truth-table、matrix bit-model、显式 modular arithmetic 和未完成 operator 抽象。
@@ -51,6 +52,6 @@ git diff --check
 
 ## 后续工作
 
-1. 围绕 `CipherInput`、`CipherFacts` 和 `CipherSpecDraft` 设计完整文本优先 agentic 抽取系统。
+1. 确认文本优先 Agentic 路线图，然后实现 schema 和确定性 validator。
 2. 深层性能重写前先 profile 模型生成过程。
 3. 继续收窄 solver/model generation 路径里的宽泛异常处理。
