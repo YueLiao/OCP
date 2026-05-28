@@ -14,6 +14,7 @@ and expose the same capabilities through a direct Python API.
 ## Pages
 
 - [Agent Guide](agent-guide.md)
+- [Agentic Architecture](agentic-architecture.md)
 - [Development and Standardization](development-and-standardization.md)
 - [Standardization Report](standardization-report.md)
 - [Agentic System Roadmap](agentic-system-roadmap.md)

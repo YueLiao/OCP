@@ -60,6 +60,10 @@ python3 web/app.py --port 5001
 每次文本优先 draft 流程都会在 `OCP_FILES_DIR/agent_jobs/` 下写出可复现 JSON job
 记录，并作为 artifact link 返回。
 
+构建 cipher 之后，网页端还提供差分分析、线性分析、Python 代码生成和可视化的直接动作。
+执行 skill 的 endpoint 会返回统一 JSON 结构，包括 `success`、`skill`、`summary`、
+`error`、`data`、`artifact_links` 和 `context`。
+
 ## 文本优先密码输入
 
 推荐的抽取路径是用户提供文本：纯文本、Markdown、LaTeX、伪代码或结构化笔记。PDF/图片抽取

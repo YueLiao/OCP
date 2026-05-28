@@ -76,6 +76,8 @@ print(linear_result.data["artifact_links"])
 
 分析、代码生成、可视化和文本优先抽取成功后，都会通过
 `result.data["artifact_links"]` 暴露生成文件路径。
+网页端 API 也使用同一套结构，覆盖 `/api/text/draft`、`/api/text/confirm`、
+`/api/analyze`、`/api/code` 和 `/api/visualize`。
 
 自定义密码：
 
@@ -110,8 +112,12 @@ python3 web/app.py --port 5001
 
 打开 `http://localhost:5001`。
 
+网页端支持 `Draft`、确认构建、差分分析、线性分析、代码生成和可视化动作。相关 API 返回统一
+`success/summary/error/data/artifact_links/context` 结构。
+
 ## 相关文档
 
 - [仓库中文 README](../README.zh-CN.md)
 - [中文 Wiki](../docs/wiki/zh-CN/README.md)
+- [Agentic 架构](../docs/wiki/zh-CN/agentic-architecture.md)
 - [Agentic 系统路线图](../docs/wiki/zh-CN/agentic-system-roadmap.md)

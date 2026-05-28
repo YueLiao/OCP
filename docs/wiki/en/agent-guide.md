@@ -62,6 +62,11 @@ text-first cipher descriptions. `Draft` extracts facts, returns a reviewable
 Each text-first draft flow writes a replayable JSON job record under
 `OCP_FILES_DIR/agent_jobs/` and returns it as an artifact link.
 
+After a cipher is built, the web UI also exposes direct actions for
+differential analysis, linear analysis, Python code generation, and
+visualization. Skill endpoints return a common JSON shape with `success`,
+`skill`, `summary`, `error`, `data`, `artifact_links`, and `context`.
+
 ## Text-First Cipher Input
 
 The preferred extraction path is user-provided text: plain text, Markdown,

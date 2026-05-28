@@ -137,6 +137,10 @@
   }
   .input-area textarea:focus { border-color: var(--accent); }
   .input-actions { display: flex; gap: 6px; }
+  .workflow-actions {
+    padding: 10px 20px; border-top: 1px solid var(--border);
+    background: var(--bg-secondary); display: flex; gap: 8px; flex-wrap: wrap;
+  }
   .upload-btn { position: relative; overflow: hidden; }
   .upload-btn input[type="file"] {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -231,6 +235,12 @@
       </div>
     </div>
     <div class="typing" id="typing"><span></span><span></span><span></span></div>
+    <div class="workflow-actions">
+      <button class="btn" onclick="runWorkflow('differential')">Differential</button>
+      <button class="btn" onclick="runWorkflow('linear')">Linear</button>
+      <button class="btn" onclick="generateCode()">Code</button>
+      <button class="btn" onclick="generateVisualization()">Visualize</button>
+    </div>
     <div class="input-area">
       <textarea id="input" placeholder="Describe a cipher or analysis task..." rows="1"
                 onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
@@ -323,6 +333,7 @@ async function sendMessage() {
     if (data.success) {
       addMessage('assistant', data.response);
       updateCipherInfo(data.context);
+      showArtifacts(data.artifact_links || []);
     } else {
       addMessage('error', data.error);
     }
@@ -379,6 +390,7 @@ async function confirmCipherDraft() {
     if (data.success) {
       addMessage('assistant', data.summary || `Built cipher: ${data.data?.cipher_name || 'custom cipher'}`);
       updateCipherInfo(data.context);
+      showArtifacts(data.artifact_links || []);
     } else {
       addMessage('error', data.error || 'Build failed');
     }
@@ -409,12 +421,82 @@ async function uploadFile(event) {
     if (data.success) {
       addMessage('assistant', data.summary);
       updateCipherInfo(data.context);
+      showArtifacts(data.artifact_links || []);
     } else {
       addMessage('error', data.error || data.summary);
     }
   } catch (e) {
     showTyping(false);
     addMessage('error', `Upload failed: ${e.message}`);
+  }
+}
+
+async function runWorkflow(type) {
+  hideWelcome();
+  addMessage('user', `[Run ${type} analysis]`);
+  showTyping(true);
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({analysis_type: type, model_type: 'milp'}),
+    });
+    const data = await res.json();
+    showTyping(false);
+    if (data.success) {
+      addMessage('assistant', data.summary || `${type} analysis complete.`);
+      updateCipherInfo(data.context);
+      showArtifacts(data.artifact_links || []);
+    } else {
+      addMessage('error', data.error || `${type} analysis failed.`);
+    }
+  } catch (e) {
+    showTyping(false);
+    addMessage('error', `Analysis failed: ${e.message}`);
+  }
+}
+
+async function generateCode() {
+  hideWelcome();
+  addMessage('user', '[Generate Python code]');
+  showTyping(true);
+  try {
+    const res = await fetch('/api/code', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({language: 'python', test: true}),
+    });
+    const data = await res.json();
+    showTyping(false);
+    if (data.success) {
+      addMessage('assistant', data.summary || 'Code generated.');
+      showArtifacts(data.artifact_links || []);
+    } else {
+      addMessage('error', data.error || 'Code generation failed.');
+    }
+  } catch (e) {
+    showTyping(false);
+    addMessage('error', `Code generation failed: ${e.message}`);
+  }
+}
+
+async function generateVisualization() {
+  hideWelcome();
+  addMessage('user', '[Generate visualization]');
+  showTyping(true);
+  try {
+    const res = await fetch('/api/visualize', {method: 'POST'});
+    const data = await res.json();
+    showTyping(false);
+    if (data.success) {
+      addMessage('assistant', data.summary || 'Visualization generated.');
+      showArtifacts(data.artifact_links || []);
+    } else {
+      addMessage('error', data.error || 'Visualization failed.');
+    }
+  } catch (e) {
+    showTyping(false);
+    addMessage('error', `Visualization failed: ${e.message}`);
   }
 }
 
@@ -438,6 +520,12 @@ function addMessage(type, text) {
   div.innerHTML = renderText(text);
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
+}
+
+function showArtifacts(links) {
+  if (!links || !links.length) return;
+  const text = links.map(link => `- ${link.label}: \`${link.path}\``).join('\n');
+  addMessage('system', `Artifacts:\n${text}`);
 }
 
 function renderText(text) {

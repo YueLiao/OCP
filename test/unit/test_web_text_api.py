@@ -58,10 +58,9 @@ def test_json_endpoints_reject_missing_json_body():
         response = client.post(path, data="not json", content_type="text/plain")
 
         assert response.status_code == 400
-        assert response.get_json() == {
-            "success": False,
-            "error": "JSON request body is required.",
-        }
+        assert response.get_json()["success"] is False
+        assert response.get_json()["error"] == "JSON request body is required."
+        assert response.get_json()["error_code"] == "invalid_json"
 
 
 def test_config_returns_400_for_unknown_provider():
@@ -154,3 +153,29 @@ def test_text_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):
     assert confirm_data["success"] is True
     assert confirm_data["data"]["cipher_name"] == "TinyARX_PERM"
     assert confirm_data["artifact_links"][0]["path"] == draft_data["artifact_links"][0]["path"]
+
+
+def test_workflow_endpoints_return_standard_skill_payloads(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
+    web_app.agent = OCPAgent()
+    web_app.agent.instantiate_cipher("speck", "blockcipher", version=[32, 64], rounds=1)
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    code_response = client.post("/api/code", json={"language": "python", "test": False})
+    visualize_response = client.post("/api/visualize", json={})
+    invalid_analysis_response = client.post("/api/analyze", json={"analysis_type": "unknown"})
+
+    code_data = code_response.get_json()
+    visualize_data = visualize_response.get_json()
+    invalid_analysis_data = invalid_analysis_response.get_json()
+
+    assert code_response.status_code == 200
+    assert code_data["success"] is True
+    assert code_data["skill"] == "code_generation"
+    assert code_data["artifact_links"][0]["label"] == "generated_code"
+    assert visualize_response.status_code == 200
+    assert visualize_data["skill"] == "visualization"
+    assert visualize_data["artifact_links"][0]["label"] == "visualization"
+    assert invalid_analysis_response.status_code == 400
+    assert invalid_analysis_data["error_code"] == "invalid_analysis_type"

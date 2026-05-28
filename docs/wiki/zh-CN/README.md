@@ -11,6 +11,7 @@ skill，维护会话状态，并通过直接 Python API 暴露同样能力。
 ## 页面
 
 - [Agent 使用指南](agent-guide.md)
+- [Agentic 架构](agentic-architecture.md)
 - [开发与标准化指南](development-and-standardization.md)
 - [代码规范化报告](standardization-report.md)
 - [Agentic 系统路线图](agentic-system-roadmap.md)

@@ -23,7 +23,6 @@ lose formulas, tables, and bit-index conventions.
 - Step-by-step reasoning produces more accurate structured output
 """
 
-import base64
 import os
 from pathlib import Path
 from typing import Any, Dict
@@ -31,107 +30,23 @@ from typing import Any, Dict
 from agent.types import SkillName, SkillRequest, SkillResult
 from agent.session import Session
 from agent.skills.base import BaseSkill
-
-
-# Supported file extensions
-PDF_EXTENSIONS = {".pdf"}
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"}
-TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
+from agent.skills.cipher_file_reader import (
+    CipherFileReadError,
+    IMAGE_EXTENSIONS,
+    PDF_EXTENSIONS,
+    TEXT_EXTENSIONS,
+    detect_file_type,
+    encode_image_to_base64,
+    extract_text_from_pdf,
+    get_image_mime_type,
+    get_pdf_page_count,
+    parse_page_range,
+    read_cipher_file,
+)
 EXPERIMENTAL_FILE_EXTRACTION_NOTE = (
     "Experimental file extraction helper. Prefer text-first extraction for "
     "accurate cipher specifications, and review the draft before building."
 )
-
-
-# ---------------------------------------------------------------------------
-#  File reading utilities
-# ---------------------------------------------------------------------------
-
-def extract_text_from_pdf(file_path, page_nums=None):
-    """Extract text from a PDF file, optionally from specific pages."""
-    try:
-        import fitz  # PyMuPDF
-        doc = fitz.open(file_path)
-        parts = []
-        for i, page in enumerate(doc, 1):
-            if page_nums is None or i in page_nums:
-                parts.append(f"--- Page {i} ---\n{page.get_text()}")
-        doc.close()
-        return "\n".join(parts)
-    except ImportError:
-        pass
-
-    try:
-        import pdfplumber
-        parts = []
-        with pdfplumber.open(file_path) as pdf:
-            for i, page in enumerate(pdf.pages, 1):
-                if page_nums is None or i in page_nums:
-                    text = page.extract_text()
-                    if text:
-                        parts.append(f"--- Page {i} ---\n{text}")
-        return "\n".join(parts)
-    except ImportError:
-        pass
-
-    raise ImportError(
-        "No PDF reader available. Install one of:\n"
-        "  pip install PyMuPDF     (recommended)\n"
-        "  pip install pdfplumber"
-    )
-
-
-def get_pdf_page_count(file_path):
-    """Get the total number of pages in a PDF."""
-    try:
-        import fitz
-        doc = fitz.open(file_path)
-        count = len(doc)
-        doc.close()
-        return count
-    except ImportError:
-        pass
-    try:
-        import pdfplumber
-        with pdfplumber.open(file_path) as pdf:
-            return len(pdf.pages)
-    except ImportError:
-        pass
-    return None
-
-
-def parse_page_range(pages_str):
-    """Parse a page range string like '1-5,8,10-12' into a set of page numbers."""
-    if not pages_str:
-        return None
-    nums = set()
-    for part in pages_str.split(","):
-        part = part.strip()
-        if not part:
-            raise ValueError(f"Invalid page range segment in {pages_str!r}.")
-        if "-" in part:
-            a, b = part.split("-", 1)
-            start, end = int(a), int(b)
-            if start <= 0 or end <= 0 or end < start:
-                raise ValueError(f"Invalid page range segment: {part!r}.")
-            nums.update(range(start, end + 1))
-        else:
-            page = int(part)
-            if page <= 0:
-                raise ValueError(f"Invalid page number: {part!r}.")
-            nums.add(page)
-    return nums
-
-
-def encode_image_to_base64(file_path):
-    with open(file_path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
-
-
-def get_image_mime_type(file_path):
-    ext = Path(file_path).suffix.lower()
-    return {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-            ".bmp": "image/bmp", ".tiff": "image/tiff", ".webp": "image/webp"}.get(ext, "image/png")
 
 
 # ---------------------------------------------------------------------------
@@ -496,35 +411,20 @@ class CipherExtractorSkill(BaseSkill):
             return SkillResult(success=False, skill=self.name,
                                error=f"File not found: {file_path}")
 
-        ext = Path(file_path).suffix.lower()
-        if ext in PDF_EXTENSIONS:
-            file_type = "pdf"
-        elif ext in IMAGE_EXTENSIONS:
-            file_type = "image"
-        elif ext in TEXT_EXTENSIONS:
-            file_type = "text"
-        else:
+        try:
+            file_type = detect_file_type(file_path)
+        except ValueError as e:
             return SkillResult(success=False, skill=self.name,
-                               error=f"Unsupported file type: {ext}")
+                               error=str(e))
 
         try:
             page_nums = parse_page_range(pages) if file_type == "pdf" else None
         except ValueError as e:
             return SkillResult(success=False, skill=self.name, error=f"Invalid page range: {e}")
 
-        # Read content
         try:
-            if file_type == "pdf":
-                total_pages = get_pdf_page_count(file_path)
-                full_text = extract_text_from_pdf(file_path, page_nums)
-            elif file_type == "text":
-                total_pages = None
-                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                    full_text = f.read()
-            else:
-                full_text = None  # image mode
-                total_pages = None
-        except Exception as e:
+            file_content = read_cipher_file(file_path, file_type, page_nums)
+        except CipherFileReadError as e:
             return SkillResult(success=False, skill=self.name,
                                error=f"Failed to read file: {e}")
 
@@ -537,14 +437,15 @@ class CipherExtractorSkill(BaseSkill):
             "auto_build": auto_build,
             "experimental": True,
             "experimental_note": EXPERIMENTAL_FILE_EXTRACTION_NOTE,
-            "total_pages": total_pages,
+            "total_pages": file_content.total_pages,
         }
 
         if file_type == "image":
-            extraction_data["image_base64"] = encode_image_to_base64(file_path)
-            extraction_data["mime_type"] = get_image_mime_type(file_path)
+            extraction_data["image_base64"] = file_content.image_base64
+            extraction_data["mime_type"] = file_content.mime_type
             extraction_data["pipeline"] = "single"  # image = single-step
         else:
+            full_text = file_content.full_text or ""
             extraction_data["full_text"] = full_text
             text_len = len(full_text)
             # Short documents (< 8k chars) -> single step is fine
@@ -560,10 +461,10 @@ class CipherExtractorSkill(BaseSkill):
         file_name = Path(file_path).name
         pipeline = extraction_data["pipeline"]
         info = f"Loaded experimental {file_type}: {file_name}"
-        if total_pages:
-            info += f" ({total_pages} pages)"
-        if full_text:
-            info += f", {len(full_text)} chars"
+        if file_content.total_pages:
+            info += f" ({file_content.total_pages} pages)"
+        if file_content.full_text:
+            info += f", {len(file_content.full_text)} chars"
         if focus:
             info += f". Focus: {focus}"
         info += f". Pipeline: {pipeline}-step."

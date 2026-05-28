@@ -4,6 +4,7 @@ from agent.skills.cipher_extractor import (
     CipherExtractorSkill,
     parse_page_range,
 )
+from agent.skills.cipher_file_reader import detect_file_type, read_cipher_file
 from agent.types import SkillRequest
 
 
@@ -44,3 +45,14 @@ def test_parse_page_range_rejects_empty_and_non_positive_segments():
             pass
         else:
             raise AssertionError(f"Expected invalid page range {pages!r} to fail")
+
+
+def test_cipher_file_reader_supports_text_and_tex(tmp_path):
+    file_path = tmp_path / "cipher.tex"
+    file_path.write_text(r"x_0 \\leftarrow x_1", encoding="utf-8")
+
+    file_type = detect_file_type(str(file_path))
+    content = read_cipher_file(str(file_path), file_type)
+
+    assert file_type == "text"
+    assert content.full_text == r"x_0 \\leftarrow x_1"

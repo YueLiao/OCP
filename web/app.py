@@ -21,6 +21,7 @@ from flask import Flask, render_template, request, jsonify
 from agent.interfaces.api import OCPAgent
 from agent.llm.factory import create_llm_provider
 from agent.llm.provider_config import default_model, get_provider_defaults
+from agent.result_payload import skill_result_payload
 
 app = Flask(__name__)
 
@@ -46,6 +47,39 @@ def _json_payload():
     return data if isinstance(data, dict) else None
 
 
+def _error_response(message, status=400, code="request_error", **extra):
+    payload = {"success": False, "error": message, "error_code": code}
+    payload.update(extra)
+    return jsonify(payload), status
+
+
+def _require_agent():
+    if agent is None:
+        return _error_response(
+            "Not connected. Configure provider first.",
+            400,
+            "not_connected",
+        )
+    return None
+
+
+def _require_json():
+    data = _json_payload()
+    if data is None:
+        return None, _error_response(
+            "JSON request body is required.",
+            400,
+            "invalid_json",
+        )
+    return data, None
+
+
+def _skill_response(result, *, success_status=200, error_status=400, extra=None):
+    ctx = agent.session.get_context() if agent else {}
+    payload = skill_result_payload(result, context=ctx, extra=extra)
+    return jsonify(payload), success_status if result.success else error_status
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -57,7 +91,7 @@ def set_config():
     global agent, config
     data = _json_payload()
     if data is None:
-        return jsonify({"success": False, "error": "JSON request body is required."}), 400
+        return _error_response("JSON request body is required.", 400, "invalid_json")
     provider_name = data.get("provider", "openai")
     api_key = data.get("api_key", "")
     model = data.get("model", "")
@@ -66,7 +100,7 @@ def set_config():
     try:
         provider_defaults = get_provider_defaults(provider_name)
         if provider_defaults.requires_api_key and not api_key:
-            return jsonify({"success": False, "error": "API key is required."}), 400
+            return _error_response("API key is required.", 400, "missing_api_key")
 
         provider = create_llm_provider(provider_name, api_key=api_key, model=model, base_url=base_url or None)
         agent = OCPAgent(llm_provider=provider)
@@ -77,24 +111,25 @@ def set_config():
         }
         return jsonify({"success": True, "config": config})
     except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        return _error_response(str(e), 400, "invalid_provider_config")
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return _error_response(str(e), 500, "provider_setup_failed")
 
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
     """Send a chat message to the agent."""
     global agent
-    if agent is None:
-        return jsonify({"success": False, "error": "Not connected. Configure provider first."}), 400
+    blocked = _require_agent()
+    if blocked:
+        return blocked
 
-    data = _json_payload()
-    if data is None:
-        return jsonify({"success": False, "error": "JSON request body is required."}), 400
+    data, error = _require_json()
+    if error:
+        return error
     message = data.get("message", "")
     if not message:
-        return jsonify({"success": False, "error": "Empty message."}), 400
+        return _error_response("Empty message.", 400, "empty_message")
 
     try:
         response = agent.chat(message)
@@ -105,22 +140,23 @@ def chat():
             "context": ctx,
         })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return _error_response(str(e), 500, "chat_failed")
 
 
 @app.route("/api/text/draft", methods=["POST"])
 def draft_text_cipher():
     """Extract text-first cipher facts and return a reviewable draft."""
     global agent
-    if agent is None:
-        return jsonify({"success": False, "error": "Not connected. Configure provider first."}), 400
+    blocked = _require_agent()
+    if blocked:
+        return blocked
 
-    data = _json_payload()
-    if data is None:
-        return jsonify({"success": False, "error": "JSON request body is required."}), 400
+    data, error = _require_json()
+    if error:
+        return error
     text = data.get("text", "")
     if not text.strip():
-        return jsonify({"success": False, "error": "Empty cipher text."}), 400
+        return _error_response("Empty cipher text.", 400, "empty_cipher_text")
 
     result = agent.extract_cipher_facts(
         text,
@@ -130,47 +166,105 @@ def draft_text_cipher():
         language_hint=data.get("language_hint", "unknown"),
     )
     if not result.success:
-        return jsonify({"success": False, "error": result.error, "data": result.data}), 400
+        return _skill_response(result, error_status=400)
 
     draft = agent.draft_cipher_spec()
     job = agent.session.get_metadata("pending_text_job")
-    return jsonify({
-        "success": True,
-        "summary": result.summary,
-        "draft": _draft_payload(draft),
-        "job": job,
-        "artifact_links": (job or {}).get("artifact_links", []),
-        "context": agent.session.get_context(),
-    })
+    return _skill_response(
+        result,
+        extra={
+            "draft": _draft_payload(draft),
+            "job": job,
+            "artifact_links": (job or {}).get("artifact_links", []),
+        },
+    )
 
 
 @app.route("/api/text/confirm", methods=["POST"])
 def confirm_text_cipher():
     """Confirm and build the pending text-first CipherSpec draft."""
     global agent
-    if agent is None:
-        return jsonify({"success": False, "error": "Not connected. Configure provider first."}), 400
+    blocked = _require_agent()
+    if blocked:
+        return blocked
 
     result = agent.confirm_cipher_spec()
-    return jsonify({
-        "success": result.success,
-        "summary": result.summary,
-        "error": result.error,
-        "data": result.data,
-        "artifact_links": (result.data or {}).get("artifact_links", []) if isinstance(result.data, dict) else [],
-        "context": agent.session.get_context(),
-    }), 200 if result.success else 400
+    return _skill_response(result)
+
+
+@app.route("/api/analyze", methods=["POST"])
+def run_analysis():
+    """Run a confirmed differential or linear analysis workflow."""
+    blocked = _require_agent()
+    if blocked:
+        return blocked
+    data, error = _require_json()
+    if error:
+        return error
+
+    analysis_type = data.get("analysis_type", "differential")
+    model_type = data.get("model_type", "milp")
+    goal = data.get("goal")
+    params = {
+        "model_type": model_type,
+        "constraints": data.get("constraints") or None,
+        "objective_target": data.get("objective_target", "OPTIMAL"),
+        "show_mode": data.get("show_mode", 0),
+    }
+    if goal:
+        params["goal"] = goal
+    if "solver" in data:
+        params["solver"] = data["solver"]
+    if "solution_number" in data:
+        params["solution_number"] = data["solution_number"]
+
+    if analysis_type == "differential":
+        result = agent.differential_analysis(**params)
+    elif analysis_type == "linear":
+        result = agent.linear_analysis(**params)
+    else:
+        return _error_response("analysis_type must be 'differential' or 'linear'.", 400, "invalid_analysis_type")
+    return _skill_response(result)
+
+
+@app.route("/api/code", methods=["POST"])
+def generate_code():
+    """Generate implementation code for the current cipher."""
+    blocked = _require_agent()
+    if blocked:
+        return blocked
+    data, error = _require_json()
+    if error:
+        return error
+
+    result = agent.generate_code(
+        language=data.get("language", "python"),
+        unroll=bool(data.get("unroll", False)),
+        test=bool(data.get("test", True)),
+    )
+    return _skill_response(result)
+
+
+@app.route("/api/visualize", methods=["POST"])
+def generate_visualization():
+    """Generate a visualization PDF for the current cipher."""
+    blocked = _require_agent()
+    if blocked:
+        return blocked
+    result = agent.generate_visualization()
+    return _skill_response(result)
 
 
 @app.route("/api/upload", methods=["POST"])
 def upload_file():
     """Upload a text/PDF/image file for cipher extraction."""
     global agent
-    if agent is None:
-        return jsonify({"success": False, "error": "Not connected. Configure provider first."}), 400
+    blocked = _require_agent()
+    if blocked:
+        return blocked
 
     if "file" not in request.files:
-        return jsonify({"success": False, "error": "No file uploaded."}), 400
+        return _error_response("No file uploaded.", 400, "missing_upload")
 
     f = request.files["file"]
     focus = request.form.get("focus", "")
@@ -183,17 +277,9 @@ def upload_file():
 
     try:
         result = agent.extract_cipher_from_file(tmp_path, focus=focus or None, auto_build=False)
-        ctx = agent.session.get_context()
-        return jsonify({
-            "success": result.success,
-            "summary": result.summary,
-            "error": result.error,
-            "data": result.data,
-            "artifact_links": (result.data or {}).get("artifact_links", []) if isinstance(result.data, dict) else [],
-            "context": ctx,
-        })
+        return _skill_response(result)
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return _error_response(str(e), 500, "upload_failed")
     finally:
         with suppress(FileNotFoundError):
             os.unlink(tmp_path)

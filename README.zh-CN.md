@@ -114,6 +114,9 @@ python3 web/app.py --port 5001
 
 打开 `http://localhost:5001`。
 
+使用 `Draft` 处理文本优先的密码描述。确认构建后，网页端提供差分分析、线性分析、代码生成和
+可视化动作，生成文件通过 `artifact_links` 返回。
+
 ## 内置密码
 
 Agent 目录当前包含：
@@ -184,4 +187,5 @@ python test/operators/test_xor.py
 - [Wiki 首页](docs/wiki/README.md)
 - [English wiki](docs/wiki/en/README.md)
 - [中文 Wiki](docs/wiki/zh-CN/README.md)
+- [Agentic 架构](docs/wiki/zh-CN/agentic-architecture.md)
 - [Agent 使用指南](agent/README.zh-CN.md)

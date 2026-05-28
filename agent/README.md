@@ -210,6 +210,8 @@ print(result.data["artifact_links"])
 
 Successful analysis, code generation, visualization, and text-first extraction
 results expose generated files through `result.data["artifact_links"]`.
+The Web API uses the same contract for `/api/text/draft`, `/api/text/confirm`,
+`/api/analyze`, `/api/code`, and `/api/visualize`.
 
 ### Define and Analyze a Custom Cipher
 

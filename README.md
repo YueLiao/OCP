@@ -120,7 +120,10 @@ python3 web/app.py --port 5001
 Open `http://localhost:5001`.
 
 Use `Draft` for text-first cipher descriptions. File upload remains
-experimental and does not auto-build a cipher.
+experimental and does not auto-build a cipher. After confirmation, the Web UI
+offers direct actions for differential analysis, linear analysis, code
+generation, and visualization, with generated files returned through
+`artifact_links`.
 
 ## Built-in Ciphers
 
@@ -197,4 +200,5 @@ tests are opt-in.
 - [Wiki home](docs/wiki/README.md)
 - [English wiki](docs/wiki/en/README.md)
 - [中文 Wiki](docs/wiki/zh-CN/README.md)
+- [Agentic architecture](docs/wiki/en/agentic-architecture.md)
 - [Agent guide](agent/README.md)
