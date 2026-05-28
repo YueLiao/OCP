@@ -106,6 +106,34 @@ def test_upload_response_includes_data_and_artifact_links():
     assert data["artifact_links"][0]["label"] == "extract_log"
 
 
+def test_upload_cleanup_does_not_mask_response_when_temp_file_is_missing(monkeypatch):
+    class FakeUploadAgent:
+        session = SimpleNamespace(get_context=lambda: {"has_cipher": False})
+
+        def extract_cipher_from_file(self, file_path, focus=None, auto_build=False):
+            return SkillResult(success=True, skill=SkillName.CIPHER_EXTRACTION, summary="uploaded")
+
+    original_unlink = web_app.os.unlink
+
+    def remove_then_unlink(path):
+        original_unlink(path)
+        original_unlink(path)
+
+    web_app.agent = FakeUploadAgent()
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    monkeypatch.setattr(web_app.os, "unlink", remove_then_unlink)
+    client = web_app.app.test_client()
+
+    response = client.post(
+        "/api/upload",
+        data={"file": (BytesIO(b"cipher text"), "cipher.txt")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["success"] is True
+
+
 def test_text_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):
     monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
     web_app.agent = OCPAgent(llm_provider=FakeFactsProvider())

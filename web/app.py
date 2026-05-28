@@ -11,6 +11,7 @@ Then open http://localhost:5001 in your browser.
 import os
 import sys
 import tempfile
+from contextlib import suppress
 
 # Add parent directory to path so we can import agent
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -194,7 +195,8 @@ def upload_file():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
-        os.unlink(tmp_path)
+        with suppress(FileNotFoundError):
+            os.unlink(tmp_path)
 
 
 @app.route("/api/reset", methods=["POST"])

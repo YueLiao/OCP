@@ -44,6 +44,7 @@
 - 为网页 JSON endpoints 缺失 JSON body 的情况添加显式 400 响应。
 - 对网页 provider 配置错误返回 HTTP 400。
 - 从网页上传 endpoint 返回文件抽取 data 和 artifact links。
+- 避免上传临时文件已缺失时的清理错误掩盖网页上传响应。
 - 为 text-first 抽取、draft 和 confirmation 添加可复现 JSON job 记录与 artifact links。
 - 将文本优先 Agentic 路线图扩展为可评审实现契约，覆盖 schema、网页流程、provider、安全确认和测试。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
@@ -71,7 +72,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`111 passed, 106 skipped`。
+最新默认 pytest 状态：`112 passed, 106 skipped`。
 
 ## 后续工作
 
