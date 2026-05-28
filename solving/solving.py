@@ -290,27 +290,29 @@ def solve_sat_pysat(filename, variable_map, config_solver):
     solution_number = config_solver.get("solution_number", 1)
     cnf = CNF(filename)
     if solver == "DEFAULT":
-        solver = Solver()
+        pysat_solver = Solver()
     else:
-        solver = Solver(name=solver)
+        pysat_solver = Solver(name=solver)
 
-    solver.append_formula(cnf.clauses)
+    try:
+        pysat_solver.append_formula(cnf.clauses)
 
-    sol_count = 0
-    sol_list = []
-    while sol_count < solution_number and solver.solve():
-        model = solver.get_model()
-        sol = {}
-        for var, value in variable_map.items():
-            if value in model:
-                sol[var] = 1
-            elif -value in model:
-                sol[var] = 0
-        sol_list.append(sol)
-        block_clause = [-l for l in model] # TO DO: optimaize: if abs(l) in main_vars
-        solver.add_clause(block_clause)
-        sol_count += 1
-    solver.delete()
+        sol_count = 0
+        sol_list = []
+        while sol_count < solution_number and pysat_solver.solve():
+            model = pysat_solver.get_model()
+            sol = {}
+            for var, value in variable_map.items():
+                if value in model:
+                    sol[var] = 1
+                elif -value in model:
+                    sol[var] = 0
+            sol_list.append(sol)
+            block_clause = [-l for l in model] # TO DO: optimaize: if abs(l) in main_vars
+            pysat_solver.add_clause(block_clause)
+            sol_count += 1
+    finally:
+        pysat_solver.delete()
     log(f"[INFO] Found {len(sol_list)} solution(s) from PySAT.", config_solver=config_solver)
     return sol_list
 

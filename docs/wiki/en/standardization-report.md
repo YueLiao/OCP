@@ -42,6 +42,7 @@ document, and extend.
 - Consolidated primitive layer Equal constraints, graph iteration, input/output link helpers, and faster layer output lookups.
 - Routed attack/solver progress messages through verbose-aware logging and converted tool diagnostics to Python warnings.
 - Added explicit solver capability reporting for optional MILP/SAT backends and documented the current solver fallbacks.
+- Ensured PySAT solver instances are released even when solving raises an exception.
 - Replaced repeated constraint/objective list concatenation in attack/model generation paths with explicit in-place extension.
 - Added opt-in model generation profiling to record per-operator constraint counts and timings.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
@@ -59,7 +60,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `93 passed, 106 skipped`.
+Latest default pytest status: `94 passed, 106 skipped`.
 
 ## Next Work
 

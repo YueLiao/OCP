@@ -85,3 +85,34 @@ def test_solver_missing_backend_messages_are_verbose_by_default(monkeypatch, cap
     assert solving.solve_milp_gurobi("missing.lp", {}) == []
 
     assert "gurobipy module can't be loaded" in capsys.readouterr().out
+
+
+def test_pysat_solver_is_released_when_solving_raises(monkeypatch):
+    class FakeCNF:
+        clauses = [[1]]
+
+        def __init__(self, filename):
+            self.filename = filename
+
+    class FailingSolver:
+        deleted = False
+
+        def append_formula(self, clauses):
+            self.clauses = clauses
+
+        def solve(self):
+            raise RuntimeError("boom")
+
+        def delete(self):
+            type(self).deleted = True
+
+    monkeypatch.setattr(solving, "_load_pysat", lambda: (FakeCNF, FailingSolver))
+
+    try:
+        solving.solve_sat_pysat("model.cnf", {"x": 1}, {"verbose": False})
+    except RuntimeError as exc:
+        assert str(exc) == "boom"
+    else:
+        raise AssertionError("Expected PySAT solve error to propagate")
+
+    assert FailingSolver.deleted is True

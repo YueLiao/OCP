@@ -40,6 +40,7 @@
 - 收拢 primitive layer 的 Equal 约束、图遍历、输入/输出链接 helper，并优化 layer 输出查找。
 - 将 attack/solver 进度消息接入 verbose-aware logging，并把工具诊断改为 Python warnings。
 - 添加显式 solver 能力报告，用于检查可选 MILP/SAT 后端，并文档化当前 solver fallback。
+- 确保 PySAT 求解过程中即使抛出异常也会释放 solver 实例。
 - 将 attack/model generation 路径里的重复约束和 objective 列表拼接改为显式原地扩展。
 - 添加可选模型生成 profiling，用于记录每类 operator 的约束数量和耗时。
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。
@@ -57,7 +58,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`93 passed, 106 skipped`。
+最新默认 pytest 状态：`94 passed, 106 skipped`。
 
 ## 后续工作
 
