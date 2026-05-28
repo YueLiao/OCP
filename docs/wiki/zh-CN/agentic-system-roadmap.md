@@ -160,6 +160,7 @@ Provider factory 应支持：
 1. 最终确定 `CipherInput`、`CipherFacts` 和 `CipherSpecDraft` schema。
    初始 dataclass 和确定性校验 helper 已就位。
 2. 将 PDF/image-first 抽取 prompt 替换为 text-first 抽取 prompt。
+   初始 text-first facts prompt 和 parser 边界已就位。
 3. 添加确定性 validator 和 draft-to-spec 转换 helper。
    初始 facts 校验和 draft 转换已就位。
 4. 添加 `extract_cipher_facts`、`draft_cipher_spec` 和 `confirm_cipher_spec` 直接 API。

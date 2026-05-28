@@ -67,13 +67,17 @@ The text-first schema currently provides:
 - `CipherSpecDraft` for a reviewable proposed `CipherSpec` with blocking
   validation errors, warnings, clarification questions, and mandatory user
   confirmation.
+- `build_cipher_facts_extraction_prompt()` and `parse_cipher_facts_response()`
+  for a deterministic prompt/parse boundary around LLM extraction.
 
 ```python
 from agent.skills.cipher_text_input import (
     CipherFacts,
     CipherInput,
     build_cipher_spec_draft,
+    parse_cipher_facts_response,
 )
+from agent.llm.prompt_templates import build_cipher_facts_extraction_prompt
 
 cipher_input = CipherInput(
     raw_text=r"x_0 \leftarrow (x_0 \ggg 7) \boxplus x_1",
@@ -81,6 +85,7 @@ cipher_input = CipherInput(
     format_hint="latex",
 )
 assert cipher_input.validate() == []
+prompt = build_cipher_facts_extraction_prompt(cipher_input)
 
 facts = CipherFacts(
     name="TinyARX",

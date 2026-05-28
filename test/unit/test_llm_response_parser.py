@@ -1,4 +1,4 @@
-from agent.llm.response_parser import parse_llm_json_response
+from agent.llm.response_parser import parse_llm_json_object, parse_llm_json_response
 from agent.types import SkillName
 
 
@@ -45,3 +45,15 @@ def test_parse_llm_json_response_ignores_unknown_skills():
 
 def test_parse_llm_json_response_returns_none_for_invalid_text():
     assert parse_llm_json_response("not json") is None
+
+
+def test_parse_llm_json_object_extracts_generic_payload():
+    raw = """The result is:
+    ```json
+    {"cipher_facts": {"name": "TinyARX", "operations": [],},}
+    ```
+    """
+
+    data = parse_llm_json_object(raw)
+
+    assert data == {"cipher_facts": {"name": "TinyARX", "operations": []}}

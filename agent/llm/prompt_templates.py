@@ -64,6 +64,29 @@ INTENT_RESPONSE_SCHEMA = {
     "required": ["needs_clarification", "requests"],
 }
 
+TEXT_CIPHER_FACTS_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "cipher_facts": {
+            "type": "object",
+            "properties": {
+                "name": {"type": ["string", "null"]},
+                "primitive_type": {"type": ["string", "null"], "enum": ["permutation", "blockcipher", None]},
+                "state": {"type": "object"},
+                "rounds": {"type": "object"},
+                "operations": {"type": "array"},
+                "tables": {"type": "object"},
+                "key_schedule": {"type": "object"},
+                "test_vectors": {"type": "array"},
+                "ambiguities": {"type": "array"},
+                "source_spans": {"type": "array"},
+            },
+            "required": ["name", "primitive_type", "state", "rounds", "operations"],
+        }
+    },
+    "required": ["cipher_facts"],
+}
+
 
 def _format_cipher_catalog_for_prompt():
     """Format the cipher catalog into a readable string for prompts."""
@@ -150,6 +173,49 @@ def build_parse_prompt(
         linear_goals=LINEAR_GOALS,
         session_context=json.dumps(session_context, indent=2),
         schema=json.dumps(INTENT_RESPONSE_SCHEMA, indent=2),
+    )
+
+
+TEXT_CIPHER_FACTS_PROMPT_TEMPLATE = """\
+You are extracting a cryptographic primitive specification for OCP.
+
+Return ONLY valid JSON matching this schema:
+{schema}
+
+Rules:
+1. Extract facts from the provided text. Do not invent missing values.
+2. Use primitive_type "permutation" or "blockcipher" only when supported by the text.
+3. Put state size facts in state: block_size, word_bitsize, nbr_words, and any layout notes.
+4. Put round count facts in rounds: nbr_rounds and any naming notes.
+5. Put each round operation in operations with type and params. Supported types:
+   xor, and, or, not, rotation, shift, modadd, sbox, permutation, matrix,
+   add_round_key, add_constant.
+6. Put S-box, permutation, matrix, constants, and test vectors under tables or
+   test_vectors. Preserve table order exactly.
+7. Put uncertain or missing details in ambiguities instead of guessing.
+8. Add source_spans when possible with line_start, line_end, and text.
+
+Input metadata:
+- source_type: {source_type}
+- format_hint: {format_hint}
+- language_hint: {language_hint}
+- source_name: {source_name}
+
+Cipher text:
+{normalized_text}
+"""
+
+
+def build_cipher_facts_extraction_prompt(cipher_input) -> str:
+    """Build the text-first prompt for extracting CipherFacts."""
+
+    return TEXT_CIPHER_FACTS_PROMPT_TEMPLATE.format(
+        schema=json.dumps(TEXT_CIPHER_FACTS_RESPONSE_SCHEMA, indent=2),
+        source_type=cipher_input.source_type,
+        format_hint=cipher_input.format_hint,
+        language_hint=cipher_input.language_hint,
+        source_name=cipher_input.source_name or "",
+        normalized_text=cipher_input.normalized_text,
     )
 
 

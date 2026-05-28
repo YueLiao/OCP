@@ -6,7 +6,7 @@ such as markdown code fences, trailing commas, and invalid JSON.
 
 import json
 import re
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from agent.types import UserIntent, SkillRequest, SkillName
 
@@ -15,20 +15,15 @@ from agent.types import UserIntent, SkillRequest, SkillName
 _SKILL_NAME_MAP = {s.value: s for s in SkillName}
 
 
-def parse_llm_json_response(raw: str) -> Optional[UserIntent]:
-    """Parse a raw LLM response string into a UserIntent.
+def parse_llm_json_object(raw: str) -> Optional[Dict[str, Any]]:
+    """Extract a JSON object from common LLM response formats.
 
-    Handles common LLM output quirks:
+    Handles common output quirks:
     - Strips markdown code fences (```json ... ```)
     - Extracts JSON from surrounding text
-    - Validates skill names and required fields
-
-    Args:
-        raw: Raw string from the LLM.
-
-    Returns:
-        UserIntent if parsing succeeds, None if the response is unparseable.
+    - Removes trailing commas before ``}`` or ``]``
     """
+
     if not raw or not raw.strip():
         return None
 
@@ -62,14 +57,29 @@ def parse_llm_json_response(raw: str) -> Optional[UserIntent]:
     json_str = text[brace_start:brace_end + 1]
 
     try:
-        data = json.loads(json_str)
+        return json.loads(json_str)
     except json.JSONDecodeError:
         # Try fixing trailing commas
         fixed = re.sub(r",\s*([}\]])", r"\1", json_str)
         try:
-            data = json.loads(fixed)
+            return json.loads(fixed)
         except json.JSONDecodeError:
             return None
+
+
+def parse_llm_json_response(raw: str) -> Optional[UserIntent]:
+    """Parse a raw LLM response string into a UserIntent.
+
+    Args:
+        raw: Raw string from the LLM.
+
+    Returns:
+        UserIntent if parsing succeeds, None if the response is unparseable.
+    """
+
+    data = parse_llm_json_object(raw)
+    if data is None:
+        return None
 
     # Build UserIntent
     intent = UserIntent(raw_text=raw)

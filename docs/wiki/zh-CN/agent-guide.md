@@ -63,13 +63,17 @@ python3 web/app.py --port 5001
 - `CipherFacts`：保存中间抽取事实、假设、歧义和来源证据。
 - `CipherSpecDraft`：保存可审阅的候选 `CipherSpec`，包括阻塞性校验错误、
   警告、澄清问题，并默认要求用户确认。
+- `build_cipher_facts_extraction_prompt()` 和 `parse_cipher_facts_response()`：
+  为 LLM 抽取提供确定性的 prompt/parse 边界。
 
 ```python
 from agent.skills.cipher_text_input import (
     CipherFacts,
     CipherInput,
     build_cipher_spec_draft,
+    parse_cipher_facts_response,
 )
+from agent.llm.prompt_templates import build_cipher_facts_extraction_prompt
 
 cipher_input = CipherInput(
     raw_text=r"x_0 \leftarrow (x_0 \ggg 7) \boxplus x_1",
@@ -77,6 +81,7 @@ cipher_input = CipherInput(
     format_hint="latex",
 )
 assert cipher_input.validate() == []
+prompt = build_cipher_facts_extraction_prompt(cipher_input)
 
 facts = CipherFacts(
     name="TinyARX",

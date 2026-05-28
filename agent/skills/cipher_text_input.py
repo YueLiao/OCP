@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from agent.llm.response_parser import parse_llm_json_object
 from agent.skills.cipher_spec import CipherSpec
 
 
@@ -98,6 +99,23 @@ class CipherFacts:
 
         return validate_cipher_facts(self)
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "CipherFacts":
+        """Build extracted facts from a JSON-compatible dictionary."""
+
+        return cls(
+            name=data.get("name"),
+            primitive_type=data.get("primitive_type") or data.get("cipher_type"),
+            state=data.get("state", {}),
+            rounds=data.get("rounds", {}),
+            operations=data.get("operations", []),
+            tables=data.get("tables", {}),
+            key_schedule=data.get("key_schedule", {}),
+            test_vectors=data.get("test_vectors", []),
+            ambiguities=data.get("ambiguities", []),
+            source_spans=data.get("source_spans", []),
+        )
+
 
 @dataclass
 class CipherSpecDraft:
@@ -142,6 +160,18 @@ def normalize_cipher_text(text: str) -> str:
         previous_blank = is_blank
 
     return "\n".join(lines).strip()
+
+
+def parse_cipher_facts_response(raw: str) -> Optional[CipherFacts]:
+    """Parse an LLM JSON response into ``CipherFacts``."""
+
+    data = parse_llm_json_object(raw)
+    if data is None:
+        return None
+    facts_data = data.get("cipher_facts", data)
+    if not isinstance(facts_data, dict):
+        return None
+    return CipherFacts.from_dict(facts_data)
 
 
 def _positive_int(value):

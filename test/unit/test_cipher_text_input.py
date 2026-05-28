@@ -4,6 +4,7 @@ from agent.skills.cipher_text_input import (
     CipherSpecDraft,
     build_cipher_spec_draft,
     normalize_cipher_text,
+    parse_cipher_facts_response,
     validate_cipher_facts,
 )
 
@@ -121,3 +122,25 @@ def test_cipher_spec_draft_validate_spec_refreshes_errors():
 
     assert "round_structure must have at least one layer." in errors
     assert draft.validation_errors == errors
+
+
+def test_parse_cipher_facts_response_handles_wrapped_llm_json():
+    raw = """```json
+    {
+      "cipher_facts": {
+        "name": "TinyARX",
+        "primitive_type": "permutation",
+        "state": {"block_size": 32, "word_bitsize": 16, "nbr_words": 2},
+        "rounds": {"nbr_rounds": 4},
+        "operations": [{"type": "xor", "params": {"input_indices": [[0, 1]], "output_indices": [1]}}],
+        "ambiguities": ["word ordering is implied"],
+      },
+    }
+    ```"""
+
+    facts = parse_cipher_facts_response(raw)
+
+    assert facts is not None
+    assert facts.name == "TinyARX"
+    assert facts.operations[0]["type"] == "xor"
+    assert facts.ambiguities == ["word ordering is implied"]

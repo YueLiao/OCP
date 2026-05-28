@@ -28,7 +28,7 @@
 - 用 `OCP_FILES_DIR` 统一运行时输出路径。
 - 减少 solver/modeling 可选后端在 import 阶段的噪声。
 - 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
-- 添加文本优先密码输入 dataclass、Markdown/LaTeX 规整、确定性 facts 校验和 draft-to-spec 转换 helper。
+- 添加文本优先密码输入 dataclass、Markdown/LaTeX 规整、确定性 facts 校验、prompt/parse 边界和 draft-to-spec 转换 helper。
 - 将文本优先 Agentic 路线图扩展为可评审实现契约，覆盖 schema、网页流程、provider、安全确认和测试。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
 - 收拢 Boolean、modular、S-box 和 matrix operator 中重复的模型生成 helper。
@@ -49,10 +49,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`77 passed, 106 skipped`。
+最新默认 pytest 状态：`80 passed, 106 skipped`。
 
 ## 后续工作
 
-1. 将 PDF/image-first 抽取 prompt 替换为 text-first prompt，并添加固定 parser 测试。
+1. 添加文本优先 facts 抽取、draft 创建和确认的 Agent 直接 API。
 2. 深层性能重写前先 profile 模型生成过程。
 3. 继续收窄 solver/model generation 路径里的宽泛异常处理。
