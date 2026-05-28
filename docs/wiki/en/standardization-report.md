@@ -29,6 +29,7 @@ document, and extend.
 - Added deterministic unit tests around Agent APIs, paths, providers, search I/O, operator core behavior, and text input normalization.
 - Centralized runtime output paths with `OCP_FILES_DIR`.
 - Removed import-time attack output path snapshots so model and trail filenames honor runtime `OCP_FILES_DIR` changes.
+- Removed import-time runtime path snapshots from logic minimization and default agent code generation output.
 - Reduced import-time optional dependency noise for solver/modeling backends.
 - Added DeepSeek and generic OpenAI-compatible provider support.
 - Added text-first cipher input dataclasses, Markdown/LaTeX normalization, deterministic fact validation, prompt/parse boundaries, and draft-to-spec conversion helpers.
@@ -61,7 +62,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `96 passed, 106 skipped`.
+Latest default pytest status: `99 passed, 106 skipped`.
 
 ## Next Work
 

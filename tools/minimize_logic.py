@@ -3,7 +3,6 @@ from pathlib import Path
 import warnings
 from tools.paths import get_files_dir
 
-FILES_DIR = get_files_dir("sbox_modeling")
 try:
     import pyeda
 except ImportError:
@@ -82,8 +81,9 @@ def ttb_to_ineq_logic(ttable, variables, mode=0, tool_type="espresso_pyeda", tim
     file_contents += "\n".join(pla_rows) + "\n"
 
     # Setup paths
-    pla_file = str(FILES_DIR / 'ttable.txt')
-    result_file = str(FILES_DIR / 'sttable.txt')
+    files_dir = get_files_dir("sbox_modeling")
+    pla_file = str(files_dir / 'ttable.txt')
+    result_file = str(files_dir / 'sttable.txt')
 
     # Write input PLA file
     with open(pla_file, "w") as fw:

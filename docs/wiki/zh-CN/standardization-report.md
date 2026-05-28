@@ -27,6 +27,7 @@
 - 为 Agent API、路径、provider、搜索 I/O、operator 核心行为和文本输入规整添加确定性单测。
 - 用 `OCP_FILES_DIR` 统一运行时输出路径。
 - 移除 attack 输出路径的 import-time 快照，让模型和 trail 文件名能响应运行时 `OCP_FILES_DIR` 变化。
+- 移除 logic minimization 和 agent 代码生成默认输出目录里的 import-time 路径快照。
 - 减少 solver/modeling 可选后端在 import 阶段的噪声。
 - 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
 - 添加文本优先密码输入 dataclass、Markdown/LaTeX 规整、确定性 facts 校验、prompt/parse 边界和 draft-to-spec 转换 helper。
@@ -59,7 +60,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`96 passed, 106 skipped`。
+最新默认 pytest 状态：`99 passed, 106 skipped`。
 
 ## 后续工作
 

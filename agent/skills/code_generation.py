@@ -6,8 +6,6 @@ from agent.session import Session
 from agent.skills.base import BaseSkill
 from tools.paths import get_files_dir
 
-DEFAULT_OUTPUT_DIR = get_files_dir(create=False)
-
 
 class CodeGenerationSkill(BaseSkill):
 
@@ -47,7 +45,7 @@ class CodeGenerationSkill(BaseSkill):
             "output_dir": {
                 "type": "string",
                 "required": False,
-                "default": "files",
+                "default": "OCP_FILES_DIR or files/",
                 "description": "Output directory for generated files",
             },
         }
@@ -67,7 +65,8 @@ class CodeGenerationSkill(BaseSkill):
         language = params.get("language", "python").lower()
         unroll = params.get("unroll", False)
         test = params.get("test", True)
-        output_dir = Path(params.get("output_dir", "files"))
+        output_dir_param = params.get("output_dir")
+        output_dir = Path(output_dir_param) if output_dir_param else get_files_dir()
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if language not in ("python", "c", "verilog"):
