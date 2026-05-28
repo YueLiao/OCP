@@ -7,6 +7,7 @@ constraints only; it does not call external solvers.
 
 ```bash
 python -m tools.profile_model_generation --indent 0
+python -m tools.profile_model_generation forro:1 --top-limit 5
 ```
 
 Snapshot date: 2026-05-28.
@@ -30,6 +31,10 @@ The profiler also reports `operator_prefixes`, which groups constraints by
 operator class and ID prefix. For example, `Equal:IN_LINK_EQ` identifies
 primitive input links, while `Equal:Add1_EQ` identifies identity propagation
 around an `Add1` layer.
+
+For quick inspection, each report also includes `top_operators` and
+`top_operator_prefixes`, sorted by generated constraint count. Use
+`--top-limit` to control how many rows are included in those summaries.
 
 ## Reading the Numbers
 

@@ -105,12 +105,16 @@ def test_salsa_arx_helper_preserves_round_schedule_and_structure():
 
 
 def test_model_generation_profiler_reports_constraint_hotspots():
-    report = profile_case("present:1")
+    report = profile_case("present:1", top_limit=1)
 
     assert report["case"] == "present:1"
     assert report["constraint_count"] == report["profile"]["total_constraints"]
     assert report["constraint_count"] > 0
     assert report["profile"]["operators"]["PRESENT_Sbox"]["calls"] == 16
+    assert report["top_operators"][0]["name"] == "PRESENT_Sbox"
+    assert report["top_operators"][0]["calls"] == 16
+    assert report["top_operators"][0]["constraints"] == 896
+    assert len(report["top_operator_prefixes"]) == 1
     assert report["generation_time_s"] >= 0
 
     assert profile_case("chacha:1")["profile"]["operators"]["ModAdd"]["calls"] == 16

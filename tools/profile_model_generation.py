@@ -14,6 +14,22 @@ from tools.model_constraints import gen_round_model_constraint_obj_fun
 DEFAULT_CASES = ("present:1", "chacha:1", "salsa:1", "forro:1")
 
 
+def _top_profile_entries(entries, limit):
+    sorted_entries = sorted(
+        entries.items(),
+        key=lambda item: (-item[1]["constraints"], -item[1]["calls"], item[0]),
+    )
+    return [
+        {
+            "name": name,
+            "calls": stats["calls"],
+            "constraints": stats["constraints"],
+            "time_s": stats["time_s"],
+        }
+        for name, stats in sorted_entries[:limit]
+    ]
+
+
 def _cipher_factory(name):
     normalized = name.lower()
     if normalized == "present":
@@ -44,13 +60,14 @@ def _parse_case(case):
     return name, int(rounds)
 
 
-def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat"):
+def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit=8):
     """Profile model generation for one primitive case.
 
     Args:
         case: Case string in the form ``name`` or ``name:rounds``.
         goal: OCP cryptanalysis goal passed to model configuration.
         model_type: Model backend type such as ``sat`` or ``milp``.
+        top_limit: Number of hotspot rows to expose in summary fields.
 
     Returns:
         dict: JSON-serializable timing and constraint statistics.
@@ -81,6 +98,8 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat"):
     generation_time_s = time.perf_counter() - generation_start
 
     profile = config_model["model_generation_profile"]
+    top_operators = _top_profile_entries(profile["operators"], top_limit)
+    top_operator_prefixes = _top_profile_entries(profile["operator_prefixes"], top_limit)
     return {
         "case": case,
         "cipher": cipher.name,
@@ -91,12 +110,17 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat"):
         "generation_time_s": round(generation_time_s, 6),
         "constraint_count": len(constraints),
         "objective_rows": len(objective),
+        "top_operators": top_operators,
+        "top_operator_prefixes": top_operator_prefixes,
         "profile": profile,
     }
 
 
-def profile_cases(cases=DEFAULT_CASES, goal="DIFFERENTIALPATH_PROB", model_type="sat"):
-    return [profile_case(case, goal=goal, model_type=model_type) for case in cases]
+def profile_cases(cases=DEFAULT_CASES, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit=8):
+    return [
+        profile_case(case, goal=goal, model_type=model_type, top_limit=top_limit)
+        for case in cases
+    ]
 
 
 def main(argv=None):
@@ -109,12 +133,18 @@ def main(argv=None):
     )
     parser.add_argument("--goal", default="DIFFERENTIALPATH_PROB")
     parser.add_argument("--model-type", default="sat")
+    parser.add_argument("--top-limit", type=int, default=8)
     parser.add_argument("--indent", type=int, default=2)
     args = parser.parse_args(argv)
 
     print(
         json.dumps(
-            profile_cases(args.cases, goal=args.goal, model_type=args.model_type),
+            profile_cases(
+                args.cases,
+                goal=args.goal,
+                model_type=args.model_type,
+                top_limit=args.top_limit,
+            ),
             indent=args.indent,
             sort_keys=True,
         )

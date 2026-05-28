@@ -6,6 +6,7 @@
 
 ```bash
 python -m tools.profile_model_generation --indent 0
+python -m tools.profile_model_generation forro:1 --top-limit 5
 ```
 
 快照日期：2026-05-28。
@@ -27,6 +28,9 @@ python -m tools.profile_model_generation --indent 0
 Profiler 还会输出 `operator_prefixes`，按 operator 类型和 ID 前缀聚合约束。例如
 `Equal:IN_LINK_EQ` 表示 primitive 输入链接，`Equal:Add1_EQ` 表示 `Add1`
 层周围未被更新 word 的 identity 传播。
+
+为了快速查看，每份报告还会包含 `top_operators` 和 `top_operator_prefixes`，
+按生成约束数量排序。可以用 `--top-limit` 控制摘要行数。
 
 ## 如何理解这些数字
 
