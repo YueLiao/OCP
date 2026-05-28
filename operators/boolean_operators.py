@@ -1,4 +1,12 @@
-from operators.operators import Operator, BinaryOperator, UnaryOperator, RaiseExceptionVersionNotExisting
+from operators.operators import (
+    Operator,
+    BinaryOperator,
+    UnaryOperator,
+    RaiseExceptionVersionNotExisting,
+    binary_declaration,
+    milp_equivalence_constraints,
+    sat_equivalence_constraints,
+)
 from tools.model_constraints import gen_xor_constraints, gen_word_xor_constraints, gen_nxor_constraints, gen_word_nxor_constraints
 
 
@@ -31,13 +39,13 @@ def _generate_and_or_active_weight_model(operator, model_type):
         if operator.model_version == class_name + "_XORDIFF":
             for i1, i2, o, p in zip(var_in1, var_in2, var_out, var_p):
                 model_list += [f'{i1} + {i2} - {o} >= 0', f'{i1} + {i2} - {p} >= 0', f'- {i1} + {p} >= 0', f'- {i2} + {p} >= 0']
-            model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p))
+            model_list.append(binary_declaration(var_in1, var_in2, var_out, var_p))
             operator.weight = [" + ".join(var_p)]
             return model_list
         if operator.model_version == class_name + "_LINEAR":
             for i1, i2, o, p in zip(var_in1, var_in2, var_out, var_p):
                 model_list += [f'{p} - {i1} >= 0', f'{p} - {i2} >= 0', f'{p} - {o} = 0']
-            model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p))
+            model_list.append(binary_declaration(var_in1, var_in2, var_out, var_p))
             operator.weight = [" + ".join(var_p)]
             return model_list
     elif model_type == 'cp':
@@ -131,7 +139,7 @@ class XOR(BinaryOperator):  # Operator for the bitwise XOR operation: compute th
                 for i in range(len(var_in1)):
                     i1, i2, o = var_in1[i], var_in2[i], var_out[i]
                     model_list += [f'{i1} - {o} = 0', f'{i2} - {o} = 0']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out))
+                model_list.append(binary_declaration(var_in1, var_in2, var_out))
                 return model_list
             # Modeling for word truncated linear cryptanalysis
             elif model_type == 'sat' and self.model_version in [self.__class__.__name__ + "_TRUNCATEDLINEAR"]:
@@ -141,7 +149,7 @@ class XOR(BinaryOperator):  # Operator for the bitwise XOR operation: compute th
             elif model_type == 'milp' and self.model_version == self.__class__.__name__ + "_TRUNCATEDLINEAR":
                 var_in1, var_in2, var_out = (self.get_var_model("in", 0, bitwise=False), self.get_var_model("in", 1, bitwise=False), self.get_var_model("out", 0, bitwise=False))
                 model_list += [f'{var_in1[0]} - {var_out[0]} = 0', f'{var_in2[0]} - {var_out[0]} = 0']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out))
+                model_list.append(binary_declaration(var_in1, var_in2, var_out))
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
@@ -206,7 +214,7 @@ class N_XOR(Operator): # Operator of the n-xor: a_0 xor a_1 xor ... xor a_n = b
                 for i in range(self.input_vars[0].bitsize):
                     for j in range(len(var_in)):
                         model_list += [f"{var_out[i]} - {var_in[j][i]} = 0"]
-                model_list.append('Binary\n' + ' '.join(sum(var_in, []) + var_out))
+                model_list.append(binary_declaration(sum(var_in, []), var_out))
                 return model_list
             # Modeling for word truncated linear cryptanalysis
             elif model_type == "sat" and self.model_version == self.__class__.__name__ + "_TRUNCATEDLINEAR":
@@ -218,7 +226,7 @@ class N_XOR(Operator): # Operator of the n-xor: a_0 xor a_1 xor ... xor a_n = b
                 var_in, var_out = ([self.get_var_model("in", i, bitwise=False) for i in range(len(self.input_vars))], self.get_var_model("out", 0, bitwise=False))
                 for j in range(len(var_in)):
                     model_list += [f"{var_out[0]} - {var_in[j][0]} = 0"]
-                model_list.append('Binary\n' + ' '.join(sum(var_in, []) + var_out))
+                model_list.append(binary_declaration(sum(var_in, []), var_out))
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
@@ -242,13 +250,13 @@ class NOT(UnaryOperator): # Operator for the bitwise NOT operation: compute the 
         if model_type == 'sat':
             if self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]:
                 var_in, var_out = (self.get_var_model("in", 0), self.get_var_model("out", 0))
-                return [clause for vin, vout in zip(var_in, var_out) for clause in (f"-{vin} {vout}", f"{vin} -{vout}")]
+                return sat_equivalence_constraints(var_in, var_out)
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'milp':
             if self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]:
                 var_in, var_out = (self.get_var_model("in", 0), self.get_var_model("out", 0))
-                model_list = [f'{var_in[i]} - {var_out[i]} = 0' for i in range(len(var_in))]
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+                model_list = milp_equivalence_constraints(var_in, var_out)
+                model_list.append(binary_declaration(var_in, var_out))
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
@@ -288,7 +296,7 @@ class ConstantXOR(UnaryOperator): # Operator for the constant addition using xor
         if model_type == 'sat':
             if self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]:
                 var_in, var_out = (self.get_var_model("in", 0), self.get_var_model("out", 0))
-                return [clause for vin, vout in zip(var_in, var_out) for clause in (f"-{vin} {vout}", f"{vin} -{vout}")]
+                return sat_equivalence_constraints(var_in, var_out)
             elif self.model_version in [self.__class__.__name__ + "_TRUNCATEDDIFF", self.__class__.__name__ + "_TRUNCATEDLINEAR"]:
                 var_in, var_out = (self.get_var_model("in", 0, bitwise=False), self.get_var_model("out", 0, bitwise=False))
                 return [f"-{var_in[0]} {var_out[0]}", f"{var_in[0]} -{var_out[0]}"]
@@ -296,13 +304,13 @@ class ConstantXOR(UnaryOperator): # Operator for the constant addition using xor
         elif model_type == 'milp':
             if self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]:
                 var_in, var_out = (self.get_var_model("in", 0), self.get_var_model("out", 0))
-                model_list = [f'{var_in[i]} - {var_out[i]} = 0' for i in range(len(var_in))]
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+                model_list = milp_equivalence_constraints(var_in, var_out)
+                model_list.append(binary_declaration(var_in, var_out))
                 return model_list
             elif self.model_version in [self.__class__.__name__ + "_TRUNCATEDDIFF", self.__class__.__name__ + "_TRUNCATEDLINEAR"]:
                 var_in, var_out = (self.get_var_model("in", 0, bitwise=False), self.get_var_model("out", 0, bitwise=False))
                 model_list = [f'{var_in[0]} - {var_out[0]} = 0']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+                model_list.append(binary_declaration(var_in, var_out))
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
@@ -340,7 +348,7 @@ class ANDXOR(Operator):  # Operator for the bitwise AND-XOR operation: compute t
                         model_list += [f'{p} = 0 -> {i1} = 0', f'{p} = 0 -> {i2} = 0', f'{p} = 0 -> {i3} - {o} = 0', f'{p} = 1 -> {i1} + {i2} >= 1']
                     elif self.model_version == self.__class__.__name__ + "_XORDIFF_3":
                         model_list += [f'{p} = 0 -> {i1} = 0', f'{p} = 0 -> {i2} = 0', f'{p} = 0 -> {i3} - {o} = 0', f'{p} - {i1} - {i2} <= 0']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_in3 + var_out + var_p))
+                model_list.append(binary_declaration(var_in1, var_in2, var_in3, var_out, var_p))
                 self.weight = [" + ".join(var_p)]
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)

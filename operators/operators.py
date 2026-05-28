@@ -6,6 +6,18 @@ def RaiseExceptionVersionNotExisting(class_name, model_version, model_type):
     raise Exception(class_name + ": version " + str(model_version) + " not existing for " + model_type)
 
 
+def binary_declaration(*var_groups):
+    return 'Binary\n' + ' '.join(v for group in var_groups for v in group)
+
+
+def sat_equivalence_constraints(var_in, var_out):
+    return [clause for vin, vout in zip(var_in, var_out) for clause in (f"-{vin} {vout}", f"{vin} -{vout}")]
+
+
+def milp_equivalence_constraints(var_in, var_out):
+    return [f"{vin} - {vout} = 0" for vin, vout in zip(var_in, var_out)]
+
+
 # ********************* OPERATORS ********************* #
 # Class that represents a constraint/operator object, i.e. a type of node in our graph modeling (the other type being the variables)
 # An Operator/Constraint node can only be linked to a Variable node in the graph representation
@@ -63,7 +75,12 @@ class Operator(ABC):
 
     # method that returns the ID of the variable located at "index" of either the input or output of the operator, with options for bitwise listing and dimension unrolling
     def get_var_model(self, in_out, index, bitwise=True, dim=1):
-        var = self.input_vars[index] if in_out == 'in' else self.output_vars[index]
+        if in_out == 'in':
+            var = self.input_vars[index]
+        elif in_out == 'out':
+            var = self.output_vars[index]
+        else:
+            raise Exception(str(self.__class__.__name__) + ": unknown in_out type '" + in_out + "'")
         if bitwise and var.bitsize > 1:
             return [f"{var.ID}_{i}_{j}" for i in range(var.bitsize) for j in range(dim)] if dim > 1 else [f"{var.ID}_{i}" for i in range(var.bitsize)]
         else:
@@ -152,7 +169,7 @@ class CopyOperator(Operator):  # Operator that duplicates one input into multipl
                 for i in range(self.output_vars[0].bitsize):
                     for j in range(len(var_out)):
                         model_list += [f"{var_out[j][i]} - {var_in[i]} = 0"]
-                model_list.append('Binary\n' + ' '.join(var_in + sum(var_out, [])))
+                model_list.append(binary_declaration(var_in, sum(var_out, [])))
                 return model_list
             # Modeling for truncated differential cryptanalysis
             elif model_type == "sat" and self.model_version == self.__class__.__name__ + "_TRUNCATEDDIFF":
@@ -164,7 +181,7 @@ class CopyOperator(Operator):  # Operator that duplicates one input into multipl
                 var_in, var_out = (self.get_var_model("in", 0, bitwise=False), [self.get_var_model("out", i, bitwise=False) for i in range(len(self.output_vars))])
                 for j in range(len(var_out)):
                     model_list += [f"{var_out[j][0]} - {var_in[0]} = 0"]
-                model_list.append('Binary\n' + ' '.join(var_in + sum(var_out, [])))
+                model_list.append(binary_declaration(var_in, sum(var_out, [])))
                 return model_list
             # Modeling for linear cryptanalysis
             elif self.model_version == self.__class__.__name__ + "_LINEAR":
@@ -212,7 +229,7 @@ class Equal(UnaryOperator):  # Operator assigning equality between the input var
         if model_type == 'sat':
             if self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]:
                 var_in, var_out = (self.get_var_model("in", 0), self.get_var_model("out", 0))
-                return [clause for vin, vout in zip(var_in, var_out) for clause in (f"-{vin} {vout}", f"{vin} -{vout}")]
+                return sat_equivalence_constraints(var_in, var_out)
             elif self.model_version in [self.__class__.__name__ + "_TRUNCATEDDIFF", self.__class__.__name__ + "_TRUNCATEDLINEAR"]:
                 var_in, var_out = (self.get_var_model("in", 0, bitwise=False), self.get_var_model("out", 0, bitwise=False))
                 return [f"-{var_in[0]} {var_out[0]}", f"{var_in[0]} -{var_out[0]}"]
@@ -220,13 +237,13 @@ class Equal(UnaryOperator):  # Operator assigning equality between the input var
         elif model_type == 'milp':
             if self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]:
                 var_in, var_out = (self.get_var_model("in", 0), self.get_var_model("out", 0))
-                model_list = [f"{vin} - {vout} = 0" for vin, vout in zip(var_in, var_out)]
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+                model_list = milp_equivalence_constraints(var_in, var_out)
+                model_list.append(binary_declaration(var_in, var_out))
                 return model_list
             elif self.model_version in [self.__class__.__name__ + "_TRUNCATEDDIFF", self.__class__.__name__ + "_TRUNCATEDLINEAR"]:
                 var_in, var_out = (self.get_var_model("in", 0, bitwise=False), self.get_var_model("out", 0, bitwise=False))
                 model_list = [f"{var_in[0]} - {var_out[0]} = 0"]
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+                model_list.append(binary_declaration(var_in, var_out))
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
@@ -279,11 +296,11 @@ class Rot(UnaryOperator):     # Operator for the rotation function: rotation of 
             var_in, var_out = (self.get_var_model("in", 0), self.get_var_model("out", 0))
             if (self.direction == 'r' and self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]):
                 model_list = [f'{var_in[i]} - {var_out[(i + self.amount) % len(var_in)]} = 0' for i in range(len(var_in))]
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+                model_list.append(binary_declaration(var_in, var_out))
                 return model_list
             elif (self.direction =='l' and self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]):
                 model_list = [f'{var_in[(i+self.amount)%len(var_in)]} - {var_out[i]} = 0' for i in range(len(var_in))]
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+                model_list.append(binary_declaration(var_in, var_out))
                 return  model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
@@ -327,13 +344,13 @@ class Shift(UnaryOperator):    # Operator for the shift function: shift of the i
                 model_list = [f'{var_out[i]} = 0' for i in range(self.amount)]
                 model_list += [f'{var_in[i]} - {var_out[i+self.amount]} = 0' for i in range(len(var_in)-self.amount)]
                 model_list += [f"{var_in[i]} - {var_in[i]} = 0" for i in range(len(var_in)-self.amount, len(var_in))]
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+                model_list.append(binary_declaration(var_in, var_out))
                 return model_list
             elif (self.direction =='l' and self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]):
                 model_list = [f"{var_in[i]} - {var_in[i]} = 0" for i in range(self.amount)]
                 model_list += [f'{var_in[i+self.amount]} - {var_out[i]} = 0' for i in range(len(var_in)-self.amount)]
                 model_list += [f'{var_out[i]} = 0' for i in range(len(var_in)-self.amount, len(var_in))]
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+                model_list.append(binary_declaration(var_in, var_out))
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)

@@ -1,5 +1,5 @@
 import math
-from operators.operators import BinaryOperator, UnaryOperator, RaiseExceptionVersionNotExisting
+from operators.operators import BinaryOperator, UnaryOperator, RaiseExceptionVersionNotExisting, binary_declaration
 
 
 def _word_mask(bitsize):
@@ -136,7 +136,7 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
                 model_list += [var_d[0] + ' - ' + var_in1[-1] + ' >= 0 ']
                 model_list += [var_d[0] + ' - ' + var_in2[-1] + ' >= 0 ']
                 model_list += [var_d[0] + ' - ' + var_out[-1] + ' >= 0 ']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p + var_d))
+                model_list.append(binary_declaration(var_in1, var_in2, var_out, var_p, var_d))
                 self.weight = [" + ".join(var_p)]
                 return model_list
             elif self.model_version == self.__class__.__name__ + "_XORDIFF_1": # Type 1 constraint using the Indicator constraint provided by Gurobi
@@ -160,7 +160,7 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
                 model_list += [var_d[0] + ' - ' + var_in1[-1] + ' >= 0 ']
                 model_list += [var_d[0] + ' - ' + var_in2[-1] + ' >= 0 ']
                 model_list += [var_d[0] + ' - ' + var_out[-1] + ' >= 0 ']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p + var_d))
+                model_list.append(binary_declaration(var_in1, var_in2, var_out, var_p, var_d))
                 self.weight = [" + ".join(var_p)]
                 return model_list
             elif self.model_version == self.__class__.__name__ + "_XORDIFF_2": # Type 2 constraint using the Indicator constraint provided by Gurobi
@@ -181,7 +181,7 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
                 model_list += [var_d[0] + ' - ' + var_in1[-1] + ' >= 0 ']
                 model_list += [var_d[0] + ' - ' + var_in2[-1] + ' >= 0 ']
                 model_list += [var_d[0] + ' - ' + var_out[-1] + ' >= 0 ']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p + var_d))
+                model_list.append(binary_declaration(var_in1, var_in2, var_out, var_p, var_d))
                 self.weight = [" + ".join(var_p)]
                 return model_list
             elif self.model_version == self.__class__.__name__ + "_XORDIFF_3": # Type 3 constraint using the Indicator constraint provided by Gurobi
@@ -199,7 +199,7 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
                 model_list += [var_d[0] + ' - ' + var_in1[-1] + ' >= 0 ']
                 model_list += [var_d[0] + ' - ' + var_in2[-1] + ' >= 0 ']
                 model_list += [var_d[0] + ' - ' + var_out[-1] + ' >= 0 ']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p + var_d))
+                model_list.append(binary_declaration(var_in1, var_in2, var_out, var_p, var_d))
                 self.weight = [" + ".join(var_p)]
                 return model_list
             # Modeling for linear cryptanalysis
@@ -217,7 +217,7 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
                     model_list += [var_p[i]+' - '+a[0]+' + '+a[1]+' + '+a[2]+' - '+var_p[i+1]+' >= 0']
                     model_list += [a[0]+' - '+var_p[i]+' + '+a[1]+' + '+a[2]+' + '+var_p[i+1]+' >= 0']
                     model_list += [var_p[i]+' + '+a[0]+' + '+a[1]+' + '+a[2]+' + '+var_p[i+1]+' <= 4']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p))
+                model_list.append(binary_declaration(var_in1, var_in2, var_out, var_p))
                 self.weight = [" + ".join(var_p[:self.input_vars[0].bitsize])]
                 return model_list
             else:

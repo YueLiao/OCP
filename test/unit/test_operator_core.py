@@ -1,5 +1,6 @@
 import variables.variables as var
-from operators.boolean_operators import AND, OR, XOR
+import pytest
+from operators.boolean_operators import AND, ConstantXOR, NOT, OR, XOR
 from operators.modular_operators import ConstantAdd, ModAdd
 from operators.operators import Equal, Rot
 from operators.Sbox import PRESENT_Sbox
@@ -99,6 +100,31 @@ def test_equal_generates_sat_equivalence_model():
         "-in0_1 out_1",
         "in0_1 -out_1",
     ]
+
+    with pytest.raises(Exception, match="unknown in_out type"):
+        op.get_var_model("bad", 0)
+
+
+def test_unary_equivalence_operators_share_stable_models():
+    left = var.Variable(2, ID="in0")
+    out = var.Variable(2, ID="out")
+
+    for op in (
+        NOT([left], [out], ID="NOT"),
+        ConstantXOR([left], [out], [[1]], round=1, index=0, ID="CX"),
+    ):
+        op.model_version = f"{op.__class__.__name__}_LINEAR"
+        sat_model = op.generate_model("sat")
+        assert sat_model == [
+            "-in0_0 out_0",
+            "in0_0 -out_0",
+            "-in0_1 out_1",
+            "in0_1 -out_1",
+        ]
+
+        milp_model = op.generate_model("milp")
+        assert milp_model[:2] == ["in0_0 - out_0 = 0", "in0_1 - out_1 = 0"]
+        assert milp_model[-1] == "Binary\nin0_0 in0_1 out_0 out_1"
 
 
 def test_rot_generates_implementation_and_sat_model():
