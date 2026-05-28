@@ -28,7 +28,8 @@ User-facing boundaries should classify errors before returning them:
 - Empty text or unsupported file type: HTTP 400 or `SkillResult(success=False)`.
 - LLM parse failure: `SkillResult(success=False)` with a parseable-facts message.
 - Internal skill failures: wrapped as `SkillResult(success=False)` at the skill boundary.
-- Unexpected route/provider setup failures: HTTP 500 with `error_code` for diagnostics.
+- Unexpected route/provider setup failures: HTTP 500 with a stable `error_code`
+  and without leaking low-level exception details to the UI.
 
 `/api/analyze`, `/api/code`, and `/api/visualize` require `confirmed=true`.
 The web UI prompts before sending this flag because those actions can run

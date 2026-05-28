@@ -113,6 +113,25 @@ def test_config_resolves_api_key_from_provider_environment(monkeypatch):
     }
 
 
+def test_config_hides_unexpected_provider_setup_details(monkeypatch):
+    def fake_create_llm_provider(provider_name, api_key=None, model=None, base_url=None):
+        raise RuntimeError("internal secret detail")
+
+    monkeypatch.setattr(web_app, "create_llm_provider", fake_create_llm_provider)
+    client = web_app.app.test_client()
+
+    response = client.post(
+        "/api/config",
+        json={"provider": "openai", "api_key": "test-key"},
+    )
+    data = response.get_json()
+
+    assert response.status_code == 500
+    assert data["success"] is False
+    assert data["error_code"] == "provider_setup_failed"
+    assert "internal secret detail" not in data["error"]
+
+
 def test_upload_response_includes_data_and_artifact_links():
     class FakeUploadAgent:
         session = SimpleNamespace(get_context=lambda: {"has_cipher": False})

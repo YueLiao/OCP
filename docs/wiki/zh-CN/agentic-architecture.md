@@ -27,7 +27,8 @@
 - 文本为空或文件类型不支持：HTTP 400 或 `SkillResult(success=False)`。
 - LLM 解析失败：`SkillResult(success=False)`，说明未获得可解析 facts。
 - Skill 内部失败：在 skill 边界包装成 `SkillResult(success=False)`。
-- 非预期 route/provider 初始化失败：HTTP 500，并带 `error_code` 便于诊断。
+- 非预期 route/provider 初始化失败：HTTP 500，并带稳定 `error_code`，但不向 UI
+  泄漏底层异常细节。
 
 `/api/analyze`、`/api/code` 和 `/api/visualize` 要求传入 `confirmed=true`。
 网页端会先弹出确认，因为这些动作可能运行外部 solver 或写出产物。

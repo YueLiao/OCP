@@ -141,8 +141,12 @@ def set_config():
         return jsonify({"success": True, "config": config})
     except ValueError as e:
         return _error_response(str(e), 400, "invalid_provider_config")
-    except Exception as e:
-        return _error_response(str(e), 500, "provider_setup_failed")
+    except Exception:
+        return _error_response(
+            "Provider setup failed. Check provider settings and server logs.",
+            500,
+            "provider_setup_failed",
+        )
 
 
 @app.route("/api/chat", methods=["POST"])
