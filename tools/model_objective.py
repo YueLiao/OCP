@@ -1,5 +1,6 @@
 import heapq
 import re
+import warnings
 
 
 # **************************************************************************** #
@@ -159,6 +160,6 @@ def cal_round_obj_fun_values_from_solution(obj_fun, solution): # Calculate the o
                     if variable in solution:
                         w += coefficient * solution[variable]
                 else:
-                    print(f"Warning: Unable to parse '{term.strip()}'")
+                    warnings.warn(f"Unable to parse objective term '{term.strip()}'.", RuntimeWarning)
         round_obj_fun_values.append(w)
     return round_obj_fun_values

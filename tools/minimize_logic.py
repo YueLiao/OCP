@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+import warnings
 from tools.paths import get_files_dir
 
 FILES_DIR = get_files_dir("sbox_modeling")
@@ -107,8 +108,11 @@ def ttb_to_ineq_logic(ttable, variables, mode=0, tool_type="espresso_pyeda", tim
     elif tool_type == "minimize_logic_espresso": # Generate inequalities from the truth table using external Espresso software
         backend_name = "espresso"
         espresso_path = Path.home() / "espresso-logic" / "bin" / "espresso" # Adjust this path to where espresso is installed on your system
-        if espresso_path is None:
-            print("[WARNING] Cannot find 'espresso' in PATH. Please check whether the Espresso software is installed correctly.")
+        if not espresso_path.exists():
+            warnings.warn(
+                "Cannot find external Espresso at ~/espresso-logic/bin/espresso.",
+                RuntimeWarning,
+            )
         try:
             result = subprocess.run([espresso_path, "-v"], capture_output=True, text=True, check=False)
             version_text = (result.stdout + result.stderr).strip()

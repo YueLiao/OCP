@@ -6,6 +6,7 @@ import sys
 import time
 import re
 import platform
+import warnings
 from tools.minimize_logic import ttb_to_ineq_logic
 from tools.polyhedron import ttb_to_ineq_convex_hull
 from itertools import combinations
@@ -198,7 +199,10 @@ def _pysat_cardinality_constraints(cons_vars, cons_value, encoding, encoder, enc
     try:
         cnf = encoder(lits=lits, bound=cons_value, vpool=card_vpool, encoding=encoding)
     except Exception:
-        print(f"[WARNING] Don't support encoding {encoding} in CardEnc.{encoder_name}. Passing...")
+        warnings.warn(
+            f"CardEnc.{encoder_name} does not support encoding {encoding}; no constraints generated.",
+            RuntimeWarning,
+        )
         return []
     return _readable_cardinality_clauses(cnf, reverse_map)
 

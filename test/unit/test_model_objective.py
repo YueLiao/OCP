@@ -33,3 +33,10 @@ def test_cal_round_obj_fun_values_from_solution_uses_coefficients():
     solution = {"x": 1, "y": 0, "z": 1, "w": 2}
 
     assert cal_round_obj_fun_values_from_solution(obj_fun, solution) == [1.5, 6.0]
+
+
+def test_cal_round_obj_fun_values_warns_for_unparseable_terms(recwarn):
+    assert cal_round_obj_fun_values_from_solution([["not valid!"]], {}) == [0]
+
+    warning = recwarn.pop(RuntimeWarning)
+    assert "Unable to parse objective term" in str(warning.message)

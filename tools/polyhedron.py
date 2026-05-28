@@ -2,6 +2,7 @@ import copy
 from fractions import Fraction
 from math import gcd
 from functools import reduce
+import warnings
 try:
     import cdd
     backend_version = getattr(cdd, "__version__", "unknown")
@@ -60,7 +61,10 @@ def	minimize_constraints_greedy(inequalities, variables, ttable): # Select a min
             cutoff.append(cutoff_of_ine)
             count_of_cutoff.append(len(cutoff_of_ine))
         if not count_of_cutoff or max(count_of_cutoff) == 0:
-            print(f"[INFO]: No inequality can further remove the remaining ({len(point)}) invalid points.") # In this case, the selected inequalities cannot exactly describe the truth table, some invalid points may remain.
+            warnings.warn(
+                f"No inequality can further remove the remaining ({len(point)}) invalid points.",
+                RuntimeWarning,
+            ) # In this case, the selected inequalities cannot exactly describe the truth table, some invalid points may remain.
             break
         max_count_index = count_of_cutoff.index(max(count_of_cutoff))
         select_ine.append(ine[max_count_index])
