@@ -64,6 +64,19 @@ def test_input_non_zero_constraints_use_word_ids_for_truncated_goals():
     ) == ["x y"]
 
 
+def test_solution_bit_only_suppresses_value_conversion_errors():
+    class BrokenValue:
+        def __round__(self):
+            raise RuntimeError("unexpected solver value failure")
+
+    assert common.solution_bit({"x": 1.0}, "x") == "1"
+    assert common.solution_bit({"x": "not-a-number"}, "x") == "-"
+    assert common.solution_bit({}, "x") == "-"
+
+    with pytest.raises(RuntimeError, match="unexpected solver value failure"):
+        common.solution_bit({"x": BrokenValue()}, "x")
+
+
 def test_decimal_weight_detection_uses_lat_for_linear_goals():
     class FakeSbox:
         def __init__(self):

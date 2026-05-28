@@ -31,6 +31,7 @@ document, and extend.
 - Removed import-time attack output path snapshots so model and trail filenames honor runtime `OCP_FILES_DIR` changes.
 - Removed import-time runtime path snapshots from logic minimization and default agent code generation output.
 - Reduced import-time optional dependency noise for solver/modeling backends.
+- Narrowed trail solution-bit error handling to numeric conversion failures.
 - Added DeepSeek and generic OpenAI-compatible provider support.
 - Added text-first cipher input dataclasses, Markdown/LaTeX normalization, deterministic fact validation, prompt/parse boundaries, and draft-to-spec conversion helpers.
 - Added direct `OCPAgent` APIs for text-first fact extraction, draft creation, and explicit confirmation before building.
@@ -63,7 +64,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `100 passed, 106 skipped`.
+Latest default pytest status: `101 passed, 106 skipped`.
 
 ## Next Work
 

@@ -153,7 +153,7 @@ def solution_bit(solution, var_id):
         return "-"
     try:
         return "1" if int(round(value)) == 1 else "0"
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return "-"
 
 
