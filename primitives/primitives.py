@@ -94,14 +94,14 @@ class Layered_Function:
                 else:
                     for i in range(bitsize):
                         in_var, out_var = self.vars[crt_round][crt_layer][j*bitsize+i], self.vars[crt_round][crt_layer+1][j*bitsize+i]
-                        self.constraints[crt_round][crt_layer].append(op.Equal([in_var], [out_var], ID=generateID(name + "_EQ",crt_round,crt_layer+1,j)))
+                        self._add_equal_constraint(name, crt_round, crt_layer, j*bitsize+i, in_var, out_var, id_position=j)
         else:
             if mask is None: mask = [1]*self.nbr_words
-            if len(mask)<(self.nbr_words + self.nbr_temp_words): mask = mask + [0]*(self.nbr_words + self.nbr_temp_words - len(mask))
-            for j in range(self.nbr_words + self.nbr_temp_words):
+            if len(mask)<self._total_words(): mask = mask + [0]*(self._total_words() - len(mask))
+            for j in range(self._total_words()):
                 in_var, out_var = self.vars[crt_round][crt_layer][j], self.vars[crt_round][crt_layer+1][j]
                 if mask[j]==1: self.constraints[crt_round][crt_layer].append(sbox_operator([in_var], [out_var], ID=generateID(name,crt_round,crt_layer+1,j)))
-                else: self.constraints[crt_round][crt_layer].append(op.Equal([in_var], [out_var], ID=generateID(name + "_EQ",crt_round,crt_layer+1,j)))
+                else: self._add_equal_constraint(name, crt_round, crt_layer, j, in_var, out_var)
 
     # apply a layer "name" of a Permutation, at the round "crt_round", at the layer "crt_layer", with the permutation "permutation".
     def PermutationLayer(self, name, crt_round, crt_layer, permutation):
@@ -221,7 +221,7 @@ class Layered_Function:
     def ExtractionLayer(self, name, crt_round, crt_layer, extraction_indexes, external_variable):
         for j, indexes in enumerate(extraction_indexes):
             in_var, out_var = external_variable[indexes], self.vars[crt_round][crt_layer+1][j]
-            self.constraints[crt_round][crt_layer].append(op.Equal([in_var], [out_var],ID=generateID(name + "_EQ",crt_round,crt_layer+1,j)))
+            self._add_equal_constraint(name, crt_round, crt_layer, j, in_var, out_var)
 
     # apply a layer "name" of an AddRoundKeyLayer addition, at the round "crt_round", at the layer "crt_layer", with the adding operator "my_operator". Only the positions where mask=1 will have the AddRoundKey applied, the rest being just identity
     def AddRoundKeyLayer(self, name, crt_round, crt_layer, my_operator, sk_function, mask = None):
@@ -290,10 +290,10 @@ class Primitive(ABC):
                 self.vars_dictionary[v_copy[0].ID] = v_copy[0]
         for _, _, _, _, constraint in self._iter_function_constraints():
             self.constraints_dictionary[constraint.ID] = constraint
-        for n in range(len(self.inputs_constraints)):
-            self.constraints_dictionary[self.inputs_constraints[n].ID] = self.inputs_constraints[n]
-        for n in range(len(self.outputs_constraints)):
-            self.constraints_dictionary[self.outputs_constraints[n].ID] = self.outputs_constraints[n]
+        for constraint in self.inputs_constraints:
+            self.constraints_dictionary[constraint.ID] = constraint
+        for constraint in self.outputs_constraints:
+            self.constraints_dictionary[constraint.ID] = constraint
 
     # method that cleans the graph from dead-end variables linked only to Equal operators
     def clean_graph(self):
