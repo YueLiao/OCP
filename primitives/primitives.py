@@ -257,19 +257,35 @@ class Primitive(ABC):
         if copy_operator: self.add_copy_operators()
         self.build_dictionaries()
 
+    def _iter_functions(self, functions_list=None):
+        if functions_list is None:
+            return self.functions.values()
+        return functions_list
+
+    def _iter_function_variables(self, functions_list=None):
+        for f in self._iter_functions(functions_list):
+            for r in range(f.nbr_rounds+1):
+                for l in range(f.nbr_layers+1):
+                    for v in f.vars[r][l]:
+                        yield f, r, l, v
+
+    def _iter_function_constraints(self, functions_list=None):
+        for f in self._iter_functions(functions_list):
+            for r in range(f.nbr_rounds+1):
+                for l in range(f.nbr_layers+1):
+                    for n, constraint in enumerate(f.constraints[r][l]):
+                        yield f, r, l, n, constraint
+
     # method that builds the variables and constraints dictionaries
     def build_dictionaries(self):
         self.vars_dictionary = {}
         self.constraints_dictionary = {}
-        for f in self.functions.values():       # for all functions of the primitive
-            for r in range(f.nbr_rounds+1):       # for all the rounds
-                for l in range(f.nbr_layers+1):   # for all the layers
-                    for v in f.vars[r][l]:      # for all variables in that function
-                        self.vars_dictionary[v.ID] = v
-                        for v_copy in v.copied_vars:
-                            self.vars_dictionary[v_copy[0].ID] = v_copy[0]
-                    for n in range(len(f.constraints[r][l])):   # for all constraints in that function
-                        self.constraints_dictionary[f.constraints[r][l][n].ID] = f.constraints[r][l][n]
+        for _, _, _, v in self._iter_function_variables():
+            self.vars_dictionary[v.ID] = v
+            for v_copy in v.copied_vars:
+                self.vars_dictionary[v_copy[0].ID] = v_copy[0]
+        for _, _, _, _, constraint in self._iter_function_constraints():
+            self.constraints_dictionary[constraint.ID] = constraint
         for n in range(len(self.inputs_constraints)):
             self.constraints_dictionary[self.inputs_constraints[n].ID] = self.inputs_constraints[n]
         for n in range(len(self.outputs_constraints)):
@@ -280,30 +296,24 @@ class Primitive(ABC):
         changed = True
         while changed:
             changed = False
-            for f in self.functions.values():       # for all functions of the primitive
-                for r in range(f.nbr_rounds+1):       # for all the rounds
-                    for l in range(f.nbr_layers+1):   # for all the layers
-                        for v in f.vars[r][l]:      # for all variables in that function
-                            # find dead-end variables in the graph
-                            if len(v.connected_vars)==1 and v.connected_vars[0][1].__class__.__name__=="Equal":
-                                v_temp=v
-                                # follow the chain and remove the corresponding Equal operators
-                                while len(v_temp.connected_vars)==1 and v_temp.connected_vars[0][1].__class__.__name__=="Equal":
-                                    (new_v, new_op, direction) = v_temp.connected_vars[0]
-                                    v_temp.connected_vars.pop(0)
-                                    index = new_v.connected_vars.index((v_temp,new_op, "in" if direction=="out" else "out"))
-                                    new_v.connected_vars.pop(index)
-                                    new_op.is_ghost = True  # mark the Equal operator as ghost
-                                    v_temp = new_v
-                                    changed = True
+            for _, _, _, v in self._iter_function_variables():
+                # find dead-end variables in the graph
+                if len(v.connected_vars)==1 and v.connected_vars[0][1].__class__.__name__=="Equal":
+                    v_temp=v
+                    # follow the chain and remove the corresponding Equal operators
+                    while len(v_temp.connected_vars)==1 and v_temp.connected_vars[0][1].__class__.__name__=="Equal":
+                        (new_v, new_op, direction) = v_temp.connected_vars[0]
+                        v_temp.connected_vars.pop(0)
+                        index = new_v.connected_vars.index((v_temp,new_op, "in" if direction=="out" else "out"))
+                        new_v.connected_vars.pop(index)
+                        new_op.is_ghost = True  # mark the Equal operator as ghost
+                        v_temp = new_v
+                        changed = True
 
         # remove ghost operators from the constraints lists
-        for f in self.functions.values():       # for all functions of the primitive
-            for r in range(f.nbr_rounds+1):       # for all the rounds
-                for l in range(f.nbr_layers+1):   # for all the layers
-                    for n in range(len(f.constraints[r][l])):
-                        if f.constraints[r][l][n].is_ghost:
-                            f.constraints[r][l][n] = op.NoneOperator(input_vars=f.constraints[r][l][n].input_vars, output_vars=f.constraints[r][l][n].output_vars, ID=generateID("NONE",r,l,n))  # replace the ghost operator by a NoneOperator
+        for f, r, l, n, constraint in self._iter_function_constraints():
+            if constraint.is_ghost:
+                f.constraints[r][l][n] = op.NoneOperator(input_vars=constraint.input_vars, output_vars=constraint.output_vars, ID=generateID("NONE",r,l,n))  # replace the ghost operator by a NoneOperator
 
         for n in range(len(self.inputs_constraints)):
             if self.inputs_constraints[n].is_ghost:
@@ -315,9 +325,7 @@ class Primitive(ABC):
 
     # method that add the copy operators where needed in the graph (if function_list is specified, only add copy operators in these functions)
     def add_copy_operators(self, functions_list=None):
-        if functions_list is None:
-            functions_list = self.functions.values()
-        for f in functions_list:
+        for f in self._iter_functions(functions_list):
             for r in range(f.nbr_rounds+1):       # for all the rounds
                 for l in range(f.nbr_layers+1):   # for all the layers
                     for v in f.vars[r][l]:      # for all variables in that function

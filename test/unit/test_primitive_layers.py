@@ -1,7 +1,8 @@
 from operators.boolean_operators import XOR
 from operators.matrix import Matrix
 from operators.operators import Equal, Rot
-from primitives.primitives import Layered_Function
+from primitives.primitives import Function, Layered_Function
+from variables.variables import Variable
 
 
 def _constraint_ids(function, round_number=1, layer_number=0):
@@ -68,3 +69,17 @@ def test_matrix_layer_adds_identity_constraints_outside_matrix_groups():
     assert _constraint_ids(function) == ["M_EQ_1_1_2", "M_1_1_0"]
     assert isinstance(constraints[0], Equal)
     assert isinstance(constraints[1], Matrix)
+
+
+def test_primitive_build_dictionaries_indexes_function_graph():
+    primitive = Function("F", [Variable(1, ID="in0")], [Variable(1, ID="out0")], 1, [1, 1, 1, 0, 1])
+    function = primitive.functions["FUNCTION"]
+    function.AddIdentityLayer("ID", 1, 0)
+
+    primitive.build_dictionaries()
+
+    assert primitive.vars_dictionary["v_1_0_0"] is function.vars[1][0][0]
+    assert primitive.vars_dictionary["v_1_1_0"] is function.vars[1][1][0]
+    assert primitive.constraints_dictionary["ID_EQ_1_1_0"] is function.constraints[1][0][0]
+    assert "IN_LINK_EQ_0" in primitive.constraints_dictionary
+    assert "OUT_LINK_EQ_0" in primitive.constraints_dictionary
