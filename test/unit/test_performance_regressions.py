@@ -18,7 +18,7 @@ from primitives.forro import (
 )
 from primitives.salsa import SALSA_KEYPERMUTATION, SALSA_PERMUTATION
 from tools.model_constraints import gen_round_model_constraint_obj_fun
-from tools.profile_model_generation import profile_case, summarize_identity_elision_candidates
+from tools.profile_model_generation import main, profile_case, summarize_identity_elision_candidates
 
 
 def test_sbox_ddt_lat_are_cached_across_instances():
@@ -134,6 +134,16 @@ def test_model_generation_profiler_rejects_invalid_top_limit():
     for top_limit in (0, -1):
         with pytest.raises(ValueError, match="top_limit"):
             profile_case("present:1", top_limit=top_limit)
+
+
+def test_model_generation_profiler_cli_reports_usage_errors(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        main(["forro:abc"])
+
+    captured = capsys.readouterr()
+    assert exc_info.value.code == 2
+    assert "rounds must be a positive integer" in captured.err
+    assert "Traceback" not in captured.err
 
 
 def test_identity_elision_candidate_summary_is_conservative():

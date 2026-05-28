@@ -212,19 +212,17 @@ def main(argv=None):
     parser.add_argument("--indent", type=int, default=2)
     args = parser.parse_args(argv)
 
-    print(
-        json.dumps(
-            profile_cases(
-                args.cases,
-                goal=args.goal,
-                model_type=args.model_type,
-                top_limit=args.top_limit,
-                identity_elision=args.identity_elision,
-            ),
-            indent=args.indent,
-            sort_keys=True,
+    try:
+        reports = profile_cases(
+            args.cases,
+            goal=args.goal,
+            model_type=args.model_type,
+            top_limit=args.top_limit,
+            identity_elision=args.identity_elision,
         )
-    )
+    except ValueError as exc:
+        parser.error(str(exc))
+    print(json.dumps(reports, indent=args.indent, sort_keys=True))
 
 
 if __name__ == "__main__":
