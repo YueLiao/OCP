@@ -40,8 +40,8 @@ MILP 模型会从 10,029 条约束降到 4,089 条约束。该模式仍是实验
 
 ## 实现计划
 
-1. display dictionary 和 trace metadata 需要感知 alias，这样用户仍然能检查原始分层图。
-2. 验证 alias 下的 trail extraction 和 visualization。
+1. 验证 alias 下的 visualization。
+2. 当可选 solver CI 可用后，增加 solver-backed smoke test。
 3. 对比 profiler baseline 后，再考虑是否默认启用。
 
 ## 安全规则
@@ -51,3 +51,4 @@ MILP 模型会从 10,029 条约束降到 4,089 条约束。该模式仍是实验
 - 不直接修改现有变量 ID，而是维护外部 alias map。
 - 保持生成实现代码不变。
 - 改默认行为前，至少为 PRESENT、ChaCha、Salsa、Forro 补更广的回归测试。
+- Trail extraction 必须能通过 alias map 解析缺失的原始层变量，同时渲染时仍保留原始分层图。

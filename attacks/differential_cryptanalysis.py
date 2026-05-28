@@ -129,7 +129,7 @@ def extract_and_format_diff_trails(cipher, goal, config_model, config_solver, sh
     trail_structs = []
     pr = 0
     for i, sol in enumerate(solutions):
-        trail_struct = extract_trail_structures(cipher, goal, sol)
+        trail_struct = extract_trail_structures(cipher, goal, sol, config_model)
         if trail_struct in trail_structs:
             continue
         trail_structs.append(trail_struct)
@@ -154,10 +154,16 @@ def extract_and_format_diff_trails(cipher, goal, config_model, config_solver, sh
         log(f"[INFO] Total probability of all {len(trails)} found trails: 2^{log2(pr) if pr > 0 else 'undefined'}", config_model, config_solver)
     return trails
 
-def extract_trail_structures(cipher, goal, solution):
+def extract_trail_structures(cipher, goal, solution, config_model=None):
     """
     Extract a structured differential trail (trail_struct) from a solver assignment.
 
     Returned structure (example):
     """
-    return common.extract_trail_structures(cipher, goal, solution, truncated_marker="TRUNCATEDDIFF")
+    return common.extract_trail_structures(
+        cipher,
+        goal,
+        solution,
+        truncated_marker="TRUNCATEDDIFF",
+        config_model=config_model,
+    )

@@ -46,9 +46,8 @@ This mode is still experimental and is not enabled by default.
 
 ## Implementation Plan
 
-1. Keep display dictionaries and trace metadata aware of aliases so users can
-   still inspect the original layered graph.
-2. Verify trail extraction and visualization with aliases.
+1. Verify visualization with aliases.
+2. Add solver-backed smoke tests when optional solver CI is available.
 3. Compare profiler baselines before enabling it by default.
 
 ## Safety Rules
@@ -60,3 +59,5 @@ This mode is still experimental and is not enabled by default.
 - Keep generated implementations unchanged.
 - Require broader regression tests for at least PRESENT, ChaCha, Salsa, and
   Forro before changing defaults.
+- Trail extraction must resolve missing original-layer variables through the
+  alias map while keeping the original layered graph in the rendered trail.

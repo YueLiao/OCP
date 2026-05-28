@@ -132,7 +132,7 @@ def extract_and_format_linear_trails(cipher, goal, config_model, config_solver, 
     trail_structs = []
     pr = 0
     for i, sol in enumerate(solutions):
-        trail_struct = extract_trail_structures(cipher, goal, sol)
+        trail_struct = extract_trail_structures(cipher, goal, sol, config_model)
         if trail_struct in trail_structs:
             continue
         trail_structs.append(trail_struct)
@@ -157,10 +157,16 @@ def extract_and_format_linear_trails(cipher, goal, config_model, config_solver, 
         log(f"[INFO] Total correlation of all found trails: 2^{log2(pr) if pr > 0 else 'undefined'}", config_model, config_solver)
     return trails
 
-def extract_trail_structures(cipher, goal, solution):
+def extract_trail_structures(cipher, goal, solution, config_model=None):
     """
     Extract a structured linear trail (trail_struct) from a solver assignment.
 
     Returned structure (example):
     """
-    return common.extract_trail_structures(cipher, goal, solution, truncated_marker="TRUNCATEDLINEAR")
+    return common.extract_trail_structures(
+        cipher,
+        goal,
+        solution,
+        truncated_marker="TRUNCATEDLINEAR",
+        config_model=config_model,
+    )

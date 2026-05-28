@@ -145,10 +145,12 @@ def gen_fixed_input_output_constraints(in_out, fixed_value, cipher, config_model
     return constraints
 
 
-def solution_bit(solution, var_id):
+def solution_bit(solution, var_id, aliases=None):
     """Map a solver value to '0', '1', or '-'."""
 
     value = solution.get(var_id, None)
+    if value is None and aliases:
+        value = solution.get(model_constraints._rewrite_token_with_alias(var_id, aliases), None)
     if value is None:
         return "-"
     try:
@@ -157,14 +159,15 @@ def solution_bit(solution, var_id):
         return "-"
 
 
-def extract_trail_structures(cipher, goal, solution, truncated_marker):
+def extract_trail_structures(cipher, goal, solution, truncated_marker, config_model=None):
     """Extract a structured trail from a solver assignment."""
 
     bitwise = truncated_marker not in goal
+    aliases = (config_model or {}).get("_identity_elision_aliases") or {}
 
     def node(var):
         ids = expand_var_ids(var, bitwise=bitwise)
-        bits = "".join(solution_bit(solution, var_id) for var_id in ids)
+        bits = "".join(solution_bit(solution, var_id, aliases=aliases) for var_id in ids)
         return {
             "var_ID": getattr(var, "ID", str(var)),
             "variables": ids,

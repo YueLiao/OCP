@@ -77,6 +77,43 @@ def test_solution_bit_only_suppresses_value_conversion_errors():
         common.solution_bit({"x": BrokenValue()}, "x")
 
 
+def test_solution_bit_resolves_identity_elision_aliases():
+    aliases = {"v_1_2_3": "v_1_1_3"}
+
+    assert common.solution_bit({"v_1_1_3_0": 1}, "v_1_2_3_0", aliases=aliases) == "1"
+    assert common.solution_bit({"v_1_1_30_0": 1}, "v_1_2_3_0", aliases=aliases) == "-"
+
+
+def test_extract_trail_structures_uses_identity_elision_aliases():
+    source = var.Variable(2, ID="v_1_1_0")
+    elided = var.Variable(2, ID="v_1_2_0")
+    cipher_function = SimpleNamespace(
+        nbr_rounds=1,
+        nbr_layers=1,
+        nbr_words=1,
+        nbr_temp_words=0,
+        vars=[[[], []], [[source], [elided]]],
+    )
+    cipher = SimpleNamespace(
+        inputs={},
+        outputs={},
+        functions={"PERMUTATION": cipher_function},
+    )
+    solution = {"v_1_1_0_0": 1, "v_1_1_0_1": 0}
+    config_model = {"_identity_elision_aliases": {"v_1_2_0": "v_1_1_0"}}
+
+    trail = common.extract_trail_structures(
+        cipher,
+        "DIFFERENTIALPATH_PROB",
+        solution,
+        truncated_marker="TRUNCATEDDIFF",
+        config_model=config_model,
+    )
+
+    assert trail["functions"]["PERMUTATION"][1][0][0]["bin_values"] == "10"
+    assert trail["functions"]["PERMUTATION"][1][1][0]["bin_values"] == "10"
+
+
 def test_decimal_weight_detection_uses_lat_for_linear_goals():
     class FakeSbox:
         def __init__(self):
@@ -136,8 +173,8 @@ def test_attack_trail_formatting_respects_verbose_false(monkeypatch, capsys):
 
     monkeypatch.setattr(diff, "DifferentialTrail", FakeTrail)
     monkeypatch.setattr(linear, "LinearTrail", FakeTrail)
-    monkeypatch.setattr(diff, "extract_trail_structures", lambda cipher, goal, sol: {"id": sol["obj_fun_value"]})
-    monkeypatch.setattr(linear, "extract_trail_structures", lambda cipher, goal, sol: {"id": sol["obj_fun_value"]})
+    monkeypatch.setattr(diff, "extract_trail_structures", lambda cipher, goal, sol, config_model=None: {"id": sol["obj_fun_value"]})
+    monkeypatch.setattr(linear, "extract_trail_structures", lambda cipher, goal, sol, config_model=None: {"id": sol["obj_fun_value"]})
 
     diff.extract_and_format_diff_trails(cipher, "DIFFERENTIAL_PROB", config_model, config_solver, 2, solutions)
     linear.extract_and_format_linear_trails(cipher, "LINEARHULL_CORR", config_model, config_solver, 2, solutions)
