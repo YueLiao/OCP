@@ -172,8 +172,10 @@ The confirmation view should show:
 ## Implementation Milestones
 
 1. Finalize schemas for `CipherInput`, `CipherFacts`, and `CipherSpecDraft`.
+   Initial dataclasses and deterministic validation helpers are in place.
 2. Replace PDF/image-first extraction prompts with text-first extraction prompts.
 3. Add deterministic validators and draft-to-spec conversion helpers.
+   Initial fact validation and draft conversion are in place.
 4. Add direct API methods for `extract_cipher_facts`, `draft_cipher_spec`, and
    `confirm_cipher_spec`.
 5. Add CLI confirmation flow.

@@ -30,7 +30,7 @@ document, and extend.
 - Centralized runtime output paths with `OCP_FILES_DIR`.
 - Reduced import-time optional dependency noise for solver/modeling backends.
 - Added DeepSeek and generic OpenAI-compatible provider support.
-- Added text-first cipher input dataclasses and Markdown/LaTeX normalization.
+- Added text-first cipher input dataclasses, Markdown/LaTeX normalization, deterministic fact validation, and draft-to-spec conversion helpers.
 - Expanded the text-first Agentic roadmap into a reviewable implementation contract for schemas, web flow, providers, safety gates, and tests.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
 - Consolidated repeated operator model helpers across Boolean, modular, S-box, and matrix operators.
@@ -51,10 +51,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `72 passed, 106 skipped`.
+Latest default pytest status: `77 passed, 106 skipped`.
 
 ## Next Work
 
-1. Confirm the text-first Agentic roadmap, then implement schemas and deterministic validators.
+1. Replace PDF/image-first extraction prompts with text-first prompts and fixed parser tests.
 2. Profile model generation before deeper performance rewrites.
 3. Continue narrowing broad exception handling in solver/model generation paths.

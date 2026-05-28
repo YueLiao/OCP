@@ -58,3 +58,42 @@ python3 web/app.py --port 5001
 The preferred extraction path is user-provided text: plain text, Markdown,
 LaTeX, pseudocode, or structured notes. PDF/image extraction remains
 experimental because visual recognition can miss mathematical details.
+
+The text-first schema currently provides:
+
+- `CipherInput` for raw text plus source, format, and language hints.
+- `CipherFacts` for intermediate extracted facts, assumptions, ambiguities, and
+  source evidence.
+- `CipherSpecDraft` for a reviewable proposed `CipherSpec` with blocking
+  validation errors, warnings, clarification questions, and mandatory user
+  confirmation.
+
+```python
+from agent.skills.cipher_text_input import (
+    CipherFacts,
+    CipherInput,
+    build_cipher_spec_draft,
+)
+
+cipher_input = CipherInput(
+    raw_text=r"x_0 \leftarrow (x_0 \ggg 7) \boxplus x_1",
+    source_type="direct_text",
+    format_hint="latex",
+)
+assert cipher_input.validate() == []
+
+facts = CipherFacts(
+    name="TinyARX",
+    primitive_type="permutation",
+    state={"block_size": 32, "word_bitsize": 16, "nbr_words": 2},
+    rounds={"nbr_rounds": 4},
+    operations=[
+        {"type": "rotation", "params": {"direction": "r", "amount": 7, "word_index": 0}},
+        {"type": "modadd", "params": {"input_indices": [[0, 1]], "output_indices": [0]}},
+    ],
+)
+
+draft = build_cipher_spec_draft(facts)
+assert draft.is_valid
+assert draft.requires_user_confirmation
+```
