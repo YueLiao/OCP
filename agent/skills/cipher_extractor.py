@@ -107,11 +107,19 @@ def parse_page_range(pages_str):
     nums = set()
     for part in pages_str.split(","):
         part = part.strip()
+        if not part:
+            raise ValueError(f"Invalid page range segment in {pages_str!r}.")
         if "-" in part:
             a, b = part.split("-", 1)
-            nums.update(range(int(a), int(b) + 1))
+            start, end = int(a), int(b)
+            if start <= 0 or end <= 0 or end < start:
+                raise ValueError(f"Invalid page range segment: {part!r}.")
+            nums.update(range(start, end + 1))
         else:
-            nums.add(int(part))
+            page = int(part)
+            if page <= 0:
+                raise ValueError(f"Invalid page number: {part!r}.")
+            nums.add(page)
     return nums
 
 
@@ -499,10 +507,14 @@ class CipherExtractorSkill(BaseSkill):
             return SkillResult(success=False, skill=self.name,
                                error=f"Unsupported file type: {ext}")
 
+        try:
+            page_nums = parse_page_range(pages) if file_type == "pdf" else None
+        except ValueError as e:
+            return SkillResult(success=False, skill=self.name, error=f"Invalid page range: {e}")
+
         # Read content
         try:
             if file_type == "pdf":
-                page_nums = parse_page_range(pages)
                 total_pages = get_pdf_page_count(file_path)
                 full_text = extract_text_from_pdf(file_path, page_nums)
             elif file_type == "text":

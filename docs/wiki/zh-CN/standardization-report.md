@@ -61,6 +61,7 @@
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。
 - 将模板实例化里的逐变量多次正则替换改为单次 token 替换，减少约束模板展开开销。
 - 将 PDF/image 抽取重新标注为 experimental import helper，并关闭网页上传自动构建。
+- 为 experimental file extraction 添加显式页码范围校验。
 - 明确旧式 operator 文件是人工实验脚本。
 - 将文档拆为英文和中文页面，并在顶部提供语言切换链接。
 
@@ -73,7 +74,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`114 passed, 106 skipped`。
+最新默认 pytest 状态：`116 passed, 106 skipped`。
 
 ## 后续工作
 

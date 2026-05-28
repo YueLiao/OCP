@@ -63,6 +63,7 @@ document, and extend.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
 - Replaced repeated per-variable template regex passes with single-pass token substitution during constraint template instantiation.
 - Reclassified PDF/image extraction as an experimental import helper and disabled web upload auto-build.
+- Added explicit page-range validation for experimental file extraction.
 - Clarified legacy operator scripts as manual experiments.
 - Split documentation into English and Chinese pages with language switch links.
 
@@ -75,7 +76,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `114 passed, 106 skipped`.
+Latest default pytest status: `116 passed, 106 skipped`.
 
 ## Next Work
 

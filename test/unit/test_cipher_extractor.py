@@ -2,6 +2,7 @@ from agent.session import Session
 from agent.skills.cipher_extractor import (
     EXPERIMENTAL_FILE_EXTRACTION_NOTE,
     CipherExtractorSkill,
+    parse_page_range,
 )
 from agent.types import SkillRequest
 
@@ -19,3 +20,27 @@ def test_cipher_extractor_is_marked_experimental(tmp_path):
     assert result.data["auto_build"] is False
     assert EXPERIMENTAL_FILE_EXTRACTION_NOTE in result.summary
     assert "experimental" in skill.description.lower()
+
+
+def test_cipher_extractor_rejects_invalid_page_ranges(tmp_path):
+    file_path = tmp_path / "cipher.pdf"
+    file_path.write_bytes(b"%PDF-1.4\n")
+    skill = CipherExtractorSkill()
+    request = SkillRequest(skill=skill.name, params={"file_path": str(file_path), "pages": "3-1"})
+
+    result = skill.execute(request, Session())
+
+    assert not result.success
+    assert result.error.startswith("Invalid page range")
+
+
+def test_parse_page_range_rejects_empty_and_non_positive_segments():
+    assert parse_page_range("1-3,5") == {1, 2, 3, 5}
+
+    for pages in ("1,,2", "0", "2-0"):
+        try:
+            parse_page_range(pages)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Expected invalid page range {pages!r} to fail")
