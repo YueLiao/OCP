@@ -6,6 +6,7 @@ import builtins
 import pytest
 
 import variables.variables as var
+import tools.model_constraints as model_constraints
 from tools.model_constraints import (
     gen_constraints_obj_func_from_template,
     gen_constraints_sum_at_most,
@@ -180,3 +181,39 @@ def test_template_variable_replacement_preserves_token_boundaries(tmp_path):
         "pa0 + x0 - w0 >= 0",
     ]
     assert objective_fun == "2 w0 + w10"
+
+
+def test_pysat_cardinality_errors_warn_and_return_empty(monkeypatch):
+    def failing_encoder(**kwargs):
+        raise ValueError("unsupported encoding")
+
+    monkeypatch.setattr(model_constraints, "_load_pysat_cardinality_backend", lambda: (object(), object()))
+    monkeypatch.setattr(model_constraints, "_pysat_cardinality_error_types", lambda: (ValueError,))
+
+    with pytest.warns(RuntimeWarning, match="does not support encoding"):
+        constraints = model_constraints._pysat_cardinality_constraints(
+            ["a", "b"],
+            1,
+            99,
+            failing_encoder,
+            "atmost",
+        )
+
+    assert constraints == []
+
+
+def test_pysat_cardinality_programming_errors_are_not_suppressed(monkeypatch):
+    def broken_encoder(**kwargs):
+        raise TypeError("programming error")
+
+    monkeypatch.setattr(model_constraints, "_load_pysat_cardinality_backend", lambda: (object(), object()))
+    monkeypatch.setattr(model_constraints, "_pysat_cardinality_error_types", lambda: (ValueError,))
+
+    with pytest.raises(TypeError, match="programming error"):
+        model_constraints._pysat_cardinality_constraints(
+            ["a", "b"],
+            1,
+            1,
+            broken_encoder,
+            "atmost",
+        )

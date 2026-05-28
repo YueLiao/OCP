@@ -59,6 +59,7 @@ document, and extend.
 - Ensured PySAT solver instances are released even when solving raises an exception.
 - Narrowed runtime resource monitor exception handling to psutil/OS failures.
 - Narrowed SCIP solver failure handling so unexpected programming errors propagate.
+- Narrowed PySAT cardinality fallback handling so unexpected programming errors propagate.
 - Replaced repeated constraint/objective list concatenation in attack/model generation paths with explicit in-place extension.
 - Added opt-in model generation profiling to record per-operator constraint counts and timings.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
@@ -77,7 +78,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `118 passed, 106 skipped`.
+Latest default pytest status: `120 passed, 106 skipped`.
 
 ## Next Work
 

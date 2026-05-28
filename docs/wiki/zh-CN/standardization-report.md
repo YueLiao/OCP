@@ -57,6 +57,7 @@
 - 确保 PySAT 求解过程中即使抛出异常也会释放 solver 实例。
 - 将运行时资源监控的异常处理收窄到 psutil/OS 失败。
 - 收窄 SCIP solver 失败处理，让意外程序错误继续暴露。
+- 收窄 PySAT cardinality fallback 处理，让意外程序错误继续暴露。
 - 将 attack/model generation 路径里的重复约束和 objective 列表拼接改为显式原地扩展。
 - 添加可选模型生成 profiling，用于记录每类 operator 的约束数量和耗时。
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。
@@ -75,7 +76,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`118 passed, 106 skipped`。
+最新默认 pytest 状态：`120 passed, 106 skipped`。
 
 ## 后续工作
 

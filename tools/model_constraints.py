@@ -40,6 +40,23 @@ def _require_pysat_cardenc():
     return card_enc
 
 
+def _pysat_cardinality_error_types():
+    try:
+        card_module = import_module("pysat.card")
+    except ImportError:
+        return (ValueError, RuntimeError)
+    return tuple(
+        error_type
+        for error_type in (
+            getattr(card_module, "NoSuchEncodingError", None),
+            getattr(card_module, "UnsupportedBound", None),
+            ValueError,
+            RuntimeError,
+        )
+        if error_type is not None
+    )
+
+
 # **************************************************************************** #
 # This module provides the unified interface for generating MILP/SAT model constraints for cryptanalysis, including:
 # 1. Cipher Model Configuration
@@ -237,7 +254,7 @@ def _pysat_cardinality_constraints(cons_vars, cons_value, encoding, encoder, enc
     lits = [variable_map[name] for name in cons_vars]
     try:
         cnf = encoder(lits=lits, bound=cons_value, vpool=card_vpool, encoding=encoding)
-    except Exception:
+    except _pysat_cardinality_error_types():
         warnings.warn(
             f"CardEnc.{encoder_name} does not support encoding {encoding}; no constraints generated.",
             RuntimeWarning,
