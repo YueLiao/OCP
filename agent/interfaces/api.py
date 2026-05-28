@@ -9,10 +9,12 @@ from agent.skills import SkillRegistry, create_default_registry
 from agent.skills.cipher_spec import CipherSpec
 from agent.skills.cipher_text_input import (
     CipherFacts,
+    CipherInput,
     CipherSpecDraft,
     build_cipher_spec_draft,
     parse_cipher_facts_response,
 )
+from agent.job_records import create_text_job_record, update_job_record
 from agent.llm.prompt_templates import build_cipher_facts_extraction_prompt
 from agent.llm.provider import LLMProvider
 
@@ -228,8 +230,6 @@ class OCPAgent:
                 error="No LLM provider configured for text-first fact extraction.",
             )
 
-        from agent.skills.cipher_text_input import CipherInput
-
         cipher_input = CipherInput(
             raw_text=text,
             source_type=source_type,
@@ -260,11 +260,27 @@ class OCPAgent:
             )
 
         errors, warnings = facts.validate()
+        job = create_text_job_record(
+            cipher_input=cipher_input,
+            prompt=prompt,
+            raw_response=raw_response,
+            facts=facts,
+            errors=errors,
+            warnings=warnings,
+            provider=self._core.llm,
+        )
         self.session.set_metadata("pending_cipher_facts", facts)
+        self.session.set_metadata("pending_text_job", job)
         return SkillResult(
             success=not errors,
             skill=SkillName.CIPHER_EXTRACTION,
-            data={"facts": facts, "validation_errors": errors, "warnings": warnings},
+            data={
+                "facts": facts,
+                "validation_errors": errors,
+                "warnings": warnings,
+                "job": job,
+                "artifact_links": job["artifact_links"],
+            },
             summary=f"Extracted candidate facts for {facts.name or 'an unnamed cipher'}.",
             error="; ".join(errors) if errors else None,
         )
@@ -282,6 +298,12 @@ class OCPAgent:
         draft = build_cipher_spec_draft(facts)
         self.session.set_metadata("pending_cipher_spec_draft", draft)
         self.session.set_metadata("pending_cipher_spec", draft.spec)
+        job = update_job_record(
+            self.session.get_metadata("pending_text_job"),
+            draft=draft,
+        )
+        if job:
+            self.session.set_metadata("pending_text_job", job)
         return draft
 
     def confirm_cipher_spec(self, draft: Optional[Union[CipherSpecDraft, Dict[str, Any]]] = None) -> SkillResult:
@@ -308,7 +330,25 @@ class OCPAgent:
 
         draft.requires_user_confirmation = False
         self.session.set_metadata("confirmed_cipher_spec", draft.spec)
-        return self.define_custom_cipher(draft.spec)
+        result = self.define_custom_cipher(draft.spec)
+        job = update_job_record(
+            self.session.get_metadata("pending_text_job"),
+            confirmation={
+                "confirmed": result.success,
+                "build_result": {
+                    "success": result.success,
+                    "summary": result.summary,
+                    "error": result.error,
+                    "data": result.data,
+                },
+            },
+        )
+        if job:
+            self.session.set_metadata("pending_text_job", job)
+            if isinstance(result.data, dict):
+                result.data["job"] = job
+                result.data["artifact_links"] = job["artifact_links"]
+        return result
 
     def extract_cipher_from_file(
         self,

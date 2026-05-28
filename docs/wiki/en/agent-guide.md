@@ -59,6 +59,8 @@ python3 web/app.py --port 5001
 The web UI includes chat, provider configuration, and a `Draft` action for
 text-first cipher descriptions. `Draft` extracts facts, returns a reviewable
 `CipherSpec` draft, and asks for confirmation before building the cipher.
+Each text-first draft flow writes a replayable JSON job record under
+`OCP_FILES_DIR/agent_jobs/` and returns it as an artifact link.
 
 ## Text-First Cipher Input
 
@@ -124,3 +126,6 @@ draft = agent.draft_cipher_spec()
 # Review draft.validation_errors, draft.warnings, and draft.assumptions first.
 build_result = agent.confirm_cipher_spec(draft)
 ```
+
+`facts_result.data["artifact_links"]` and `build_result.data["artifact_links"]`
+include the JSON job record path when the flow succeeds.

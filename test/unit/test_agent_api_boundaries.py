@@ -1,3 +1,5 @@
+import json
+
 from agent import CipherSpec, LayerSpec, OCPAgent
 from agent.llm.provider import LLMProvider
 from agent.types import UserIntent
@@ -74,7 +76,8 @@ def test_text_first_extraction_requires_llm_provider():
     assert "No LLM provider configured" in result.error
 
 
-def test_text_first_extract_draft_and_confirm_builds_cipher():
+def test_text_first_extract_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
     provider = FakeFactsProvider()
     agent = OCPAgent(llm_provider=provider)
 
@@ -87,10 +90,18 @@ def test_text_first_extract_draft_and_confirm_builds_cipher():
 
     assert extraction.success
     assert "x_0  <-  (x_0  ROTR  7)  MODADD  x_1" in provider.prompt
+    job_path = extraction.data["job"]["path"]
+    job_record = json.loads(open(job_path, encoding="utf-8").read())
+    assert job_record["input"]["normalized_text"] == "x_0  <-  (x_0  ROTR  7)  MODADD  x_1"
+    assert job_record["facts"]["name"] == "TinyARX"
     assert draft.is_valid
     assert not draft.requires_user_confirmation
     assert result.success
     assert result.data["cipher_name"] == "TinyARX_PERM"
+    assert result.data["artifact_links"][0]["path"] == job_path
+    updated_record = json.loads(open(job_path, encoding="utf-8").read())
+    assert updated_record["draft"]["spec"]["name"] == "TinyARX"
+    assert updated_record["confirmation"]["confirmed"] is True
 
 
 def test_confirm_cipher_spec_rejects_invalid_draft():

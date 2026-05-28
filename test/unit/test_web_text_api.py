@@ -46,7 +46,8 @@ def test_text_draft_requires_connected_agent():
     assert response.get_json()["error"] == "Not connected. Configure provider first."
 
 
-def test_text_draft_and_confirm_builds_cipher():
+def test_text_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
     web_app.agent = OCPAgent(llm_provider=FakeFactsProvider())
     web_app.config = {"provider": "fake", "model": "fake", "connected": True}
     client = web_app.app.test_client()
@@ -60,6 +61,8 @@ def test_text_draft_and_confirm_builds_cipher():
     assert draft_data["success"] is True
     assert draft_data["draft"]["is_valid"] is True
     assert draft_data["draft"]["spec"]["name"] == "TinyARX"
+    assert draft_data["artifact_links"][0]["label"] == "job_record"
     assert confirm_response.status_code == 200
     assert confirm_data["success"] is True
     assert confirm_data["data"]["cipher_name"] == "TinyARX_PERM"
+    assert confirm_data["artifact_links"][0]["path"] == draft_data["artifact_links"][0]["path"]

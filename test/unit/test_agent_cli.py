@@ -51,7 +51,8 @@ def test_format_draft_review_includes_errors_and_warnings():
     assert "Ambiguity: round order missing" in review
 
 
-def test_handle_text_draft_builds_after_confirmation():
+def test_handle_text_draft_builds_after_confirmation(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
     agent = OCPAgent(llm_provider=FakeFactsProvider())
     outputs = []
 
@@ -68,7 +69,8 @@ def test_handle_text_draft_builds_after_confirmation():
     assert "Built cipher: TinyARX_PERM" in outputs
 
 
-def test_handle_text_draft_can_skip_build():
+def test_handle_text_draft_can_skip_build(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
     agent = OCPAgent(llm_provider=FakeFactsProvider())
     outputs = []
 

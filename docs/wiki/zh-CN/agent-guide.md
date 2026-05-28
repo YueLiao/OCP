@@ -57,6 +57,8 @@ python3 web/app.py --port 5001
 
 网页端包含 chat、provider 配置，以及面向文本优先密码描述的 `Draft` 动作。`Draft`
 会抽取 facts、返回可审阅的 `CipherSpec` 草稿，并在构建 cipher 前要求确认。
+每次文本优先 draft 流程都会在 `OCP_FILES_DIR/agent_jobs/` 下写出可复现 JSON job
+记录，并作为 artifact link 返回。
 
 ## 文本优先密码输入
 
@@ -119,3 +121,6 @@ draft = agent.draft_cipher_spec()
 # 先审阅 draft.validation_errors、draft.warnings 和 draft.assumptions。
 build_result = agent.confirm_cipher_spec(draft)
 ```
+
+流程成功时，`facts_result.data["artifact_links"]` 和
+`build_result.data["artifact_links"]` 会包含 JSON job 记录路径。

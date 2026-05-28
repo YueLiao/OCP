@@ -32,6 +32,7 @@
 - 添加文本优先 facts 抽取、draft 创建和显式确认构建的 `OCPAgent` 直接 API。
 - 添加 CLI `draft <cipher text>` 文本优先草稿审阅和确认流程。
 - 添加网页 text draft/confirm endpoint 和 `Draft` UI 动作，用于先审阅再构建。
+- 为 text-first 抽取、draft 和 confirmation 添加可复现 JSON job 记录与 artifact links。
 - 将文本优先 Agentic 路线图扩展为可评审实现契约，覆盖 schema、网页流程、provider、安全确认和测试。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
 - 收拢 Boolean、modular、S-box 和 matrix operator 中重复的模型生成 helper。
@@ -56,6 +57,6 @@ git diff --check
 
 ## 后续工作
 
-1. 添加可复现 text-first job 记录和产物链接。
-2. 深层性能重写前先 profile 模型生成过程。
-3. 继续收窄 solver/model generation 路径里的宽泛异常处理。
+1. 深层性能重写前先 profile 模型生成过程。
+2. 继续收窄 solver/model generation 路径里的宽泛异常处理。
+3. 将 PDF/image 抽取明确降级为 experimental import helper。

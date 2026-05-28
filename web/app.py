@@ -119,10 +119,13 @@ def draft_text_cipher():
         return jsonify({"success": False, "error": result.error, "data": result.data}), 400
 
     draft = agent.draft_cipher_spec()
+    job = agent.session.get_metadata("pending_text_job")
     return jsonify({
         "success": True,
         "summary": result.summary,
         "draft": _draft_payload(draft),
+        "job": job,
+        "artifact_links": (job or {}).get("artifact_links", []),
         "context": agent.session.get_context(),
     })
 
@@ -140,6 +143,7 @@ def confirm_text_cipher():
         "summary": result.summary,
         "error": result.error,
         "data": result.data,
+        "artifact_links": (result.data or {}).get("artifact_links", []) if isinstance(result.data, dict) else [],
         "context": agent.session.get_context(),
     }), 200 if result.success else 400
 

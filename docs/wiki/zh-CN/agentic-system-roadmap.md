@@ -170,6 +170,7 @@ Provider factory 应支持：
 6. 添加网页文本工作区和草稿审阅 UI。
    初始网页 draft/confirm endpoint 和 `Draft` UI 动作已就位。
 7. 添加可复现 job 记录和产物链接。
+   初始 text-first 抽取、draft 和 confirmation JSON job 记录已就位。
 8. 将 PDF/image 抽取降级为 experimental import helper。
 
 ## 待确认问题

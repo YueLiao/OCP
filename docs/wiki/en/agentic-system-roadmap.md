@@ -185,6 +185,7 @@ The confirmation view should show:
 6. Add web text workspace and draft review UI.
    Initial web draft/confirm endpoints and a `Draft` UI action are in place.
 7. Add replayable job records and artifact links.
+   Initial JSON job records for text-first extraction/draft/confirmation are in place.
 8. Relegate PDF/image extraction to an experimental import helper.
 
 ## Open Questions
