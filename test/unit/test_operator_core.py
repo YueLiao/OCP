@@ -1,5 +1,6 @@
 import variables.variables as var
 from operators.boolean_operators import AND, OR, XOR
+from operators.modular_operators import ConstantAdd, ModAdd
 from operators.operators import Equal, Rot
 from operators.Sbox import PRESENT_Sbox
 from operators.matrix import (
@@ -62,6 +63,28 @@ def test_and_or_share_stable_active_weight_models():
         assert f"{operator_cls.__name__}_p_0 - in0_0 >= 0" in milp_model
         assert f"{operator_cls.__name__}_p_1 - out_1 = 0" in milp_model
         assert op.weight == [f"{operator_cls.__name__}_p_0 + {operator_cls.__name__}_p_1"]
+
+
+def test_modular_implementation_generation_is_stable():
+    left = var.Variable(4, ID="in0")
+    right = var.Variable(4, ID="in1")
+    out = var.Variable(4, ID="out")
+    modadd = ModAdd([left, right], [out], ID="ADD")
+
+    assert modadd.generate_implementation("python", unroll=True) == [
+        "out = (in0 + in1) & 0xf",
+    ]
+    assert modadd.generate_implementation("c", unroll=True) == [
+        "out = (in0 + in1) & 0xf;",
+    ]
+
+    const_add = ConstantAdd([left], [out], [[3]], round=1, index=0, ID="CADD")
+    assert const_add.generate_implementation("python", unroll=True) == [
+        "out = (in0 + 0x3) & 0xf",
+    ]
+    assert const_add.generate_implementation("verilog", unroll=True) == [
+        "assign out = in0 + 0x3;",
+    ]
 
 
 def test_equal_generates_sat_equivalence_model():

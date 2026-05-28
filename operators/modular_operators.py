@@ -2,6 +2,25 @@ import math
 from operators.operators import BinaryOperator, UnaryOperator, RaiseExceptionVersionNotExisting
 
 
+def _word_mask(bitsize):
+    return hex(2**bitsize - 1)
+
+
+def _is_power_of_two(value):
+    return int(math.log2(value)) == math.log2(value)
+
+
+def _uses_word_mask(modulo, bitsize):
+    return modulo is None or _is_power_of_two(bitsize)
+
+
+def _modular_expression(left, right, operator, modulo, bitsize):
+    expr = f"({left} {operator} {right})"
+    if _uses_word_mask(modulo, bitsize):
+        return f"{expr} & {_word_mask(bitsize)}"
+    return f"{expr} % {modulo}"
+
+
 class ModAdd(BinaryOperator): # Operator for the modular addition: add the two input variables together towards the output variable
                               # (optional "modulo" defines the modular value in case of a modular addition, by default it uses 2^bitsize as modular value)
     def __init__(self, input_vars, output_vars, modulo = None, ID = None):
@@ -9,19 +28,17 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
         self.modulo = modulo
 
     def generate_implementation(self, implementation_type='python', unroll=False):
+        var_out = self.get_var_ID('out', 0, unroll)
+        var_in1 = self.get_var_ID('in', 0, unroll)
+        var_in2 = self.get_var_ID('in', 1, unroll)
+        bitsize = self.input_vars[0].bitsize
+        expr = _modular_expression(var_in1, var_in2, "+", self.modulo, bitsize)
         if implementation_type == 'python':
-            if self.modulo == None:
-                return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + self.get_var_ID('in', 1, unroll) + ') & ' + hex(2**self.input_vars[0].bitsize - 1)]
-            else:
-                if int(math.log2(self.input_vars[0].bitsize))==math.log2(self.input_vars[0].bitsize): return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + self.get_var_ID('in', 1, unroll) + ') & ' + hex(2**self.input_vars[0].bitsize - 1)]
-                else: return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + self.get_var_ID('in', 1, unroll) + ') % ' + str(self.modulo)]
+            return [f"{var_out} = {expr}"]
         elif implementation_type == 'c':
-            if self.modulo == None: return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + self.get_var_ID('in', 1, unroll) + ") & " + hex(2**self.input_vars[0].bitsize - 1) + ';']
-            else:
-                if int(math.log2(self.input_vars[0].bitsize))==math.log2(self.input_vars[0].bitsize): return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + self.get_var_ID('in', 1, unroll) + ') & ' + hex(2**self.input_vars[0].bitsize - 1) + ';']
-                else: return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + self.get_var_ID('in', 1, unroll) + ') % ' + str(self.modulo) + ';']
+            return [f"{var_out} = {expr};"]
         elif implementation_type == 'verilog':
-            if self.modulo == None: return ["assign " + self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' + ' + self.get_var_ID('in', 1, unroll) + ";"]
+            if self.modulo == None: return ["assign " + var_out + ' = ' + var_in1 + ' + ' + var_in2 + ";"]
             else:
                 raise Exception(str(self.__class__.__name__) + ": addition modulo not a power a 2 is not yet handled for verilog '")
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
@@ -217,16 +234,17 @@ class ModMul(BinaryOperator):  # Operator for the modular multiplication: multip
         pass # TODO
 
     def generate_implementation(self, implementation_type='python', unroll=False):
+        var_out = self.get_var_ID('out', 0, unroll)
+        var_in1 = self.get_var_ID('in', 0, unroll)
+        var_in2 = self.get_var_ID('in', 1, unroll)
+        bitsize = self.input_vars[0].bitsize
+        expr = _modular_expression(var_in1, var_in2, "*", self.modulo, bitsize)
         if implementation_type == 'python':
-            if self.modulo == None: return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' * ' + self.get_var_ID('in', 1, unroll) + ') & ' + hex(2**self.input_vars[0].bitsize - 1)]
-            else:
-                if int(math.log2(self.input_vars[0].bitsize))==math.log2(self.input_vars[0].bitsize): return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' * ' + self.get_var_ID('in', 1, unroll) + ') & ' + hex(2**self.input_vars[0].bitsize - 1)]
-                else: return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' * ' + self.get_var_ID('in', 1, unroll) + ') % ' + str(self.modulo)]
+            return [f"{var_out} = {expr}"]
         elif implementation_type == 'c':
-            if self.modulo == None: return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' * ' + self.get_var_ID('in', 1, unroll) + ';']
+            if self.modulo == None: return [var_out + ' = ' + var_in1 + ' * ' + var_in2 + ';']
             else:
-                if int(math.log2(self.input_vars[0].bitsize))==math.log2(self.input_vars[0].bitsize): return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' * ' + self.get_var_ID('in', 1, unroll) + ') & ' + hex(2**self.input_vars[0].bitsize - 1) + ';']
-                else: return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' * ' + self.get_var_ID('in', 1, unroll) + ') % ' + str(self.modulo) + ';']
+                return [f"{var_out} = {expr};"]
         elif implementation_type == 'verilog':
             raise Exception(str(self.__class__.__name__) + ": multiplication is not yet handled for verilog '")
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
@@ -249,21 +267,20 @@ class ConstantAdd(UnaryOperator): # Operator for the constant addition: use modu
     def generate_implementation(self, implementation_type='python', unroll=False):
         if unroll==True: my_constant=hex(self.table[self.table_r-1][self.table_i])
         else: my_constant=f"RC[i][{self.table_i}]"
+        var_out = self.get_var_ID('out', 0, unroll)
+        var_in = self.get_var_ID('in', 0, unroll)
+        bitsize = self.input_vars[0].bitsize
+        expr = _modular_expression(var_in, my_constant, "+", self.modulo, bitsize)
         if implementation_type == 'python':
-            if self.modulo == None: return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + " + " + my_constant + ') & ' + hex(2**self.input_vars[0].bitsize - 1)]
-            else:
-                if int(math.log2(self.input_vars[0].bitsize))==math.log2(self.input_vars[0].bitsize): return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + my_constant + ') & ' + hex(2**self.input_vars[0].bitsize - 1)]
-                else: return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + my_constant + ') % ' + str(self.modulo)]
+            return [f"{var_out} = {expr}"]
         elif implementation_type == 'c':
-            if self.modulo == None: return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' + ' + my_constant + ';']
+            if self.modulo == None: return [var_out + ' = ' + var_in + ' + ' + my_constant + ';']
             else:
-                if int(math.log2(self.input_vars[0].bitsize))==math.log2(self.input_vars[0].bitsize): return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + my_constant + ') & ' + hex(2**self.input_vars[0].bitsize - 1) + ';']
-                else: return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + my_constant + ') % ' + str(self.modulo) + ';']
+                return [f"{var_out} = {expr};"]
         elif implementation_type == 'verilog':
-            if self.modulo == None: return ["assign " + self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' + ' + my_constant + ';']
+            if self.modulo == None: return ["assign " + var_out + ' = ' + var_in + ' + ' + my_constant + ';']
             else:
-                if int(math.log2(self.input_vars[0].bitsize))==math.log2(self.input_vars[0].bitsize): return ["assign " + self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + my_constant + ') & ' + hex(2**self.input_vars[0].bitsize - 1) + ';']
-                else: return ["assign " + self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' + ' + my_constant + ') % ' + str(self.modulo) + ';']
+                return [f"assign {var_out} = {expr};"]
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 
     def generate_implementation_header(self, implementation_type='python'):
