@@ -3,8 +3,6 @@ from pathlib import Path
 import json
 from tools.paths import get_files_dir
 
-FILES_DIR = get_files_dir()
-
 
 def _emit_warning(message, warn=True):
     if warn:
@@ -99,7 +97,7 @@ class Trail(AttackTrace):
             self.json_filename = str(base_path) + f"_{self.type}_{solver_name}_trail.json"
             self.txt_filename = str(base_path) + f"_{self.type}_{solver_name}_trail.txt"
         else:
-            base_path = FILES_DIR / f"{self.data['cipher']}_{self.type}_{solver_name}_trail"
+            base_path = get_files_dir() / f"{self.data['cipher']}_{self.type}_{solver_name}_trail"
             self.json_filename = str(base_path) + f".json"
             self.txt_filename = str(base_path) + f".txt"
 

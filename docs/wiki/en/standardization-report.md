@@ -16,7 +16,7 @@ document, and extend.
 | Readability | Needs work | Low-risk cleanup completed across operators and primitive scaffolding; attack modules and solver/modeling boundaries remain complex. |
 | Style tooling | Pass | `pyproject.toml` defines package metadata and pytest settings. |
 | Error handling | Needs work | Optional dependency failures and tool diagnostics are less noisy; broad exception handling remains in some paths. |
-| Configuration | Pass | Output location is centralized through `tools.paths.get_files_dir()` and supports `OCP_FILES_DIR`. |
+| Configuration | Pass | Output location is centralized through runtime `tools.paths.get_files_dir()` calls and supports `OCP_FILES_DIR`. |
 | Tests | Pass | Core smoke tests are deterministic; solver/generated tests are guarded by explicit pytest flags. |
 | Documentation | Pass | README/wiki pages now use language switch links instead of mixed bilingual pages. |
 | Packaging | Pass | Editable install and `ocp-agent` console entry point are configured. |
@@ -28,6 +28,7 @@ document, and extend.
 - Added CI smoke tests for Python 3.10 and 3.11.
 - Added deterministic unit tests around Agent APIs, paths, providers, search I/O, operator core behavior, and text input normalization.
 - Centralized runtime output paths with `OCP_FILES_DIR`.
+- Removed import-time attack output path snapshots so model and trail filenames honor runtime `OCP_FILES_DIR` changes.
 - Reduced import-time optional dependency noise for solver/modeling backends.
 - Added DeepSeek and generic OpenAI-compatible provider support.
 - Added text-first cipher input dataclasses, Markdown/LaTeX normalization, deterministic fact validation, prompt/parse boundaries, and draft-to-spec conversion helpers.
@@ -60,7 +61,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `94 passed, 106 skipped`.
+Latest default pytest status: `96 passed, 106 skipped`.
 
 ## Next Work
 

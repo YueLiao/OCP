@@ -1,9 +1,11 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 import variables.variables as var
 from attacks import common
+from attacks.attack_trace import DifferentialTrail
 from attacks import differential_cryptanalysis as diff
 from attacks import linear_cryptanalysis as linear
 from tools import model_objective
@@ -128,3 +130,44 @@ def test_attack_trail_formatting_respects_verbose_false(monkeypatch, capsys):
     linear.extract_and_format_linear_trails(cipher, "LINEARHULL_CORR", config_model, config_solver, 2, solutions)
 
     assert capsys.readouterr().out == ""
+
+
+def test_attack_model_filename_honors_runtime_files_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
+    cipher = SimpleNamespace(
+        name="toy",
+        nbr_rounds=2,
+        functions={
+            "PERMUTATION": SimpleNamespace(
+                nbr_rounds=2,
+                nbr_layers=0,
+                constraints={1: {0: []}, 2: {0: []}},
+            )
+        },
+    )
+
+    config_model, _ = common.parse_and_set_configs(
+        cipher,
+        "DIFFERENTIAL_SBOXCOUNT",
+        "EXISTENCE",
+        {},
+        {},
+    )
+
+    assert Path(config_model["filename"]).parent == tmp_path
+
+
+def test_attack_trace_fallback_filename_honors_runtime_files_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
+
+    trail = DifferentialTrail(
+        {
+            "cipher": "toy",
+            "rounds": [1],
+            "config_model": {},
+            "config_solver": {"solver": "DEFAULT"},
+        }
+    )
+
+    assert Path(trail.json_filename).parent == tmp_path
+    assert Path(trail.txt_filename).parent == tmp_path

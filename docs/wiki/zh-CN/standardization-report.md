@@ -14,7 +14,7 @@
 | 可读性 | 需继续改进 | operator 和 primitive 框架已完成多轮低风险清理；attack 模块和 solver/modeling 边界仍较复杂。 |
 | 风格工具 | 通过 | `pyproject.toml` 已定义 package metadata 和 pytest 设置。 |
 | 错误处理 | 需继续改进 | 可选依赖失败和工具诊断更安静；部分路径仍有较宽泛异常处理。 |
-| 配置 | 通过 | 输出位置通过 `tools.paths.get_files_dir()` 集中管理，并支持 `OCP_FILES_DIR`。 |
+| 配置 | 通过 | 输出位置通过运行时 `tools.paths.get_files_dir()` 调用集中管理，并支持 `OCP_FILES_DIR`。 |
 | 测试 | 通过 | 核心冒烟测试确定；solver/generated 测试通过显式 pytest 开关保护。 |
 | 文档 | 通过 | README/wiki 已改为语言切换链接，不再中英混排。 |
 | 打包 | 通过 | 已配置 editable install 和 `ocp-agent` 命令行入口。 |
@@ -26,6 +26,7 @@
 - 添加 Python 3.10/3.11 的 CI smoke test。
 - 为 Agent API、路径、provider、搜索 I/O、operator 核心行为和文本输入规整添加确定性单测。
 - 用 `OCP_FILES_DIR` 统一运行时输出路径。
+- 移除 attack 输出路径的 import-time 快照，让模型和 trail 文件名能响应运行时 `OCP_FILES_DIR` 变化。
 - 减少 solver/modeling 可选后端在 import 阶段的噪声。
 - 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
 - 添加文本优先密码输入 dataclass、Markdown/LaTeX 规整、确定性 facts 校验、prompt/parse 边界和 draft-to-spec 转换 helper。
@@ -58,7 +59,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`94 passed, 106 skipped`。
+最新默认 pytest 状态：`96 passed, 106 skipped`。
 
 ## 后续工作
 

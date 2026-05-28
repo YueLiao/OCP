@@ -4,9 +4,6 @@ import tools.model_constraints as model_constraints
 from tools.paths import get_files_dir
 
 
-FILES_DIR = get_files_dir()
-
-
 def parse_and_set_configs(cipher, goal, objective_target, config_model, config_solver, many_solution_goal=None):
     """Apply common model and solver defaults for attack search."""
 
@@ -30,7 +27,7 @@ def parse_and_set_configs(cipher, goal, objective_target, config_model, config_s
         raise ValueError(f"Invalid model_type: {model_type}. Expected one of ['milp', 'sat'].")
 
     config_model["filename"] = str(
-        FILES_DIR / f"{cipher.nbr_rounds}round_{cipher.name}_{goal}_{objective_target}_{suffix}"
+        get_files_dir() / f"{cipher.nbr_rounds}round_{cipher.name}_{goal}_{objective_target}_{suffix}"
     )
 
     if many_solution_goal and goal == many_solution_goal:

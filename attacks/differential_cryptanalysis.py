@@ -8,8 +8,6 @@ import tools.sat_search as sat_search
 from tools.paths import get_files_dir
 from tools.search_reporting import log
 
-FILES_DIR = get_files_dir()
-
 
 # **************************************************************************** #
 # This module is the interface for differential attacks, including:
@@ -146,8 +144,8 @@ def extract_and_format_diff_trails(cipher, goal, config_model, config_solver, sh
         trail = DifferentialTrail(data, solution_trace=sol)
         if i > 0:
             log(f"[INFO] Saving the {i+1}-th Trail.", config_model, config_solver)
-            trail.json_filename = trail.json_filename.replace(".json", f"_{i}.json") if trail.json_filename else str(FILES_DIR / f"{trail.data['cipher']}_trail_{i}.json")
-            trail.txt_filename = trail.txt_filename.replace(".txt", f"_{i}.txt") if trail.txt_filename else str(FILES_DIR / f"{trail.data['cipher']}_trail_{i}.txt")
+            trail.json_filename = trail.json_filename.replace(".json", f"_{i}.json") if trail.json_filename else str(get_files_dir() / f"{trail.data['cipher']}_trail_{i}.json")
+            trail.txt_filename = trail.txt_filename.replace(".txt", f"_{i}.txt") if trail.txt_filename else str(get_files_dir() / f"{trail.data['cipher']}_trail_{i}.txt")
         trail.save_json()
         trail.save_txt(show_mode=show_mode, emit_print=config_model.get("verbose", True))
         trails.append(trail)
