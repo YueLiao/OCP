@@ -168,7 +168,7 @@ def upload_file():
         tmp_path = tmp.name
 
     try:
-        result = agent.extract_cipher_from_file(tmp_path, focus=focus or None, auto_build=True)
+        result = agent.extract_cipher_from_file(tmp_path, focus=focus or None, auto_build=False)
         ctx = agent.session.get_context()
         return jsonify({
             "success": result.success,

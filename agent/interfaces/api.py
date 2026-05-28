@@ -357,15 +357,17 @@ class OCPAgent:
         pages: Optional[str] = None,
         auto_build: bool = False,
     ) -> SkillResult:
-        """Extract a cipher specification from a PDF, image, or text file.
+        """Experimentally import a cipher specification from a PDF, image, or text file.
 
-        Requires an LLM provider to parse the document content.
+        Text-first extraction is preferred for accuracy. File extraction is a
+        convenience helper and the resulting draft should be reviewed before use.
 
         Args:
             file_path: Path to the file (PDF, PNG, JPG, TXT).
             focus: Optional focus area (e.g., "the SPECK cipher", "Section 3").
             pages: For PDFs: page range (e.g., "1-5", "3,7").
             auto_build: If True, automatically build the cipher after extraction.
+                This is not recommended for experimental PDF/image imports.
 
         Returns:
             SkillResult with extracted CipherSpec.

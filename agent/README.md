@@ -172,9 +172,10 @@ You can also specify a section or page range:
 You> Extract the cipher from pages 3-5 of /path/to/paper.pdf, focus on the KATAN cipher
 ```
 
-Text input is the preferred path. PDF/image extraction remains experimental
-because visual recognition can miss mathematical details. Supported uploads:
-`.txt`, `.md`, `.tex`, `.rst`, PDF, and common image formats.
+Text input is the preferred path. PDF/image extraction is an experimental import
+helper because visual recognition can miss mathematical details. Supported
+uploads: `.txt`, `.md`, `.tex`, `.rst`, PDF, and common image formats. Review
+the draft before building.
 
 ---
 
@@ -286,7 +287,7 @@ agent.extract_cipher_from_file(
     "path/to/crypto_paper.pdf",
     focus="the new lightweight cipher in Section 3",
     pages="3-6",
-    auto_build=True,
+    auto_build=False,
 )
 
 # Now analyze
@@ -295,7 +296,8 @@ agent.generate_code(language="python")
 ```
 
 Supported file formats: text/Markdown/LaTeX first; PDF requires `pip install PyMuPDF`;
-images require a vision-capable provider and should be treated as experimental.
+images require a vision-capable provider and are treated as experimental import
+helpers.
 
 ---
 

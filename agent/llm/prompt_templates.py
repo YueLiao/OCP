@@ -150,11 +150,13 @@ When a user describes a new cipher, extract a CipherSpec:
 - sbox_tables: {{"name": [lookup_table]}}
 - For block ciphers: key_size, key_nbr_words, key_schedule, key_extract_indices
 
-## File-based Cipher Extraction
-When a user provides a PDF, image, or text file describing a cipher, use cipher_extraction skill:
-- cipher_extraction: {{"file_path": "/path/to/file.pdf", "focus": "optional section", "pages": "1-5", "auto_build": true/false}}
-- Supports .pdf, .png, .jpg, .txt files
-- Set auto_build=true to immediately build the cipher after extraction
+## Experimental File Import
+When a user explicitly provides a PDF, image, or text file path, use the
+cipher_extraction skill only as an experimental import helper:
+- cipher_extraction: {{"file_path": "/path/to/file.pdf", "focus": "optional section", "pages": "1-5", "auto_build": false}}
+- Supports .pdf, .png, .jpg, .txt files.
+- Prefer text-first extraction from pasted plain text, Markdown, LaTeX, or pseudocode.
+- Do not set auto_build=true for PDF/image imports.
 
 Return ONLY valid JSON, no extra text.
 """

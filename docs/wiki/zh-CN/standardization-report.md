@@ -42,6 +42,7 @@
 - 添加显式 solver 能力报告，用于检查可选 MILP/SAT 后端，并文档化当前 solver fallback。
 - 将 attack/model generation 路径里的重复约束和 objective 列表拼接改为显式原地扩展。
 - 添加可选模型生成 profiling，用于记录每类 operator 的约束数量和耗时。
+- 将 PDF/image 抽取重新标注为 experimental import helper，并关闭网页上传自动构建。
 - 明确旧式 operator 文件是人工实验脚本。
 - 将文档拆为英文和中文页面，并在顶部提供语言切换链接。
 
@@ -54,10 +55,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`89 passed, 106 skipped`。
+最新默认 pytest 状态：`91 passed, 106 skipped`。
 
 ## 后续工作
 
 1. 基于 profiling 结果决定更深层模型生成优化优先级。
 2. 继续收窄 solver/model generation 路径里的宽泛异常处理。
-3. 将 PDF/image 抽取明确降级为 experimental import helper。
+3. 继续优化网页 draft review 体验和 artifact 浏览。

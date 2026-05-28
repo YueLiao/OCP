@@ -55,8 +55,8 @@ You> Parse this Markdown/LaTeX cipher description:
 Assistant> Normalized the text and extracted candidate cipher facts...
 ```
 
-准确抽取密码规格时，推荐用户提供纯文本、Markdown、LaTeX 或伪代码。PDF/图片抽取保留为实验能力，
-但不再作为主路径。
+准确抽取密码规格时，推荐用户提供纯文本、Markdown、LaTeX 或伪代码。PDF/图片抽取只是实验性导入
+helper，不再作为主路径；构建前必须审阅草稿。
 
 ## Python API
 

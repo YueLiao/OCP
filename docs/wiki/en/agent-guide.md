@@ -66,7 +66,8 @@ Each text-first draft flow writes a replayable JSON job record under
 
 The preferred extraction path is user-provided text: plain text, Markdown,
 LaTeX, pseudocode, or structured notes. PDF/image extraction remains
-experimental because visual recognition can miss mathematical details.
+an experimental import helper because visual recognition can miss mathematical
+details. It should not auto-build ciphers.
 
 The text-first schema currently provides:
 

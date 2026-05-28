@@ -106,8 +106,9 @@ Then run differential cryptanalysis using MILP.
 ```
 
 Text input is the preferred path for precise cipher extraction. PDF/image
-extraction remains experimental because visual recognition can miss formulas,
-tables, state layouts, and bit-index conventions.
+extraction is only an experimental import helper because visual recognition can
+miss formulas, tables, state layouts, and bit-index conventions. Review drafts
+before building.
 
 ## Quick Start: Web UI
 
@@ -117,6 +118,9 @@ python3 web/app.py --port 5001
 ```
 
 Open `http://localhost:5001`.
+
+Use `Draft` for text-first cipher descriptions. File upload remains
+experimental and does not auto-build a cipher.
 
 ## Built-in Ciphers
 
