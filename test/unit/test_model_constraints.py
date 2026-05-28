@@ -7,10 +7,11 @@ import pytest
 
 import variables.variables as var
 from tools.model_constraints import (
-    gen_round_model_constraint_obj_fun,
+    gen_constraints_obj_func_from_template,
     gen_constraints_sum_at_most,
     gen_matrix_constraints,
     gen_predefined_constraints,
+    gen_round_model_constraint_obj_fun,
     gen_sequential_encoding_sat,
     load_constraints_template,
 )
@@ -152,3 +153,30 @@ def test_constraints_template_loading_is_cached(monkeypatch, tmp_path):
     assert load_constraints_template(str(template)) == (["a0 - b0 = 0"], "p0")
 
     assert open_calls == [str(template)]
+
+
+def test_template_variable_replacement_preserves_token_boundaries(tmp_path):
+    template = tmp_path / "template.txt"
+    template.write_text(
+        "Input: a0; msb: a0\n"
+        "Output: b0; msb: b0\n"
+        "Constraints: ['a0 + a10 - b0 >= 0', 'pa0 + a0 - p0 >= 0']\n"
+        "Weight: 2 p0 + p10\n",
+        encoding="utf-8",
+    )
+
+    var_in = [f"x{i}" for i in range(11)]
+    var_p = [f"w{i}" for i in range(11)]
+
+    constraints, objective_fun = gen_constraints_obj_func_from_template(
+        str(template),
+        var_in,
+        ["y0"],
+        var_p,
+    )
+
+    assert constraints == [
+        "x0 + x10 - y0 >= 0",
+        "pa0 + x0 - w0 >= 0",
+    ]
+    assert objective_fun == "2 w0 + w10"

@@ -705,6 +705,34 @@ def load_constraints_template(filename):
     )
     return list(constraints) if constraints is not None else None, objective_fun
 
+
+def _build_template_replacer(*template_var_groups):
+    replacements = {}
+    for prefix, variables in template_var_groups:
+        if variables is None:
+            continue
+        replacements.update(
+            (f"{prefix}{index}", str(variable))
+            for index, variable in enumerate(variables)
+        )
+
+    if not replacements:
+        return lambda expr: expr
+
+    token_pattern = "|".join(
+        re.escape(token)
+        for token in sorted(replacements, key=len, reverse=True)
+    )
+    pattern = re.compile(rf"\b(?:{token_pattern})\b")
+
+    def replace(expr):
+        if expr is None:
+            return None
+        return pattern.sub(lambda match: replacements[match.group(0)], expr)
+
+    return replace
+
+
 def gen_constraints_obj_func_from_template(filename, var_in, var_out, var_p=None):
     """
     Load template constraints/objective function from file, then instantiate them by replacing template variables:
@@ -720,25 +748,17 @@ def gen_constraints_obj_func_from_template(filename, var_in, var_out, var_p=None
     if constraints is None:
         raise ValueError(f"Failed to load constraints or objective function from {filename}.")
 
-    def replace_vars(expr, prefix, repl_vars):
-        if repl_vars is None:
-            return expr
-        for i, var in enumerate(repl_vars):
-            expr = re.sub(rf"\b{prefix}{i}\b", str(var), expr)
-        return expr
+    replace_constraint_vars = _build_template_replacer(
+        ("a", var_in),
+        ("b", var_out),
+        ("p", var_p),
+    )
+    replace_objective_vars = _build_template_replacer(("p", var_p))
 
-    mapped_constraints = []
-    for con in constraints:
-        con_map = con
-        con_map = replace_vars(con_map, "a", var_in)
-        con_map = replace_vars(con_map, "b", var_out)
-        con_map = replace_vars(con_map, "p", var_p)
-        mapped_constraints.append(con_map)
-
-    mapped_objective_fun = objective_fun
-    mapped_objective_fun = replace_vars(mapped_objective_fun, "p", var_p)
-
-    return mapped_constraints, mapped_objective_fun
+    return (
+        [replace_constraint_vars(con) for con in constraints],
+        replace_objective_vars(objective_fun),
+    )
 
 
 def inequality_to_constraint_sat(inequality, variables): # Convert an inequality (coefficients + RHS) into the constraint into SAT format.
