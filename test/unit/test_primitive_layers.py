@@ -5,6 +5,13 @@ from primitives.primitives import Function, Layered_Function
 from variables.variables import Variable
 
 
+class RecordingOperator:
+    def __init__(self, input_vars, output_vars, ID=None):
+        self.input_vars = input_vars
+        self.output_vars = output_vars
+        self.ID = ID
+
+
 def _constraint_ids(function, round_number=1, layer_number=0):
     return [constraint.ID for constraint in function.constraints[round_number][layer_number]]
 
@@ -58,6 +65,18 @@ def test_single_operator_layer_uses_set_membership_without_changing_constraints(
     assert [constraint.__class__.__name__ for constraint in constraints] == ["Equal", "Equal", "XOR", "Equal"]
     assert [variable.ID for variable in constraints[2].input_vars] == ["v_1_0_0", "v_1_0_1"]
     assert [variable.ID for variable in constraints[2].output_vars] == ["v_1_1_2"]
+
+
+def test_single_operator_layer_handles_grouped_outputs_without_rescanning_groups():
+    function = Layered_Function("F", "", 1, 1, 4, 0, 1)
+
+    function.SingleOperatorLayer("E", 1, 0, RecordingOperator, [[0, 1]], [[2, 3]])
+
+    constraints = function.constraints[1][0]
+    assert _constraint_ids(function) == ["E_EQ_1_1_0", "E_EQ_1_1_1", "E_1_1_2"]
+    assert [constraint.__class__.__name__ for constraint in constraints] == ["Equal", "Equal", "RecordingOperator"]
+    assert [variable.ID for variable in constraints[2].input_vars] == ["v_1_0_0", "v_1_0_1"]
+    assert [variable.ID for variable in constraints[2].output_vars] == ["v_1_1_2", "v_1_1_3"]
 
 
 def test_matrix_layer_adds_identity_constraints_outside_matrix_groups():

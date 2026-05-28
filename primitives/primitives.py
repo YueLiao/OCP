@@ -172,30 +172,34 @@ class Layered_Function:
     def SingleOperatorLayer(self, name, crt_round, crt_layer, my_operator, index_in, index_out):
         flat_index_out = [idx for sub in index_out for idx in (sub if isinstance(sub, list) else [sub])]
         flat_index_out_set = set(flat_index_out)
+        if isinstance(index_out[0], int):
+            output_to_input = dict(zip(index_out, index_in))
+        else:
+            output_to_group = {sub_index[0]: (group_id, sub_index) for group_id, sub_index in enumerate(index_out)}
         for j in range(self._total_words()):
             if j not in flat_index_out_set:
                 self._add_equal_constraint(name, crt_round, crt_layer, j)
             else:
                 if isinstance(index_out[0], int):
-                    in_vars = [self.vars[crt_round][crt_layer][k] for k in index_in[index_out.index(j)]]
+                    in_vars = [self.vars[crt_round][crt_layer][k] for k in output_to_input[j]]
                     out_vars = [self.vars[crt_round][crt_layer+1][j]]
                     self.constraints[crt_round][crt_layer].append(my_operator(in_vars, out_vars, ID=generateID(name,crt_round,crt_layer+1,j)))
-                elif isinstance(index_out[0], list):
-                    for id, sub_index in enumerate(index_out):
-                        if j == sub_index[0]:
-                            in_vars = [self.vars[crt_round][crt_layer][k] for k in index_in[id]]
-                            out_vars = [self.vars[crt_round][crt_layer + 1][i] for i in sub_index]
-                            self.constraints[crt_round][crt_layer].append(my_operator(in_vars, out_vars, ID=generateID(name,crt_round,crt_layer+1,j)))
+                elif j in output_to_group:
+                    id, sub_index = output_to_group[j]
+                    in_vars = [self.vars[crt_round][crt_layer][k] for k in index_in[id]]
+                    out_vars = [self.vars[crt_round][crt_layer + 1][i] for i in sub_index]
+                    self.constraints[crt_round][crt_layer].append(my_operator(in_vars, out_vars, ID=generateID(name,crt_round,crt_layer+1,j)))
 
     # apply a layer "name" of a GF2Linear_Trans at the round "crt_round", at the layer "crt_layer"
     def GF2Linear_TransLayer(self, name, crt_round, crt_layer, index_in, index_out, mat, constants=None):
         flat_index_out = [idx for sub in index_out for idx in (sub if isinstance(sub, list) else [sub])]
         flat_index_out_set = set(flat_index_out)
+        input_by_output = dict(zip(index_out, index_in)) if isinstance(index_out[0], int) else {}
         for j in range(self._total_words()):
             if j not in flat_index_out_set:
                 self._add_equal_constraint(name, crt_round, crt_layer, j)
             else:
-                in_vars = [self.vars[crt_round][crt_layer][index_in[index_out.index(j)]]]
+                in_vars = [self.vars[crt_round][crt_layer][input_by_output[j]]]
                 out_vars = [self.vars[crt_round][crt_layer+1][j]]
                 self.constraints[crt_round][crt_layer].append(GF2Linear_Trans(in_vars, out_vars, mat, ID=generateID(name,crt_round,crt_layer+1,j), constants=constants))
 
