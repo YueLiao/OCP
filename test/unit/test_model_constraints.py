@@ -1,3 +1,7 @@
+import os
+import subprocess
+import sys
+
 import pytest
 
 import variables.variables as var
@@ -41,3 +45,23 @@ def test_matrix_constraints_preserve_xor_special_cases():
         "-a b c",
         "-a -b -c",
     ]
+
+
+def test_model_constraints_defers_pysat_cardinality_import():
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.getcwd()
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import tools.model_constraints as m; print(m.CardEnc is None)",
+        ],
+        cwd=os.getcwd(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert result.stdout.strip() == "True"

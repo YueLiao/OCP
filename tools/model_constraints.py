@@ -1,4 +1,6 @@
 import ast
+from importlib import import_module
+from importlib.util import find_spec
 import os
 import sys
 import time
@@ -7,15 +9,33 @@ import platform
 from tools.minimize_logic import ttb_to_ineq_logic
 from tools.polyhedron import ttb_to_ineq_convex_hull
 from itertools import combinations
-try:
-    from pysat.card import CardEnc
-    from pysat.formula import IDPool
+
+CardEnc = None
+vpool = None
+pysat_import = find_spec("pysat") is not None
+
+
+def _load_pysat_cardinality_backend():
+    global CardEnc, pysat_import, vpool
+
+    if CardEnc is not None and vpool is not None:
+        return CardEnc, vpool
+    try:
+        CardEnc = import_module("pysat.card").CardEnc
+        IDPool = import_module("pysat.formula").IDPool
+    except ImportError:
+        pysat_import = False
+        return None, None
     vpool = IDPool(start_from=1000)
     pysat_import = True
-except ImportError:
-    CardEnc = None
-    vpool = None
-    pysat_import = False
+    return CardEnc, vpool
+
+
+def _require_pysat_cardenc():
+    card_enc, _ = _load_pysat_cardinality_backend()
+    if card_enc is None:
+        raise ValueError("PySAT is required for SAT cardinality constraints.")
+    return card_enc
 
 
 # **************************************************************************** #
@@ -169,11 +189,14 @@ def _readable_cardinality_clauses(cnf, reverse_map):
 def _pysat_cardinality_constraints(cons_vars, cons_value, encoding, encoder, encoder_name):
     if not encoding:
         encoding = 1
+    _, card_vpool = _load_pysat_cardinality_backend()
+    if card_vpool is None:
+        raise ValueError("PySAT is required for SAT cardinality constraints.")
     variable_map = {name: idx + 1 for idx, name in enumerate(cons_vars)}
     reverse_map = {v: k for k, v in variable_map.items()}
     lits = [variable_map[name] for name in cons_vars]
     try:
-        cnf = encoder(lits=lits, bound=cons_value, vpool=vpool, encoding=encoding)
+        cnf = encoder(lits=lits, bound=cons_value, vpool=card_vpool, encoding=encoding)
     except Exception:
         print(f"[WARNING] Don't support encoding {encoding} in CardEnc.{encoder_name}. Passing...")
         return []
@@ -235,7 +258,8 @@ def gen_constraints_sum_exactly(model_type, cons_vars, cons_value, encoding=1):
         if not encoding:
             encoding = 1  # Default to 1 if not specified
         assert encoding in [0,1,2,3,4,5,6,7,8,9], f"[ERROR] Invalid encoding = {encoding}, refer https://pysathq.github.io/docs/html/api/card.html"
-        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, CardEnc.equals, "equals")
+        card_enc = _require_pysat_cardenc()
+        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, card_enc.equals, "equals")
     else:
         raise ValueError(f"Unsupported model_type '{model_type}' for SUM_EXACTLY constraint.")
 
@@ -257,7 +281,8 @@ def gen_constraints_sum_at_most(model_type, cons_vars, cons_value, encoding="SEQ
     elif model_type == "sat" and pysat_import:
         if not isinstance(encoding, int):
             encoding = 1  # Default to 1 if the encoding is not specified as an integer
-        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, CardEnc.atmost, "atmost")
+        card_enc = _require_pysat_cardenc()
+        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, card_enc.atmost, "atmost")
     else:
         raise ValueError(f"Unsupported model_type '{model_type}' for SUM_AT_MOST constraint.")
 
@@ -277,7 +302,8 @@ def gen_constraints_sum_at_least(model_type, cons_vars, cons_value, encoding=1):
     elif model_type == "sat" and cons_value == 1:
         return [' '.join(f"{cons_vars[i]}" for i in range(len(cons_vars)))]
     elif model_type == "sat" and pysat_import:
-        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, CardEnc.atleast, "atleast")
+        card_enc = _require_pysat_cardenc()
+        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, card_enc.atleast, "atleast")
     else:
         raise ValueError(f"Unsupported model_type '{model_type}' for SUM_GREATER_EQUAL constraint.")
 
