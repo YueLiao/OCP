@@ -242,3 +242,15 @@ def test_matrix_bit_models_share_stable_constraint_generation():
         "-y0 y1 x1",
         "-y0 -y1 -x1",
     ]
+
+
+def test_matrix_branch_number_placeholders_fail_explicitly():
+    inputs = [var.Variable(1, ID="x0"), var.Variable(1, ID="x1")]
+    outputs = [var.Variable(1, ID="y0"), var.Variable(1, ID="y1")]
+    op = Matrix("M", inputs, outputs, [[1, 1], [0, 1]], ID="M")
+
+    with pytest.raises(NotImplementedError, match="differential branch number"):
+        op.differential_branch_number()
+
+    with pytest.raises(NotImplementedError, match="linear branch number"):
+        op.linear_branch_number()

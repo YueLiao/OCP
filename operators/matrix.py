@@ -278,11 +278,11 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
 
         return I
 
-    def differential_branch_number(self): # Return differential branch number of the Matrix. TO DO
-        pass
+    def differential_branch_number(self): # Return differential branch number of the Matrix.
+        raise NotImplementedError("Matrix differential branch number computation is not implemented.")
 
-    def linear_branch_number(self): # Return linear branch number of the Matrix. TO DO
-        pass
+    def linear_branch_number(self): # Return linear branch number of the Matrix.
+        raise NotImplementedError("Matrix linear branch number computation is not implemented.")
 
     def zero_star_io_patterns(self):
         """
@@ -640,7 +640,7 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
             if model_type in ['milp'] and self.model_version in [self.__class__.__name__ + "_TRUNCATEDDIFF", self.__class__.__name__ + "_TRUNCATEDDIFF_1", self.__class__.__name__ + "_TRUNCATEDLINEAR", self.__class__.__name__ + "_TRUNCATEDLINEAR_1"]:
                 if branch_num is not None: # If the branch number is provided, generate the MILP model for describing the branch number property
                     return self._generate_model_truncated_diff_linear_branch_num(model_type, branch_num)
-                # else: # TO DO: Branch number computation is not implemented yet.
+                # else:
                     # if self.model_version in [self.__class__.__name__ + "_TRUNCATEDDIFF", self.__class__.__name__ + "_TRUNCATEDDIFF_1"]:
                         # branch_num =self.differential_branch_number()
                     # elif self.model_version in [self.__class__.__name__ + "_TRUNCATEDLINEAR", self.__class__.__name__ + "_TRUNCATEDLINEAR_1"]:

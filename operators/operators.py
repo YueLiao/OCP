@@ -95,16 +95,20 @@ class Operator(ABC):
         pass
 
 
-class CastingOperator(Operator):    # Operator for casting from on type to another
+class CastingOperator(Operator):    # Operator for casting from one type to another
+    """Abstract base for future casting operators.
+
+    Casting operators must preserve the total bit width. Concrete subclasses are
+    expected to define implementation/model generation for their specific layout.
+    """
+
     def __init__(self, input_vars, output_vars, ID = None):
         if sum([input_vars[i].bitsize for i in range(len(input_vars))]) != sum([output_vars[i].bitsize for i in range(len(output_vars))]): raise Exception("CastingOperator: the total input size does not match the total output size")
         super().__init__(input_vars, output_vars, ID = ID)
-        pass   # TODO
 
 
 class CastingWordtoBitVector(CastingOperator):   # Operator for casting a bit word to a vector of bits
-    def __init__(self, input_vars, output_vars, ID = None):
-        pass   # TODO
+    """Abstract base for word-to-bit-vector casting operators."""
 
 
 class UnaryOperator(Operator):   # Generic operator taking one input and one output (must be of same bitsize)
@@ -358,6 +362,10 @@ class Shift(UnaryOperator):    # Operator for the shift function: shift of the i
 
 
 class CustomOP(Operator):   # generic custom operator (to be defined by the user)
+    """Abstract base for user-defined operators.
+
+    Subclasses should provide their own implementation and model generation.
+    """
+
     def __init__(self, input_vars, output_vars, ID = None):
         super().__init__(input_vars, output_vars, ID=ID)
-        pass # TODO
