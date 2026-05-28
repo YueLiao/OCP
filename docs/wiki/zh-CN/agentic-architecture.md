@@ -54,7 +54,7 @@ Agent 也会把 links 扩展为结构化 `artifacts`：
 
 ```json
 {
-  "id": "stable-ish id",
+  "id": "stable sha256-derived id",
   "label": "generated_code",
   "path": "/tmp/ocp-files/SPECK32_64.py",
   "type": "source",

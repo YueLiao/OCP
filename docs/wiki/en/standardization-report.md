@@ -33,6 +33,7 @@ document, and extend.
 - Routed default `OCPAgent` code generation and visualization outputs through runtime `OCP_FILES_DIR`.
 - Added structured pass/fail summaries to agent code generation test results while preserving legacy result entries.
 - Added artifact links for agent code generation and visualization outputs.
+- Made artifact registry IDs deterministic across Python processes.
 - Reduced import-time optional dependency noise for solver/modeling backends.
 - Added analysis skill boundary validation for unsupported model types.
 - Added built-in cipher version validation at the agent instantiation boundary.

@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
@@ -18,7 +19,7 @@ def _artifact_type(label: str, path: str) -> str:
 
 def _artifact_id(source_skill: str, label: str, path: str) -> str:
     raw = f"{source_skill}:{label}:{path}"
-    return str(abs(hash(raw)))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def normalize_artifact_links(

@@ -31,6 +31,7 @@
 - 让默认 `OCPAgent` 代码生成和可视化输出通过运行时 `OCP_FILES_DIR` 解析。
 - 为 agent 代码生成测试结果添加结构化通过/失败统计，同时保留旧的结果条目。
 - 为 agent 代码生成和可视化输出添加 artifact links。
+- 让 artifact registry ID 在不同 Python 进程之间保持确定性。
 - 减少 solver/modeling 可选后端在 import 阶段的噪声。
 - 为 analysis skill 添加不支持 model type 的边界校验。
 - 在 agent 内置 cipher 实例化边界添加版本校验。

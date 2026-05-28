@@ -21,6 +21,21 @@ def test_normalize_artifact_links_adds_metadata(tmp_path):
     assert artifacts[0]["created_at"]
 
 
+def test_artifact_ids_are_deterministic():
+    links = [{"label": "trail_json_1", "path": "/tmp/ocp/trail.json"}]
+
+    first = normalize_artifact_links(links, source_skill="differential_analysis")
+    second = normalize_artifact_links(links, source_skill="differential_analysis")
+    different_label = normalize_artifact_links(
+        [{"label": "trail_text_1", "path": "/tmp/ocp/trail.json"}],
+        source_skill="differential_analysis",
+    )
+
+    assert first[0]["id"] == second[0]["id"]
+    assert first[0]["id"] != different_label[0]["id"]
+    assert len(first[0]["id"]) == 16
+
+
 def test_verifier_blocks_risky_actions_without_cipher():
     session = Session()
 
