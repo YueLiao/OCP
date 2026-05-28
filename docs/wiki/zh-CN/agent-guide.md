@@ -124,3 +124,7 @@ build_result = agent.confirm_cipher_spec(draft)
 
 流程成功时，`facts_result.data["artifact_links"]` 和
 `build_result.data["artifact_links"]` 会包含 JSON job 记录路径。
+
+分析、代码生成和可视化 skill 使用同一套 artifact 约定。可以从
+`result.data["artifact_links"]` 读取生成文件，例如 trail JSON/TXT、实现源码、
+可视化 PDF 和 job 记录。

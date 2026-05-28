@@ -68,9 +68,14 @@ from agent import OCPAgent
 agent = OCPAgent()
 agent.instantiate_cipher("speck", "blockcipher", version=[32, 64])
 agent.generate_code(language="python", unroll=True, test=True)
-agent.differential_analysis(goal="DIFFERENTIALPATH_PROB", model_type="milp")
-agent.linear_analysis(goal="LINEARPATH_CORR", model_type="sat")
+diff_result = agent.differential_analysis(goal="DIFFERENTIALPATH_PROB", model_type="milp")
+linear_result = agent.linear_analysis(goal="LINEARPATH_CORR", model_type="sat")
+print(diff_result.data["artifact_links"])
+print(linear_result.data["artifact_links"])
 ```
+
+分析、代码生成、可视化和文本优先抽取成功后，都会通过
+`result.data["artifact_links"]` 暴露生成文件路径。
 
 自定义密码：
 

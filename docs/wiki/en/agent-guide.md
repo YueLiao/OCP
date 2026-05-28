@@ -130,3 +130,8 @@ build_result = agent.confirm_cipher_spec(draft)
 
 `facts_result.data["artifact_links"]` and `build_result.data["artifact_links"]`
 include the JSON job record path when the flow succeeds.
+
+Analysis, code generation, and visualization skills use the same artifact
+contract. Check `result.data["artifact_links"]` for generated files such as
+trail JSON/TXT files, implementation source files, visualization PDFs, and job
+records.

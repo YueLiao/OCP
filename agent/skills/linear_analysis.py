@@ -2,6 +2,7 @@ from typing import Any, Dict
 
 from agent.types import SkillName, SkillRequest, SkillResult
 from agent.session import Session
+from agent.skills.artifacts import trail_artifact_links
 from agent.skills.base import BaseSkill
 
 VALID_GOALS = [
@@ -131,10 +132,17 @@ class LinearAnalysisSkill(BaseSkill):
                 f"Linear analysis ({model_type.upper()}, {goal}): "
                 f"found {trail_count} trail(s)."
             )
+            artifact_links = trail_artifact_links(trails)
             return SkillResult(
                 success=True,
                 skill=self.name,
-                data={"trails": trails, "trail_count": trail_count, "goal": goal, "model_type": model_type},
+                data={
+                    "trails": trails,
+                    "trail_count": trail_count,
+                    "goal": goal,
+                    "model_type": model_type,
+                    "artifact_links": artifact_links,
+                },
                 summary=summary,
             )
         except Exception as e:

@@ -27,6 +27,52 @@ def test_analysis_skills_reject_invalid_model_type_at_boundary():
         assert "Invalid model_type" in result.error
 
 
+def test_differential_analysis_returns_trail_artifact_links(monkeypatch, tmp_path):
+    trail = SimpleNamespace(
+        json_filename=tmp_path / "diff.json",
+        txt_filename=tmp_path / "diff.txt",
+    )
+
+    def fake_diff_attacks(*args, **kwargs):
+        return [trail]
+
+    monkeypatch.setattr("attacks.attacks.diff_attacks", fake_diff_attacks)
+
+    result = DifferentialAnalysisSkill().execute(
+        SkillRequest(SkillName.DIFFERENTIAL_ANALYSIS, {}),
+        _session_with_cipher(),
+    )
+
+    assert result.success
+    assert result.data["artifact_links"] == [
+        {"label": "trail_json_1", "path": str(tmp_path / "diff.json")},
+        {"label": "trail_text_1", "path": str(tmp_path / "diff.txt")},
+    ]
+
+
+def test_linear_analysis_returns_trail_artifact_links(monkeypatch, tmp_path):
+    trail = SimpleNamespace(
+        json_filename=tmp_path / "linear.json",
+        txt_filename=tmp_path / "linear.txt",
+    )
+
+    def fake_linear_attacks(*args, **kwargs):
+        return [trail]
+
+    monkeypatch.setattr("attacks.attacks.linear_attacks", fake_linear_attacks)
+
+    result = LinearAnalysisSkill().execute(
+        SkillRequest(SkillName.LINEAR_ANALYSIS, {}),
+        _session_with_cipher(),
+    )
+
+    assert result.success
+    assert result.data["artifact_links"] == [
+        {"label": "trail_json_1", "path": str(tmp_path / "linear.json")},
+        {"label": "trail_text_1", "path": str(tmp_path / "linear.txt")},
+    ]
+
+
 def test_agent_generate_code_uses_runtime_files_dir_by_default(monkeypatch, tmp_path):
     generated = {}
 

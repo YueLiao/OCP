@@ -6,7 +6,7 @@ import warnings
 try:
     import cdd
     backend_version = getattr(cdd, "__version__", "unknown")
-except Exception:
+except (ImportError, OSError):
     cdd = None
     backend_version = "unknown"
 

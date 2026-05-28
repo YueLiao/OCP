@@ -201,10 +201,15 @@ agent.generate_visualization()
 
 # Differential analysis
 result = agent.differential_analysis(goal="DIFFERENTIALPATH_PROB", model_type="milp")
+print(result.data["artifact_links"])
 
 # Linear analysis
 result = agent.linear_analysis(goal="LINEARPATH_CORR", model_type="sat")
+print(result.data["artifact_links"])
 ```
+
+Successful analysis, code generation, visualization, and text-first extraction
+results expose generated files through `result.data["artifact_links"]`.
 
 ### Define and Analyze a Custom Cipher
 

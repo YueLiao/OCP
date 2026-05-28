@@ -99,10 +99,7 @@ def ttb_to_ineq_logic(ttable, variables, mode=0, tool_type="espresso_pyeda", tim
                 "Install it with: pip install pyeda"
             )
         backend_name = "espresso_pyeda"
-        try:
-            backend_version = getattr(pyeda, "__version__", "unknown")
-        except Exception:
-            backend_version = "unknown"
+        backend_version = getattr(pyeda, "__version__", "unknown")
         espresso_command = ['espresso', *espresso_options[mode], pla_file]
 
     elif tool_type == "minimize_logic_espresso": # Generate inequalities from the truth table using external Espresso software
@@ -113,13 +110,14 @@ def ttb_to_ineq_logic(ttable, variables, mode=0, tool_type="espresso_pyeda", tim
                 "Cannot find external Espresso at ~/espresso-logic/bin/espresso.",
                 RuntimeWarning,
             )
+        backend_version = "unknown"
         try:
             result = subprocess.run([espresso_path, "-v"], capture_output=True, text=True, check=False)
             version_text = (result.stdout + result.stderr).strip()
             if version_text:
                 backend_version = version_text.splitlines()[0]
-        except Exception:
-            backend_version = "unknown"
+        except (OSError, subprocess.SubprocessError):
+            pass
         espresso_command = [espresso_path, *espresso_options[mode], pla_file]
     else:
         raise ValueError(f"unknown tool type {tool_type}")
