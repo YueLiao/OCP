@@ -1,10 +1,11 @@
 import variables.variables as var
 import pytest
 from operators.boolean_operators import AND, ConstantXOR, NOT, OR, XOR
-from operators.modular_operators import ConstantAdd, ModAdd
+from operators.modular_operators import ConstantAdd, ModAdd, ModMul
 from operators.operators import Equal, Rot
 from operators.Sbox import PRESENT_Sbox
 from operators.matrix import (
+    Matrix,
     generate_binary_matrix_2,
     generate_binary_matrix_3,
     generate_pmr_for_mds,
@@ -88,6 +89,20 @@ def test_modular_implementation_generation_is_stable():
     ]
 
 
+def test_modular_implementation_respects_explicit_non_word_modulo():
+    left = var.Variable(4, ID="in0")
+    right = var.Variable(4, ID="in1")
+    out = var.Variable(4, ID="out")
+
+    modadd = ModAdd([left, right], [out], modulo=5, ID="ADD")
+    assert modadd.generate_implementation("python", unroll=True) == ["out = (in0 + in1) % 5"]
+    assert modadd.generate_implementation("c", unroll=True) == ["out = (in0 + in1) % 5;"]
+
+    modmul = ModMul([left, right], [out], modulo=5, ID="MUL")
+    assert modmul.generate_implementation("python", unroll=True) == ["out = (in0 * in1) % 5"]
+    assert modmul.generate_implementation("c", unroll=True) == ["out = (in0 * in1) % 5;"]
+
+
 def test_equal_generates_sat_equivalence_model():
     left = var.Variable(2, ID="in0")
     out = var.Variable(2, ID="out")
@@ -160,6 +175,24 @@ def test_present_sbox_ddt_lat_and_truth_tables_are_stable():
     assert lat_truth.count("1") == 133
 
 
+def test_present_sbox_weighted_truth_tables_are_stable():
+    op = PRESENT_Sbox([var.Variable(4, ID="in")], [var.Variable(4, ID="out")], ID="S")
+
+    expected = {
+        "ddt_to_truthtable_milp": (1024, 97, "10000000000000000000000000000000", "00000000000000000000000001000100"),
+        "ddt_to_truthtable_sat": (2048, 97, "10000000000000000000000000000000", "00000000000000000001000000010000"),
+        "lat_to_truthtable_milp": (1024, 133, "10000000000000000000000000000000", "00100010010000000010001000000000"),
+        "lat_to_truthtable_sat": (1024, 133, "10000000000000000000000000000000", "00010001010000000001000100000000"),
+    }
+
+    for method_name, (length, active_count, prefix, suffix) in expected.items():
+        truth_table = getattr(op, method_name)()
+        assert len(truth_table) == length
+        assert truth_table.count("1") == active_count
+        assert truth_table[:32] == prefix
+        assert truth_table[-32:] == suffix
+
+
 def test_gf2_matrix_helpers_are_stable_and_return_mutable_copies():
     assert matrix_multiply_mod2([[1, 1], [0, 1]], [[1, 0], [1, 1]]) == [[0, 1], [1, 1]]
     assert matrix_power_mod2([[0, 1], [1, 1]], 3) == [[1, 0], [0, 1]]
@@ -183,3 +216,29 @@ def test_pmr_generation_populates_each_mds_block():
 
     assert pmr[0][:degree] == matrix2[0]
     assert pmr[0][degree:] == matrix3[0]
+
+
+def test_matrix_bit_models_share_stable_constraint_generation():
+    inputs = [var.Variable(1, ID="x0"), var.Variable(1, ID="x1")]
+    outputs = [var.Variable(1, ID="y0"), var.Variable(1, ID="y1")]
+    op = Matrix("M", inputs, outputs, [[1, 1], [0, 1]], ID="M")
+
+    op.model_version = "Matrix_XORDIFF"
+    assert op.generate_model("sat") == [
+        "x0 x1 -y0",
+        "x0 -x1 y0",
+        "-x0 x1 y0",
+        "-x0 -x1 -y0",
+        "x1 -y1",
+        "-x1 y1",
+    ]
+
+    op.model_version = "Matrix_LINEAR"
+    assert op.generate_model("sat") == [
+        "y0 -x0",
+        "-y0 x0",
+        "y0 y1 -x1",
+        "y0 -y1 x1",
+        "-y0 y1 x1",
+        "-y0 -y1 -x1",
+    ]

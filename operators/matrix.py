@@ -546,6 +546,27 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
             return self.mat
         raise ValueError(f"Matrix {self.mat} not supported.")
 
+    def _generate_bit_matrix_constraints(self, model_type, bin_matrix, source_vars, target_vars, dummy_prefix=None):
+        model_list = []
+        source_words = len(source_vars)
+        target_words = len(target_vars)
+        bits_per_source = source_vars[0].bitsize
+        bits_per_target = target_vars[0].bitsize
+
+        for i in range(target_words):
+            for j in range(bits_per_target):
+                row_index = bits_per_target * i + j
+                var_in = []
+                for k in range(source_words):
+                    for l in range(bits_per_source):
+                        if bin_matrix[row_index][bits_per_source * k + l] == 1:
+                            var_in.append(source_vars[k].ID + ('_' + str(l) if bits_per_target > 1 else ''))
+                var_out = target_vars[i].ID + ('_' + str(j) if bits_per_target > 1 else '')
+                v_dummy = f"{dummy_prefix}_{i}_{j}" if dummy_prefix is not None else None
+                model_list.extend(gen_matrix_constraints(var_in, var_out, model_type, v_dummy=v_dummy))
+
+        return model_list
+
     def generate_implementation(self, implementation_type='python', unroll=False):
         if implementation_type == 'python':
             return ['(' + ''.join([self.get_var_ID('out', i, unroll) + ", " for i in range(len(self.output_vars))])[:-2] + ") = " + self.name + "(" + ''.join([self.get_var_ID('in', i, unroll) + ", " for i in range(len(self.input_vars))])[:-2] + ")"]
@@ -640,64 +661,18 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
         else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'" + self.model_version)
 
     def _generate_model_diff(self, model_type, bin_matrix): # Modeling for bit-wise differential cryptanalysis
-        model_list = []
-        input_words = len(self.input_vars)
-        output_words = len(self.output_vars)
-        bits_per_input = self.input_vars[0].bitsize
-        bits_per_output = self.output_vars[0].bitsize
         if self.model_version in [self.__class__.__name__ + "_XORDIFF"]:
-            for i in range(output_words):  # Loop over the ith output word
-                for j in range(bits_per_output):  # Loop over the jth bit in the ith word
-                    var_in = []
-                    for k in range(input_words): # Loop over the kth input word
-                        for l in range(bits_per_input): # Loop over the lth bit in the kth word
-                            if bin_matrix[bits_per_output*i+j][bits_per_input*k+l] == 1:
-                                if bits_per_output > 1:
-                                    var_in.append(self.input_vars[k].ID + '_' + str(l))
-                                else:
-                                    var_in.append(self.input_vars[k].ID)
-                    if bits_per_output > 1:
-                        var_out = self.output_vars[i].ID + '_' + str(j)
-                    else:
-                        var_out = self.output_vars[i].ID
-                    if model_type == 'milp':
-                        d = self.ID + '_d_' + str(i) + '_' + str(j)
-                    else:
-                        d = None
-                    model_list.extend(gen_matrix_constraints(var_in, var_out, model_type, v_dummy=d))
-            return model_list
+            dummy_prefix = self.ID + '_d' if model_type == 'milp' else None
+            return self._generate_bit_matrix_constraints(model_type, bin_matrix, self.input_vars, self.output_vars, dummy_prefix=dummy_prefix)
         else:
             Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
 
     def _generate_model_linear(self, model_type, bin_matrix): # Modeling for bit-wise linear cryptanalysis
-        model_list = []
-        input_words = len(self.input_vars)
-        output_words = len(self.output_vars)
-        bits_per_input = self.input_vars[0].bitsize
-        bits_per_output = self.output_vars[0].bitsize
         # Modeling for linear cryptanalysis
         if self.model_version in [self.__class__.__name__ + "_LINEAR"]:
             bin_matrix = np.transpose(bin_matrix)
-            for i in range(input_words):  # Loop over the ith input word
-                for j in range(bits_per_input):  # Loop over the jth bit in the ith word
-                    var_in = []
-                    for k in range(output_words): # Loop over the kth output word
-                        for l in range(bits_per_output): # Loop over the lth bit in the kth word
-                            if bin_matrix[bits_per_input*i+j][bits_per_output*k+l] == 1:
-                                if bits_per_output > 1:
-                                    var_in.append(self.output_vars[k].ID + '_' + str(l))
-                                else:
-                                    var_in.append(self.output_vars[k].ID)
-                    if bits_per_output > 1:
-                        var_out = self.input_vars[i].ID + '_' + str(j)
-                    else:
-                        var_out = self.input_vars[i].ID
-                    if model_type == 'milp':
-                        d = self.ID + '_d_' + str(i) + '_' + str(j)
-                    else:
-                        d = None
-                    model_list.extend(gen_matrix_constraints(var_in, var_out, model_type, v_dummy=d))
-            return model_list
+            dummy_prefix = self.ID + '_d' if model_type == 'milp' else None
+            return self._generate_bit_matrix_constraints(model_type, bin_matrix, self.output_vars, self.input_vars, dummy_prefix=dummy_prefix)
         else:
             Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
 

@@ -1,4 +1,3 @@
-import math
 from operators.operators import BinaryOperator, UnaryOperator, RaiseExceptionVersionNotExisting, binary_declaration
 
 
@@ -6,12 +5,8 @@ def _word_mask(bitsize):
     return hex(2**bitsize - 1)
 
 
-def _is_power_of_two(value):
-    return int(math.log2(value)) == math.log2(value)
-
-
 def _uses_word_mask(modulo, bitsize):
-    return modulo is None or _is_power_of_two(bitsize)
+    return modulo is None or modulo == 2**bitsize
 
 
 def _modular_expression(left, right, operator, modulo, bitsize):
@@ -230,8 +225,7 @@ class ModMul(BinaryOperator):  # Operator for the modular multiplication: multip
                                # (optional "modulo" defines the modular value in case of a modular addition, by default it uses 2^bitsize as modular value)
     def __init__(self, input_vars, output_vars, modulo = None, ID = None):
         super().__init__(input_vars, output_vars, ID = ID )
-        self.modulo = None
-        pass # TODO
+        self.modulo = modulo
 
     def generate_implementation(self, implementation_type='python', unroll=False):
         var_out = self.get_var_ID('out', 0, unroll)
