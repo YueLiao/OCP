@@ -1,14 +1,12 @@
 import numpy as np
 import os
 import copy
+import warnings
 from functools import lru_cache
 from operators.operators import Operator, UnaryOperator, RaiseExceptionVersionNotExisting, binary_declaration
 from tools.model_constraints import gen_matrix_constraints, gen_constraints_obj_func_from_template, generate_and_save_constraints, gen_word_matrix_constraints, gen_word_nxor_constraints
 from tools.paths import get_files_dir
 from itertools import product
-
-BASE_PATH = get_files_dir("matrix_modeling")
-
 
 def find_primitive_element_gf2m(mod_poly, degree): # Find a primitive root for GF(2^m)
     for candidate in range(2, 1 << degree):
@@ -648,12 +646,18 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
                     # return self._generate_model_truncated_diff_linear_branch_num(model_type, branch_num)
             if self.model_version in [self.__class__.__name__ + "_TRUNCATEDDIFF", self.__class__.__name__ + "_TRUNCATEDDIFF_1"]:
                 self.model_version = self.__class__.__name__ + "_TRUNCATEDDIFF_2"
-                print(f"[WARNING] The {model_type} model for differential branch number = {branch_num} is not implemented. Turn to model_version " + self.model_version)
+                warnings.warn(
+                    f"The {model_type} model for differential branch number = {branch_num} is not implemented. Turn to model_version {self.model_version}",
+                    RuntimeWarning,
+                )
             elif self.model_version in [self.__class__.__name__ + "_TRUNCATEDLINEAR", self.__class__.__name__ + "_TRUNCATEDLINEAR_1"]:
                 self.model_version = self.__class__.__name__ + "_TRUNCATEDLINEAR_2"
-                print(f"[WARNING] The {model_type} model for linear branch number = {branch_num} is not implemented. Turn to model_version " + self.model_version)
+                warnings.warn(
+                    f"The {model_type} model for linear branch number = {branch_num} is not implemented. Turn to model_version {self.model_version}",
+                    RuntimeWarning,
+                )
             # Generate the model for describing all valid input/output patterns.
-            self.model_filename = str(BASE_PATH / f"constraints_{model_type}_{self.name}_{self.model_version}_{tool_type}.txt")
+            self.model_filename = str(get_files_dir("matrix_modeling") / f"constraints_{model_type}_{self.name}_{self.model_version}_{tool_type}.txt")
             self.filename_load = filename_load
             return self._generate_model_truncated_diff_linear_valid_patterns(model_type, tool_type)
 

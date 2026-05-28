@@ -254,3 +254,18 @@ def test_matrix_branch_number_placeholders_fail_explicitly():
 
     with pytest.raises(NotImplementedError, match="linear branch number"):
         op.linear_branch_number()
+
+
+def test_matrix_truncated_fallback_warns_and_uses_runtime_files_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
+    inputs = [var.Variable(1, ID="x0"), var.Variable(1, ID="x1")]
+    outputs = [var.Variable(1, ID="y0"), var.Variable(1, ID="y1")]
+    op = Matrix("M", inputs, outputs, [[1, 1], [0, 1]], ID="M")
+    op.model_version = "Matrix_TRUNCATEDDIFF"
+
+    with pytest.warns(RuntimeWarning, match="differential branch number"):
+        model = op.generate_model("sat", tool_type="minimize_logic")
+
+    assert model
+    assert op.model_filename.startswith(str(tmp_path / "matrix_modeling"))
+    assert op.model_version == "Matrix_TRUNCATEDDIFF_2"

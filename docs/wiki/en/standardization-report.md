@@ -41,6 +41,7 @@ document, and extend.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
 - Consolidated repeated operator model helpers across Boolean, modular, S-box, and matrix operators.
 - Refined S-box weighted truth-table generation, matrix bit-model generation, explicit modular arithmetic, and unfinished operator abstractions.
+- Routed matrix truncated-model fallback diagnostics through Python warnings and runtime output paths.
 - Consolidated primitive layer Equal constraints, graph iteration, input/output link helpers, and faster layer output lookups.
 - Routed attack/solver progress messages through verbose-aware logging and converted tool diagnostics to Python warnings.
 - Added explicit solver capability reporting for optional MILP/SAT backends and documented the current solver fallbacks.
@@ -62,7 +63,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `99 passed, 106 skipped`.
+Latest default pytest status: `100 passed, 106 skipped`.
 
 ## Next Work
 

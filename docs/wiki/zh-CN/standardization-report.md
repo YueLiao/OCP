@@ -39,6 +39,7 @@
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
 - 收拢 Boolean、modular、S-box 和 matrix operator 中重复的模型生成 helper。
 - 清理 S-box 带权 truth-table、matrix bit-model、显式 modular arithmetic 和未完成 operator 抽象。
+- 将 matrix truncated-model fallback 诊断接入 Python warnings，并使用运行时输出路径。
 - 收拢 primitive layer 的 Equal 约束、图遍历、输入/输出链接 helper，并优化 layer 输出查找。
 - 将 attack/solver 进度消息接入 verbose-aware logging，并把工具诊断改为 Python warnings。
 - 添加显式 solver 能力报告，用于检查可选 MILP/SAT 后端，并文档化当前 solver fallback。
@@ -60,7 +61,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`99 passed, 106 skipped`。
+最新默认 pytest 状态：`100 passed, 106 skipped`。
 
 ## 后续工作
 
