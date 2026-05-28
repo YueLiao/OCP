@@ -172,8 +172,12 @@ def chat():
             "response": response,
             "context": ctx,
         })
-    except Exception as e:
-        return _error_response(str(e), 500, "chat_failed")
+    except Exception:
+        return _error_response(
+            "Chat processing failed. Check provider settings and server logs.",
+            500,
+            "chat_failed",
+        )
 
 
 @app.route("/api/text/draft", methods=["POST"])

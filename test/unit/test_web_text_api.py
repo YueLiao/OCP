@@ -132,6 +132,25 @@ def test_config_hides_unexpected_provider_setup_details(monkeypatch):
     assert "internal secret detail" not in data["error"]
 
 
+def test_chat_hides_unexpected_processing_details():
+    class FailingAgent:
+        session = SimpleNamespace(get_context=lambda: {"has_cipher": False})
+
+        def chat(self, message):
+            raise RuntimeError("provider secret detail")
+
+    web_app.agent = FailingAgent()
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    response = client.post("/api/chat", json={"message": "hello"})
+    data = response.get_json()
+
+    assert response.status_code == 500
+    assert data["error_code"] == "chat_failed"
+    assert "provider secret detail" not in data["error"]
+
+
 def test_upload_response_includes_data_and_artifact_links():
     class FakeUploadAgent:
         session = SimpleNamespace(get_context=lambda: {"has_cipher": False})

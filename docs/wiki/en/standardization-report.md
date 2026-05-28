@@ -49,7 +49,7 @@ document, and extend.
 - Aligned web provider API-key resolution with CLI environment-variable defaults.
 - Added explicit 400 responses for missing JSON bodies on web JSON endpoints.
 - Returned HTTP 400 for invalid web provider configuration errors.
-- Hid low-level provider setup exception details from web API responses.
+- Hid low-level provider setup and chat processing exception details from web API responses.
 - Returned file-extraction data and artifact links from the web upload endpoint.
 - Prevented missing temporary upload files from masking web upload responses during cleanup.
 - Added replayable JSON job records and artifact links for text-first extraction, draft, and confirmation.
@@ -87,7 +87,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `161 passed, 106 skipped`.
+Latest default pytest status: `162 passed, 106 skipped`.
 
 ## Next Work
 
