@@ -121,6 +121,15 @@ def _load_scip_model():
         return None
 
 
+def _scip_error_types():
+    try:
+        scip_module = import_module("pyscipopt")
+    except ImportError:
+        return (OSError, RuntimeError, ValueError)
+    scip_error = getattr(scip_module, "SCIPError", None)
+    return tuple(t for t in (scip_error, OSError, RuntimeError, ValueError) if t is not None)
+
+
 def _load_pysat():
     try:
         return import_module("pysat.formula").CNF, import_module("pysat.solvers").Solver
@@ -227,7 +236,7 @@ def solve_milp_scip(filename, config_solver): # Solve a MILP model using SCIP.
         # Solve the model
         model.optimize()
         sol_count = model.getNSols()
-    except Exception as e:
+    except _scip_error_types() as e:
         log(f"[WARNING] SCIP solver error: {e} ... skipping test", config_solver=config_solver)
         return []
 

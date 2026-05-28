@@ -116,3 +116,30 @@ def test_pysat_solver_is_released_when_solving_raises(monkeypatch):
         raise AssertionError("Expected PySAT solve error to propagate")
 
     assert FailingSolver.deleted is True
+
+
+def test_scip_solver_errors_return_empty_solution_list(monkeypatch):
+    class FailingModel:
+        def readProblem(self, filename):
+            raise RuntimeError("solver failed")
+
+    monkeypatch.setattr(solving, "_load_scip_model", lambda: FailingModel)
+    monkeypatch.setattr(solving, "_scip_error_types", lambda: (RuntimeError,))
+
+    assert solving.solve_milp_scip("model.lp", {"verbose": False}) == []
+
+
+def test_scip_programming_errors_are_not_suppressed(monkeypatch):
+    class BrokenModel:
+        def readProblem(self, filename):
+            raise TypeError("programming error")
+
+    monkeypatch.setattr(solving, "_load_scip_model", lambda: BrokenModel)
+    monkeypatch.setattr(solving, "_scip_error_types", lambda: (RuntimeError,))
+
+    try:
+        solving.solve_milp_scip("model.lp", {"verbose": False})
+    except TypeError as exc:
+        assert str(exc) == "programming error"
+    else:
+        raise AssertionError("Expected unexpected SCIP programming error to propagate")
