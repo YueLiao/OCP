@@ -2,7 +2,7 @@ import numpy as np
 import os
 import copy
 from functools import lru_cache
-from operators.operators import Operator, UnaryOperator, RaiseExceptionVersionNotExisting
+from operators.operators import Operator, UnaryOperator, RaiseExceptionVersionNotExisting, binary_declaration
 from tools.model_constraints import gen_matrix_constraints, gen_constraints_obj_func_from_template, generate_and_save_constraints, gen_word_matrix_constraints, gen_word_nxor_constraints
 from tools.paths import get_files_dir
 from itertools import product
@@ -711,13 +711,13 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
             if self.model_version in [self.__class__.__name__ + "_TRUNCATEDDIFF", self.__class__.__name__ + "_TRUNCATEDLINEAR"]:
                 model_list = [" + ".join(var_in + var_out) + f" - {branch_num} {var_d[0]} >= 0"]
                 model_list += [f"{var_d[0]} - {var} >= 0" for var in var_in + var_out]
-                model_list.append('Binary\n' + ' '.join(var_in + var_out + var_d))
+                model_list.append(binary_declaration(var_in, var_out, var_d))
                 return model_list
             # The second type of modeling. Reference: [1] Christina Boura, Patrick Derbez and Margot Funk. Related-Key Differential Analysis of the AES. [2] Patrick Derbez, Marie Euler, Pierre-Alain Fouque, Phuong Hoa Nguyen. Revisiting Related-Key Boomerang attacks on AES using computer-aided tool.
             elif self.model_version in [self.__class__.__name__ + "_TRUNCATEDDIFF_1", self.__class__.__name__ + "_TRUNCATEDLINEAR_1"]:
                 model_list = [" + ".join(var_in + var_out) + f" - {branch_num} {var_d[0]} >= 0"]
                 model_list += [" + ".join(var_in + var_out) + f" - {len(var_in+var_out)} {var_d[0]} <= 0"]
-                model_list.append('Binary\n' + ' '.join(var_in + var_out + var_d))
+                model_list.append(binary_declaration(var_in, var_out, var_d))
                 return model_list
         else:
             RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
@@ -854,7 +854,7 @@ class GF2Linear_Trans(UnaryOperator):  # Operator for the linear transformation 
                         unit_vectors.add(tuple(row))
                 if len(unit_vectors) >= len(self.mat) - 1:
                     model_list = [f'{var_in[0]} - {var_out[0]} = 0']
-                    model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+                    model_list.append(binary_declaration(var_in, var_out))
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)

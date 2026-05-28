@@ -1,6 +1,6 @@
 import math
 import os
-from operators.operators import Operator, RaiseExceptionVersionNotExisting
+from operators.operators import Operator, RaiseExceptionVersionNotExisting, binary_declaration
 from tools.model_constraints import generate_and_save_constraints, gen_constraints_obj_func_from_template
 from tools.paths import get_files_dir
 
@@ -365,7 +365,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                 model_list += [f"-{var} {var_At[0]}" for var in var_in] + [" ".join(var_in) + ' -' + var_At[0]]
             elif model_type == "milp":
                 model_list += [f"{var_At[0]} - {var_in[i]} >= 0" for i in range(len(var_in))] + [" + ".join(var_in) + ' - ' + var_At[0] + ' >= 0']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_At))
+                model_list.append(binary_declaration(var_At))
             self.weight = var_At
 
         return model_list
@@ -412,7 +412,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             weight += " + " + "{:0.04f} ".format(abs(float(math.log(spectrum[i]/(2**self.input_bitsize), 2)))) + var_p[i]
         weight = weight[3:]
         model_list += [' + '.join(var_p) + ' = 1\n']
-        model_list.append('Binary\n' +  ' '.join(v for v in var_p))
+        model_list.append(binary_declaration(var_p))
         self.weight = [weight]
         return model_list
 
@@ -423,7 +423,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             model_list = [f"-{var_in[0]} {var_out[0]}", f"{var_in[0]} -{var_out[0]}"]
         elif model_type == "milp":
             model_list = [f'{var_in[0]} - {var_out[0]} = 0']
-            model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
+            model_list.append(binary_declaration(var_in, var_out))
         else:
             RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
 
