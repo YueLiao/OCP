@@ -245,6 +245,7 @@ def _apply_identity_aliases(model_lines, aliases):
 def _configure_identity_elision(cipher, config_model):
     if not config_model.get("identity_elision"):
         config_model.pop("_identity_elision_aliases", None)
+        config_model.pop("identity_elision_profile", None)
         return
     aliases = _build_identity_elision_aliases(cipher, config_model)
     config_model["_identity_elision_aliases"] = aliases

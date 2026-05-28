@@ -68,6 +68,7 @@
 - 将模板实例化里的逐变量多次正则替换改为单次 token 替换，减少约束模板展开开销。
 - 为模型生成添加 opt-in identity elision，用于保守跳过内部 Equal 链。
 - 验证 identity-elision 下的 trail extraction、MILP/SAT 生成和 primitive graph 边界。
+- 复用 model config 并关闭 identity elision 时，会清理其私有状态。
 - 将 PDF/image 抽取重新标注为 experimental import helper，并关闭网页上传自动构建。
 - 为 experimental file extraction 添加显式页码范围校验。
 - 明确旧式 operator 文件是人工实验脚本。
@@ -82,7 +83,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`156 passed, 106 skipped`。
+最新默认 pytest 状态：`157 passed, 106 skipped`。
 
 ## 后续工作
 

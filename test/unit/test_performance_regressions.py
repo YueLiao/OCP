@@ -249,3 +249,36 @@ def test_identity_elision_does_not_mutate_primitive_graph():
     }
     assert before_equal_edges == after_equal_edges
     assert before_var_ids == after_var_ids
+
+
+def test_identity_elision_disabled_clears_private_state_on_reused_config():
+    cipher = FORRO_PERMUTATION(r=1)
+    config_model, _ = parse_and_set_configs(
+        cipher,
+        "DIFFERENTIALPATH_PROB",
+        "EXISTENCE",
+        {
+            "identity_elision": True,
+            "model_type": "sat",
+            "profile_model_generation": True,
+        },
+        {},
+    )
+    gen_round_model_constraint_obj_fun(
+        cipher,
+        "DIFFERENTIALPATH_PROB",
+        "sat",
+        config_model,
+    )
+
+    config_model["identity_elision"] = False
+    constraints, _ = gen_round_model_constraint_obj_fun(
+        cipher,
+        "DIFFERENTIALPATH_PROB",
+        "sat",
+        config_model,
+    )
+
+    assert len(constraints) == 16586
+    assert "_identity_elision_aliases" not in config_model
+    assert "identity_elision_profile" not in config_model

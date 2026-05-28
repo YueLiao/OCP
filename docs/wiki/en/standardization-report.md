@@ -70,6 +70,7 @@ document, and extend.
 - Replaced repeated per-variable template regex passes with single-pass token substitution during constraint template instantiation.
 - Added opt-in identity elision for conservative internal Equal chains in model generation.
 - Verified identity-elision trail extraction, MILP/SAT generation, and primitive-graph boundaries.
+- Cleared identity-elision private state when reused model configs disable the option.
 - Reclassified PDF/image extraction as an experimental import helper and disabled web upload auto-build.
 - Added explicit page-range validation for experimental file extraction.
 - Clarified legacy operator scripts as manual experiments.
@@ -84,7 +85,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `156 passed, 106 skipped`.
+Latest default pytest status: `157 passed, 106 skipped`.
 
 ## Next Work
 

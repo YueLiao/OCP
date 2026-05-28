@@ -44,6 +44,7 @@ MILP 模型会从 10,029 条约束降到 4,089 条约束。该模式仍是实验
   时保留原始分层图。
 - Visualization 继续读取 primitive graph。Identity elision 不会修改 primitive
   对象中的 constraint ID、variable ID 或 Equal 边。
+- 复用同一个 model config 时，如果再次关闭 identity elision，会清理 alias/profile 状态。
 
 ## 实现计划
 

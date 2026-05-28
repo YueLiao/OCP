@@ -50,6 +50,8 @@ This mode is still experimental and is not enabled by default.
   map while keeping the original layered graph in rendered trails.
 - Visualization continues to read the primitive graph. Identity elision does not
   mutate constraint IDs, variable IDs, or Equal edges in the primitive object.
+- Reused model configuration dictionaries clear alias/profile state when
+  identity elision is disabled again.
 
 ## Implementation Plan
 
