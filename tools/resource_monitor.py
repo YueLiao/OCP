@@ -5,8 +5,10 @@ import threading
 try:
     import psutil
     HAS_PSUTIL = True
+    PSUTIL_ERRORS = (psutil.Error, OSError, RuntimeError)
 except ImportError:
     HAS_PSUTIL = False
+    PSUTIL_ERRORS = (OSError, RuntimeError)
 
 
 def get_platform_info():
@@ -24,11 +26,11 @@ def get_platform_info():
     if HAS_PSUTIL:
         try:
             info["cpu_count_physical"] = psutil.cpu_count(logical=False)
-        except Exception:
+        except PSUTIL_ERRORS:
             pass
         try:
             info["ram_total_gb"] = round(psutil.virtual_memory().total / (1024 ** 3), 2)
-        except Exception:
+        except PSUTIL_ERRORS:
             pass
 
     return info
@@ -55,7 +57,7 @@ class RuntimeResourceMonitor:
         try:
             proc = psutil.Process(self.pid)
             proc.cpu_percent(interval=None)
-        except Exception:
+        except PSUTIL_ERRORS:
             return
 
         while not self._stop_event.is_set():
@@ -67,7 +69,7 @@ class RuntimeResourceMonitor:
                 self.cpu_percent_sum += cpu_percent
                 self.max_cpu_percent = max(self.max_cpu_percent, cpu_percent)
                 self.max_num_threads = max(self.max_num_threads, num_threads)
-            except Exception:
+            except PSUTIL_ERRORS:
                 break
 
     def start(self):
