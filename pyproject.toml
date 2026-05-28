@@ -67,6 +67,7 @@ Documentation = "https://github.com/YueLiao/OCP/tree/main/docs/wiki"
 
 [project.scripts]
 ocp-agent = "run_agent:main"
+ocp-profile-models = "tools.profile_model_generation:main"
 
 [tool.setuptools]
 py-modules = ["OCP", "run_agent"]

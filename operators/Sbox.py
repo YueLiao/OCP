@@ -1,5 +1,6 @@
 import math
 import os
+from functools import lru_cache
 from operators.operators import Operator, RaiseExceptionVersionNotExisting, binary_declaration
 from tools.model_constraints import generate_and_save_constraints, gen_constraints_obj_func_from_template
 from tools.paths import get_files_dir
@@ -11,6 +12,38 @@ def _truth_table(total_bits, predicate):
     """Build a compact truth-table string from a boolean predicate."""
 
     return "".join("1" if predicate(n) else "0" for n in range(1 << total_bits))
+
+
+@lru_cache(maxsize=None)
+def _compute_ddt_cached(table, input_bitsize, output_bitsize):
+    input_size = 1 << input_bitsize
+    output_size = 1 << output_bitsize
+    ddt = [[0] * output_size for _ in range(input_size)]
+    for in_diff in range(input_size):
+        for x in range(input_size):
+            out_diff = table[x] ^ table[x ^ in_diff]
+            ddt[in_diff][out_diff] += 1
+    return tuple(tuple(row) for row in ddt)
+
+
+@lru_cache(maxsize=None)
+def _compute_lat_cached(table, input_bitsize, output_bitsize):
+    input_size = 1 << input_bitsize
+    output_size = 1 << output_bitsize
+    lat = [[0] * output_size for _ in range(input_size)]
+    for a in range(input_size):
+        for b in range(output_size):
+            acc = 0
+            for x in range(input_size):
+                ax = (a & x).bit_count() & 1
+                bs = (b & table[x]).bit_count() & 1
+                acc += 1 if (ax ^ bs) == 0 else -1
+            lat[a][b] = acc
+    return tuple(tuple(row) for row in lat)
+
+
+def _copy_table(table):
+    return [list(row) for row in table]
 
 
 class Sbox(Operator):  # Generic operator assigning a Sbox relationship between the input variable and output variable (must be of same bitsize)
@@ -26,34 +59,18 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
     def computeDDT(self): # Compute the differential Distribution Table (DDT) of the Sbox
         if self.ddt is not None:
             return self.ddt
-        input_size = 1 << self.input_bitsize
-        output_size = 1 << self.output_bitsize
-        table = self.table
-        ddt = [[0] * output_size for _ in range(input_size)]
-        for in_diff in range(input_size):
-            for x in range(input_size):
-                out_diff = table[x] ^ table[x ^ in_diff]
-                ddt[in_diff][out_diff] += 1
-        self.ddt = ddt
-        return ddt
+        self.ddt = _copy_table(
+            _compute_ddt_cached(tuple(self.table), self.input_bitsize, self.output_bitsize)
+        )
+        return self.ddt
 
     def computeLAT(self): # Compute the Linear Approximation Table (LAT) of the S-box.
         if self.lat is not None:
             return self.lat
-        input_size = 1 << self.input_bitsize
-        output_size = 1 << self.output_bitsize
-        table = self.table
-        lat = [[0] * output_size for _ in range(input_size)]
-        for a in range(input_size):
-            for b in range(output_size):
-                acc = 0
-                for x in range(input_size):
-                    ax = (a & x).bit_count() & 1
-                    bs = (b & table[x]).bit_count() & 1
-                    acc += 1 if (ax ^ bs) == 0 else -1
-                lat[a][b] = acc
-        self.lat = lat
-        return lat
+        self.lat = _copy_table(
+            _compute_lat_cached(tuple(self.table), self.input_bitsize, self.output_bitsize)
+        )
+        return self.lat
 
     def differential_branch_number(self): # Return differential branch number of the S-Box.
         ret = (1 << self.input_bitsize) + (1 << self.output_bitsize)

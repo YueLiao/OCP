@@ -76,3 +76,12 @@ config_model = {"profile_model_generation": True}
 模型构建结束后，`config_model["model_generation_profile"]` 会包含每类 operator 的调用次数、
 生成约束数量和耗时。
 已解析的约束模板会按文件名和修改时间缓存，因此模板重新生成后会自动失效。
+
+如果只想做一次可复现的本地快照、且不启动求解器：
+
+```bash
+python -m tools.profile_model_generation present:1 forro:1
+```
+
+该命令会输出 JSON，包含 primitive 构建耗时、模型生成耗时、约束数量和按 operator
+聚合的热点统计。它适合在运行更重的求解器流程之前，用来比较小规模性能优化改动。

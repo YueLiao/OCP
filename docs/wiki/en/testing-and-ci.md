@@ -83,3 +83,13 @@ After model construction, `config_model["model_generation_profile"]` contains
 per-operator call counts, generated constraint counts, and elapsed time.
 Parsed constraint templates are cached by filename and modification time, so
 template regeneration invalidates the cache automatically.
+
+For a repeatable local snapshot without solving:
+
+```bash
+python -m tools.profile_model_generation present:1 forro:1
+```
+
+The command emits JSON with primitive build time, model generation time,
+constraint counts, and per-operator hotspots. It is intended for comparing
+small optimization changes before running heavier solver workflows.

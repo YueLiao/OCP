@@ -5,6 +5,38 @@ from operators.operators import Equal
 import variables.variables as var
 
 
+FORRO_SUBROUND_SELECTIONS = (
+    (0, 4, 8, 12, 3),
+    (1, 5, 9, 13, 0),
+    (2, 6, 10, 14, 1),
+    (3, 7, 11, 15, 2),
+    (0, 5, 10, 15, 3),
+    (1, 6, 11, 12, 0),
+    (2, 7, 8, 13, 1),
+    (3, 4, 9, 14, 2),
+)
+
+
+def _forro_subround_selection(subround):
+    return FORRO_SUBROUND_SELECTIONS[(subround - 1) % len(FORRO_SUBROUND_SELECTIONS)]
+
+
+def _add_forro_subround_layers(function, subround, first_layer, selection):
+    function.SingleOperatorLayer("Add1", subround, first_layer, ModAdd, [[selection[3], selection[4]]], [selection[3]])
+    function.SingleOperatorLayer("XOR1", subround, first_layer + 1, XOR, [[selection[2], selection[3]]], [selection[2]])
+    function.SingleOperatorLayer("Add2", subround, first_layer + 2, ModAdd, [[selection[1], selection[2]]], [selection[1]])
+    function.RotationLayer("Rot1", subround, first_layer + 3, [['l', 10, selection[1], selection[1]]])
+    function.SingleOperatorLayer("Add3", subround, first_layer + 4, ModAdd, [[selection[1], selection[0]]], [selection[0]])
+    function.SingleOperatorLayer("XOR2", subround, first_layer + 5, XOR, [[selection[0], selection[4]]], [selection[4]])
+
+    function.SingleOperatorLayer("Add4", subround, first_layer + 6, ModAdd, [[selection[4], selection[3]]], [selection[3]])
+    function.RotationLayer("Rot2", subround, first_layer + 7, [['l', 27, selection[3], selection[3]]])
+    function.SingleOperatorLayer("Add5", subround, first_layer + 8, ModAdd, [[selection[3], selection[2]]], [selection[2]])
+    function.SingleOperatorLayer("XOR3", subround, first_layer + 9, XOR, [[selection[2], selection[1]]], [selection[1]])
+    function.SingleOperatorLayer("Add6", subround, first_layer + 10, ModAdd, [[selection[1], selection[0]]], [selection[0]])
+    function.RotationLayer("Rot3", subround, first_layer + 11, [['l', 8, selection[0], selection[0]]])
+
+
 # The Forro internal permutation
 class Forro_permutation(Permutation):
     def __init__(self, name, s_input, s_output, nbr_subrounds=None, represent_mode=0):
@@ -27,28 +59,7 @@ class Forro_permutation(Permutation):
             S = self.functions["PERMUTATION"]
         
             for i in range(1,nbr_subrounds +1):  
-                if i%8 == 1:  SR = [0, 4, 8, 12, 3]
-                elif i%8 ==2: SR = [1, 5, 9, 13, 0]
-                elif i%8 ==3: SR = [2, 6, 10, 14, 1]
-                elif i%8 ==4: SR = [3, 7, 11, 15, 2]
-                elif i%8 ==5: SR = [0, 5, 10, 15, 3]
-                elif i%8 ==6: SR = [1, 6, 11, 12, 0]
-                elif i%8 ==7: SR = [2, 7, 8, 13, 1]
-                else:         SR = [3, 4, 9, 14, 2]
-                
-                S.SingleOperatorLayer("Add1", i, 0, ModAdd, [[SR[3], SR[4]]], [SR[3]])
-                S.SingleOperatorLayer("XOR1", i, 1, XOR, [[SR[2], SR[3]]], [SR[2]] )
-                S.SingleOperatorLayer("Add2", i, 2, ModAdd, [[SR[1], SR[2]]], [SR[1]])
-                S.RotationLayer("Rot1", i, 3, [['l', 10, SR[1], SR[1]]])
-                S.SingleOperatorLayer("Add3", i, 4, ModAdd, [[SR[1], SR[0]]], [SR[0]])
-                S.SingleOperatorLayer("XOR2", i, 5, XOR, [[SR[0], SR[4]]], [SR[4]] )
-
-                S.SingleOperatorLayer("Add4", i, 6, ModAdd, [[SR[4], SR[3]]], [SR[3]])
-                S.RotationLayer("Rot2", i, 7, [['l', 27, SR[3], SR[3]]])
-                S.SingleOperatorLayer("Add5", i, 8, ModAdd, [[SR[3], SR[2]]], [SR[2]])
-                S.SingleOperatorLayer("XOR3", i, 9, XOR, [[SR[2], SR[1]]], [SR[1]] )
-                S.SingleOperatorLayer("Add6", i, 10, ModAdd, [[SR[1], SR[0]]], [SR[0]])
-                S.RotationLayer("Rot3", i, 11, [['l', 8, SR[0], SR[0]]])
+                _add_forro_subround_layers(S, i, 0, _forro_subround_selection(i))
 
 
     def gen_test_vectors(self):
@@ -94,15 +105,6 @@ class Forro_keypermutation(Permutation):
             S = self.functions["PERMUTATION"]
         
             for i in range(1,nbr_subrounds +1):  
-                if i%8 == 1:  SR = [0, 4, 8, 12, 3]
-                elif i%8 ==2: SR = [1, 5, 9, 13, 0]
-                elif i%8 ==3: SR = [2, 6, 10, 14, 1]
-                elif i%8 ==4: SR = [3, 7, 11, 15, 2]
-                elif i%8 ==5: SR = [0, 5, 10, 15, 3]
-                elif i%8 ==6: SR = [1, 6, 11, 12, 0]
-                elif i%8 ==7: SR = [2, 7, 8, 13, 1]
-                else:         SR = [3, 4, 9, 14, 2]
-                
                 # In the first round copy the initial word to temporary words
                 if i == 1:
                     InIndex = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12], [13], [14], [15]]
@@ -120,19 +122,7 @@ class Forro_keypermutation(Permutation):
                         name = 'Identity' + str(j)
                         S.AddIdentityLayer(name, i, j)
                 else:
-                    S.SingleOperatorLayer("Add1", i, 1, ModAdd, [[SR[3], SR[4]]], [SR[3]])
-                    S.SingleOperatorLayer("XOR1", i, 2, XOR, [[SR[2], SR[3]]], [SR[2]] )
-                    S.SingleOperatorLayer("Add2", i, 3, ModAdd, [[SR[1], SR[2]]], [SR[1]])
-                    S.RotationLayer("Rot1", i, 4, [['l', 10, SR[1], SR[1]]])
-                    S.SingleOperatorLayer("Add3", i, 5, ModAdd, [[SR[1], SR[0]]], [SR[0]])
-                    S.SingleOperatorLayer("XOR2", i, 6, XOR, [[SR[0], SR[4]]], [SR[4]] )
-
-                    S.SingleOperatorLayer("Add4", i, 7, ModAdd, [[SR[4], SR[3]]], [SR[3]])
-                    S.RotationLayer("Rot2", i, 8, [['l', 27, SR[3], SR[3]]])
-                    S.SingleOperatorLayer("Add5", i, 9, ModAdd, [[SR[3], SR[2]]], [SR[2]])
-                    S.SingleOperatorLayer("XOR3", i, 10, XOR, [[SR[2], SR[1]]], [SR[1]] )
-                    S.SingleOperatorLayer("Add6", i, 11, ModAdd, [[SR[1], SR[0]]], [SR[0]])
-                    S.RotationLayer("Rot3", i, 12, [['l', 8, SR[0], SR[0]]])
+                    _add_forro_subround_layers(S, i, 1, _forro_subround_selection(i))
 
     def gen_test_vectors(self):
         # Test vectors from https://github.com/murcoutinho/forro_cipher/blob/main/test/test_ref.c
@@ -153,7 +143,6 @@ def FORRO_KEYPERMUTATION(r=None, represent_mode=0, copy_operator=False):
     my_permutation.gen_test_vectors()
     my_permutation.post_initialization(copy_operator=copy_operator)
     return my_permutation     
-
 
 
 

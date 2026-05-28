@@ -181,6 +181,7 @@ export OCP_FILES_DIR=/tmp/ocp-files
 ```bash
 python -m compileall agent primitives attacks solving tools operators
 python -m pytest
+python -m tools.profile_model_generation present:1 forro:1
 
 # Optional heavier suites:
 python -m pytest --run-implementations
@@ -194,6 +195,9 @@ Default pytest runs lightweight standardized tests. Script-style operator
 experiments are always skipped under pytest because they are manual experiment
 scripts. Generated implementation tests and solver-dependent cryptanalysis
 tests are opt-in.
+
+`tools.profile_model_generation` builds representative models without solving
+them and reports per-operator constraint counts and timing hotspots.
 
 ## Documentation
 

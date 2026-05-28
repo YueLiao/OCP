@@ -8,7 +8,9 @@ from tools.model_constraints import gen_matrix_constraints, gen_constraints_obj_
 from tools.paths import get_files_dir
 from itertools import product
 
+@lru_cache(maxsize=None)
 def find_primitive_element_gf2m(mod_poly, degree): # Find a primitive root for GF(2^m)
+    mod_poly = _normalize_mod_poly(mod_poly, degree)
     for candidate in range(2, 1 << degree):
         num_elements = (1 << degree) - 1
         generated = set()
@@ -83,7 +85,9 @@ def gf2_inv(a, mod_poly, degree):
     return gf2_pow(a, (1 << degree) - 2, mod_poly, degree)
 
 
-def generate_gf2_elements_and_exponents(pri, mod_poly, degree): # Generate all elements of GF(2^m) and map them to their corresponding exponents (α^k).
+@lru_cache(maxsize=None)
+def _generate_gf2_elements_and_exponents_cached(pri, mod_poly, degree):
+    mod_poly = _normalize_mod_poly(mod_poly, degree)
     num_elements = (1 << degree)
     elements_to_exponents = {}
     exponents_to_elements = {}
@@ -92,28 +96,54 @@ def generate_gf2_elements_and_exponents(pri, mod_poly, degree): # Generate all e
         elements_to_exponents[current_value] = k
         exponents_to_elements[k] = current_value
         current_value = gf2_multiply(current_value, pri, mod_poly, degree)
-    return elements_to_exponents, exponents_to_elements
+    return tuple(elements_to_exponents.items()), tuple(exponents_to_elements.items())
+
+
+def generate_gf2_elements_and_exponents(pri, mod_poly, degree): # Generate all elements of GF(2^m) and map them to their corresponding exponents (α^k).
+    elements_to_exponents, exponents_to_elements = _generate_gf2_elements_and_exponents_cached(pri, mod_poly, degree)
+    return dict(elements_to_exponents), dict(exponents_to_elements)
+
+
+@lru_cache(maxsize=None)
+def _generate_binary_matrix_1_cached(degree):
+    return tuple(
+        tuple(1 if i == j else 0 for j in range(degree))
+        for i in range(degree)
+    )
 
 
 def generate_binary_matrix_1(degree):
-    return [[1 if i == j else 0 for j in range(degree)] for i in range(degree)]
+    return [list(row) for row in _generate_binary_matrix_1_cached(degree)]
 
 
-def generate_binary_matrix_2(mod_poly, degree): # Construct the binary matrix for GF(2^m) based on its modulus polynomial.
+@lru_cache(maxsize=None)
+def _generate_binary_matrix_2_cached(mod_poly, degree):
+    mod_poly = _normalize_mod_poly(mod_poly, degree)
     matrix = [[0 for _ in range(degree)] for _ in range(degree)]
     coefficients = [(mod_poly >> i) & 1 for i in range(degree)]
     for i in range(degree):
         matrix[i][0] = coefficients[degree-i-1]
     for i in range(1, degree):
         matrix[i - 1][i] = 1
-    return matrix
+    return tuple(tuple(row) for row in matrix)
+
+
+def generate_binary_matrix_2(mod_poly, degree): # Construct the binary matrix for GF(2^m) based on its modulus polynomial.
+    return [list(row) for row in _generate_binary_matrix_2_cached(mod_poly, degree)]
+
+
+@lru_cache(maxsize=None)
+def _generate_binary_matrix_3_cached(mod_poly, degree):
+    matrix1 = _generate_binary_matrix_1_cached(degree)
+    matrix2 = _generate_binary_matrix_2_cached(mod_poly, degree)
+    return tuple(
+        tuple((matrix1[i][j] + matrix2[i][j]) % 2 for j in range(len(matrix1[0])))
+        for i in range(len(matrix1))
+    )
 
 
 def generate_binary_matrix_3(mod_poly, degree): # Generate the binary matrix representation for the element 3 (x + 1) in GF(2^m).
-    matrix1 = generate_binary_matrix_1(degree)
-    matrix2 = generate_binary_matrix_2(mod_poly, degree)
-    matrix = [[(matrix1[i][j] + matrix2[i][j]) % 2 for j in range(len(matrix1[0]))] for i in range(len(matrix1))]
-    return matrix
+    return [list(row) for row in _generate_binary_matrix_3_cached(mod_poly, degree)]
 
 
 def matrix_multiply_mod2(A, B): # Multiply two matrices in GF(2) (mod 2).
