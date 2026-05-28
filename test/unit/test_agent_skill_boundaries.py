@@ -27,6 +27,20 @@ def test_analysis_skills_reject_invalid_model_type_at_boundary():
         assert "Invalid model_type" in result.error
 
 
+def test_analysis_skills_reject_invalid_solution_number_at_boundary():
+    for skill, skill_name in (
+        (DifferentialAnalysisSkill(), SkillName.DIFFERENTIAL_ANALYSIS),
+        (LinearAnalysisSkill(), SkillName.LINEAR_ANALYSIS),
+    ):
+        result = skill.execute(
+            SkillRequest(skill_name, {"solution_number": 0}),
+            _session_with_cipher(),
+        )
+
+        assert not result.success
+        assert "Invalid solution_number" in result.error
+
+
 def test_differential_analysis_returns_trail_artifact_links(monkeypatch, tmp_path):
     trail = SimpleNamespace(
         json_filename=tmp_path / "diff.json",

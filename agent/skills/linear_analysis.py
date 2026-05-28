@@ -104,6 +104,12 @@ class LinearAnalysisSkill(BaseSkill):
                 skill=self.name,
                 error=f"Invalid model_type: '{model_type}'. Use 'milp' or 'sat'.",
             )
+        if "solution_number" in params and params["solution_number"] <= 0:
+            return SkillResult(
+                success=False,
+                skill=self.name,
+                error="Invalid solution_number: use a positive integer.",
+            )
 
         # Build config_model
         config_model = {"model_type": model_type}

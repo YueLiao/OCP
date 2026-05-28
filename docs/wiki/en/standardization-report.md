@@ -40,6 +40,7 @@ document, and extend.
 - Deduplicated session artifact records by stable artifact ID.
 - Reduced import-time optional dependency noise for solver/modeling backends.
 - Added analysis skill boundary validation for unsupported model types.
+- Added analysis skill boundary validation for non-positive solution counts.
 - Added built-in cipher version validation at the agent instantiation boundary.
 - Narrowed trail solution-bit error handling to numeric conversion failures.
 - Added DeepSeek and generic OpenAI-compatible provider support.
@@ -89,7 +90,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `165 passed, 106 skipped`.
+Latest default pytest status: `166 passed, 106 skipped`.
 
 ## Next Work
 

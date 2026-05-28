@@ -38,6 +38,7 @@
 - 按稳定 artifact ID 对 session artifact 记录去重。
 - 减少 solver/modeling 可选后端在 import 阶段的噪声。
 - 为 analysis skill 添加不支持 model type 的边界校验。
+- 为 analysis skill 添加非正 solution count 的边界校验。
 - 在 agent 内置 cipher 实例化边界添加版本校验。
 - 将 trail solution-bit 的异常处理收窄到数值转换失败。
 - 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
@@ -87,7 +88,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`165 passed, 106 skipped`。
+最新默认 pytest 状态：`166 passed, 106 skipped`。
 
 ## 后续工作
 
