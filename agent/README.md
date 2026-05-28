@@ -1,5 +1,7 @@
 # OCP Agent - Automated Cryptanalysis Assistant
 
+Language: **English** | [中文](README.zh-CN.md)
+
 OCP Agent is a conversational cryptanalysis assistant that automates cipher analysis, code generation, and visualization through natural language or a Python API.
 
 ## Quick Start

@@ -1,0 +1,51 @@
+# 代码规范化报告
+
+语言：[English](../en/standardization-report.md) | **中文**
+
+本页记录仓库标准化工作。核心原则是保持密码分析行为不变，同时让项目更容易运行、测试、阅读文档和继续扩展。
+
+## 诊断清单
+
+| 领域 | 状态 | 说明 |
+|---|---:|---|
+| 仓库结构 | 需继续改进 | 核心引擎、测试、agent、文档和生成文件边界更清楚了；更深模块边界仍需整理。 |
+| 架构边界 | 需继续改进 | Agent provider、输出路径和 attack 公共 helper 已收紧；solver/modeling 层仍有日志、I/O 和领域逻辑混杂。 |
+| 公共接口 | 需继续改进 | `OCPAgent` 和 provider 启动入口更清楚；operator/model API 后续仍需要类型化契约。 |
+| 可读性 | 需继续改进 | 低风险清理已完成；`Sbox.py`、`matrix.py` 和 attack 模块仍较复杂。 |
+| 风格工具 | 通过 | `pyproject.toml` 已定义 package metadata 和 pytest 设置。 |
+| 错误处理 | 需继续改进 | 可选依赖失败更安静；部分路径仍有较宽泛异常处理。 |
+| 配置 | 通过 | 输出位置通过 `tools.paths.get_files_dir()` 集中管理，并支持 `OCP_FILES_DIR`。 |
+| 测试 | 通过 | 核心冒烟测试确定；solver/generated 测试通过显式 pytest 开关保护。 |
+| 文档 | 通过 | README/wiki 已改为语言切换链接，不再中英混排。 |
+| 打包 | 通过 | 已配置 editable install 和 `ocp-agent` 命令行入口。 |
+| 性能 | 需继续改进 | 可选后端 import 更 lazy；S-box 和矩阵 helper 已做聚焦优化。 |
+
+## 已完成改动
+
+- 添加 package metadata、可选依赖组和 `ocp-agent` 命令行入口。
+- 添加 Python 3.10/3.11 的 CI smoke test。
+- 为 Agent API、路径、provider、搜索 I/O、operator 核心行为和文本输入规整添加确定性单测。
+- 用 `OCP_FILES_DIR` 统一运行时输出路径。
+- 减少 solver/modeling 可选后端在 import 阶段的噪声。
+- 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
+- 添加文本优先的密码输入 dataclass 与 Markdown/LaTeX 规整。
+- 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
+- 明确旧式 operator 文件是人工实验脚本。
+- 将文档拆为英文和中文页面，并在顶部提供语言切换链接。
+
+## 验证
+
+```bash
+conda run -n ocp python -m compileall agent primitives attacks solving tools operators web run_agent.py
+conda run -n ocp python -m pytest
+conda run -n ocp ocp-agent --help
+git diff --check
+```
+
+最新默认 pytest 状态：`48 passed, 106 skipped`。
+
+## 后续工作
+
+1. 继续在聚焦回归测试保护下清理 operator。
+2. 围绕 `CipherInput`、`CipherFacts` 和 `CipherSpecDraft` 设计完整文本优先 agentic 抽取系统。
+3. 深层性能重写前先 profile 模型生成过程。
