@@ -213,6 +213,12 @@ results expose generated files through `result.data["artifact_links"]`.
 The Web API uses the same contract for `/api/text/draft`, `/api/text/confirm`,
 `/api/analyze`, `/api/code`, and `/api/visualize`.
 
+Check optional solver backends before long analyses:
+
+```python
+agent.solver_capabilities()
+```
+
 ### Define and Analyze a Custom Cipher
 
 ```python

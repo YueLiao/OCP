@@ -17,6 +17,7 @@ from agent.skills.cipher_text_input import (
 from agent.job_records import create_text_job_record, update_job_record
 from agent.llm.prompt_templates import build_cipher_facts_extraction_prompt
 from agent.llm.provider import LLMProvider
+from solving.solving import solver_capabilities
 
 
 class OCPAgent:
@@ -54,6 +55,10 @@ class OCPAgent:
     def chat(self, message: str) -> str:
         """Send a natural language message and get a response (requires LLM provider)."""
         return self._core.process_message(message)
+
+    def solver_capabilities(self) -> Dict[str, Any]:
+        """Return optional MILP/SAT backend availability before running analysis."""
+        return solver_capabilities()
 
     def instantiate_cipher(
         self,

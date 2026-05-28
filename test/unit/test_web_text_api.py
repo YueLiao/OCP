@@ -162,14 +162,22 @@ def test_workflow_endpoints_return_standard_skill_payloads(monkeypatch, tmp_path
     web_app.config = {"provider": "fake", "model": "fake", "connected": True}
     client = web_app.app.test_client()
 
-    code_response = client.post("/api/code", json={"language": "python", "test": False})
-    visualize_response = client.post("/api/visualize", json={})
-    invalid_analysis_response = client.post("/api/analyze", json={"analysis_type": "unknown"})
+    blocked_code_response = client.post("/api/code", json={"language": "python", "test": False})
+    code_response = client.post("/api/code", json={"language": "python", "test": False, "confirmed": True})
+    visualize_response = client.post("/api/visualize", json={"confirmed": True})
+    unconfirmed_analysis_response = client.post("/api/analyze", json={"analysis_type": "unknown"})
+    invalid_analysis_response = client.post("/api/analyze", json={"analysis_type": "unknown", "confirmed": True})
+    solver_response = client.get("/api/solvers")
 
+    blocked_code_data = blocked_code_response.get_json()
     code_data = code_response.get_json()
     visualize_data = visualize_response.get_json()
+    unconfirmed_analysis_data = unconfirmed_analysis_response.get_json()
     invalid_analysis_data = invalid_analysis_response.get_json()
+    solver_data = solver_response.get_json()
 
+    assert blocked_code_response.status_code == 409
+    assert blocked_code_data["error_code"] == "confirmation_required"
     assert code_response.status_code == 200
     assert code_data["success"] is True
     assert code_data["skill"] == "code_generation"
@@ -177,5 +185,9 @@ def test_workflow_endpoints_return_standard_skill_payloads(monkeypatch, tmp_path
     assert visualize_response.status_code == 200
     assert visualize_data["skill"] == "visualization"
     assert visualize_data["artifact_links"][0]["label"] == "visualization"
+    assert unconfirmed_analysis_response.status_code == 409
+    assert unconfirmed_analysis_data["error_code"] == "confirmation_required"
     assert invalid_analysis_response.status_code == 400
     assert invalid_analysis_data["error_code"] == "invalid_analysis_type"
+    assert solver_response.status_code == 200
+    assert solver_data["capabilities"]["default"]["milp"] == "GUROBI"

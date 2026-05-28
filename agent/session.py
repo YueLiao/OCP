@@ -9,6 +9,7 @@ class Session:
         self._history = []  # list of {"role": str, "content": str}
         self._results = []
         self._metadata = {}
+        self._trace = []
 
     def set_cipher(self, cipher):
         self._cipher = cipher
@@ -28,6 +29,16 @@ class Session:
     def get_results(self):
         return list(self._results)
 
+    def add_trace(self, event, payload=None):
+        self._trace.append({
+            "step": len(self._trace) + 1,
+            "event": event,
+            "payload": payload or {},
+        })
+
+    def get_trace(self):
+        return list(self._trace)
+
     def set_metadata(self, key, value):
         self._metadata[key] = value
 
@@ -42,6 +53,7 @@ class Session:
             "cipher_type": None,
             "cipher_rounds": None,
             "recent_results": [],
+            "trace_length": len(self._trace),
         }
         if self._cipher is not None:
             ctx["cipher_name"] = self._cipher.name
@@ -65,3 +77,4 @@ class Session:
         self._history.clear()
         self._results.clear()
         self._metadata.clear()
+        self._trace.clear()

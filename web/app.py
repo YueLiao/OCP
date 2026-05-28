@@ -18,10 +18,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from flask import Flask, render_template, request, jsonify
 
+from agent.agentic import requires_confirmation
 from agent.interfaces.api import OCPAgent
 from agent.llm.factory import create_llm_provider
 from agent.llm.provider_config import default_model, get_provider_defaults
 from agent.result_payload import skill_result_payload
+from solving.solving import solver_capabilities
 
 app = Flask(__name__)
 
@@ -78,6 +80,17 @@ def _skill_response(result, *, success_status=200, error_status=400, extra=None)
     ctx = agent.session.get_context() if agent else {}
     payload = skill_result_payload(result, context=ctx, extra=extra)
     return jsonify(payload), success_status if result.success else error_status
+
+
+def _require_confirmation(data, action):
+    if requires_confirmation(action) and not data.get("confirmed"):
+        return _error_response(
+            f"Confirmation is required before running action: {action}.",
+            409,
+            "confirmation_required",
+            action=action,
+        )
+    return None
 
 
 @app.route("/")
@@ -201,6 +214,9 @@ def run_analysis():
     data, error = _require_json()
     if error:
         return error
+    confirmation_error = _require_confirmation(data, "analyze")
+    if confirmation_error:
+        return confirmation_error
 
     analysis_type = data.get("analysis_type", "differential")
     model_type = data.get("model_type", "milp")
@@ -236,6 +252,9 @@ def generate_code():
     data, error = _require_json()
     if error:
         return error
+    confirmation_error = _require_confirmation(data, "code")
+    if confirmation_error:
+        return confirmation_error
 
     result = agent.generate_code(
         language=data.get("language", "python"),
@@ -251,8 +270,18 @@ def generate_visualization():
     blocked = _require_agent()
     if blocked:
         return blocked
+    data = _json_payload() or {}
+    confirmation_error = _require_confirmation(data, "visualize")
+    if confirmation_error:
+        return confirmation_error
     result = agent.generate_visualization()
     return _skill_response(result)
+
+
+@app.route("/api/solvers", methods=["GET"])
+def solvers():
+    """Report optional solver backend availability before running analysis."""
+    return jsonify({"success": True, "capabilities": solver_capabilities()})
 
 
 @app.route("/api/upload", methods=["POST"])
@@ -298,7 +327,8 @@ def reset():
 def status():
     """Get current agent status."""
     ctx = agent.session.get_context() if agent else {}
-    return jsonify({"connected": config.get("connected", False), "config": config, "context": ctx})
+    trace = agent.session.get_trace() if agent else []
+    return jsonify({"connected": config.get("connected", False), "config": config, "context": ctx, "trace": trace[-10:]})
 
 
 if __name__ == "__main__":

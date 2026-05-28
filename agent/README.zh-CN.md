@@ -79,6 +79,12 @@ print(linear_result.data["artifact_links"])
 网页端 API 也使用同一套结构，覆盖 `/api/text/draft`、`/api/text/confirm`、
 `/api/analyze`、`/api/code` 和 `/api/visualize`。
 
+运行较长分析前，可以先检查可选 solver 后端：
+
+```python
+agent.solver_capabilities()
+```
+
 自定义密码：
 
 ```python

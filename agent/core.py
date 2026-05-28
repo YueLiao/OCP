@@ -95,8 +95,13 @@ class AgentCore:
         Returns:
             SkillResult from the skill execution.
         """
+        self.session.add_trace("skill_start", {"skill": request.skill.value, "params": request.params})
         result = self._execute_skill(request)
         self.session.add_result(result)
+        self.session.add_trace(
+            "skill_finish",
+            {"skill": request.skill.value, "success": result.success, "summary": result.summary, "error": result.error},
+        )
         return result
 
     def _execute_skill(self, request: SkillRequest) -> SkillResult:

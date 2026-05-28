@@ -16,7 +16,7 @@ assistant with clear confirmation points and replayable artifacts.
 | Validator | Deterministically validate `CipherInput`, `CipherFacts`, `CipherSpecDraft`, and `CipherSpec`. |
 | Verifier | Run lightweight smoke checks before risky build, solve, codegen, or visualization steps. |
 | Artifact manager | Return generated files through `artifact_links` and record replayable JSON jobs. |
-| Session | Store current cipher, pending facts, pending draft, job records, and recent results. |
+| Session | Store current cipher, pending facts, pending draft, job records, recent results, and execution trace entries. |
 | Web/API | Present stable JSON responses and explicit actions for draft, confirm, analyze, code, and visualize. |
 
 ## Error Boundaries
@@ -29,6 +29,10 @@ User-facing boundaries should classify errors before returning them:
 - LLM parse failure: `SkillResult(success=False)` with a parseable-facts message.
 - Internal skill failures: wrapped as `SkillResult(success=False)` at the skill boundary.
 - Unexpected route/provider setup failures: HTTP 500 with `error_code` for diagnostics.
+
+`/api/analyze`, `/api/code`, and `/api/visualize` require `confirmed=true`.
+The web UI prompts before sending this flag because those actions can run
+external solvers or write artifacts.
 
 ## Standard Response Shape
 
@@ -74,3 +78,6 @@ The web UI exposes:
 
 The page includes direct action buttons for differential analysis, linear
 analysis, code generation, and visualization after a cipher is available.
+
+Use `GET /api/solvers` or `OCPAgent().solver_capabilities()` to inspect
+available solver backends before launching solver-backed analysis.

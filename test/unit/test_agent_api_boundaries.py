@@ -120,3 +120,11 @@ def test_confirm_cipher_spec_rejects_invalid_draft():
 
     assert not result.success
     assert "validation errors" in result.error
+
+
+def test_agent_exposes_solver_capabilities():
+    capabilities = OCPAgent().solver_capabilities()
+
+    assert capabilities["default"]["milp"] == "GUROBI"
+    assert "GUROBI" in capabilities["milp"]
+    assert "PySAT" in capabilities["sat"]

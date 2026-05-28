@@ -15,7 +15,7 @@
 | Validator | 确定性校验 `CipherInput`、`CipherFacts`、`CipherSpecDraft` 和 `CipherSpec`。 |
 | Verifier | 在构建、求解、代码生成或可视化前运行轻量冒烟检查。 |
 | Artifact manager | 通过 `artifact_links` 返回生成文件，并记录可复现 JSON job。 |
-| Session | 保存当前 cipher、待确认 facts、待确认 draft、job 记录和近期结果。 |
+| Session | 保存当前 cipher、待确认 facts、待确认 draft、job 记录、近期结果和执行 trace。 |
 | Web/API | 用稳定 JSON 响应暴露 draft、confirm、analyze、code 和 visualize 动作。 |
 
 ## 错误边界
@@ -28,6 +28,9 @@
 - LLM 解析失败：`SkillResult(success=False)`，说明未获得可解析 facts。
 - Skill 内部失败：在 skill 边界包装成 `SkillResult(success=False)`。
 - 非预期 route/provider 初始化失败：HTTP 500，并带 `error_code` 便于诊断。
+
+`/api/analyze`、`/api/code` 和 `/api/visualize` 要求传入 `confirmed=true`。
+网页端会先弹出确认，因为这些动作可能运行外部 solver 或写出产物。
 
 ## 标准响应形状
 
@@ -71,3 +74,6 @@ PDF/图片上传仍是实验性辅助，应进入同一套审阅流程。
 - `POST /api/upload`
 
 页面在 cipher 可用后提供差分分析、线性分析、代码生成和可视化按钮。
+
+可以使用 `GET /api/solvers` 或 `OCPAgent().solver_capabilities()` 在运行求解器分析前检查
+可用后端。

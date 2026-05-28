@@ -71,6 +71,7 @@
   }
   .form-group select:focus, .form-group input:focus { border-color: var(--accent); }
   .connect-btn { width: 100%; padding: 10px; margin-top: 8px; font-size: 14px; font-weight: 600; }
+  .settings-section { margin-top: 22px; }
 
   /* Cipher info */
   .cipher-info {
@@ -205,6 +206,42 @@
       <input type="text" id="baseUrl" placeholder="http://localhost:11434">
     </div>
     <button class="btn btn-primary connect-btn" onclick="connect()" id="connectBtn">Connect</button>
+
+    <div class="settings-section">
+      <h2>Workflow</h2>
+      <div class="form-group">
+        <label>Model Type</label>
+        <select id="analysisModelType">
+          <option value="milp">MILP</option>
+          <option value="sat">SAT</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Solver</label>
+        <input type="text" id="analysisSolver" placeholder="DEFAULT">
+      </div>
+      <div class="form-group">
+        <label>Objective</label>
+        <select id="analysisObjective">
+          <option value="OPTIMAL">OPTIMAL</option>
+          <option value="EXISTENCE">EXISTENCE</option>
+          <option value="AT MOST 1">AT MOST 1</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Solutions</label>
+        <input type="number" id="solutionNumber" min="1" placeholder="1">
+      </div>
+      <div class="form-group">
+        <label>Code Language</label>
+        <select id="codeLanguage">
+          <option value="python">Python</option>
+          <option value="c">C</option>
+          <option value="verilog">SystemVerilog</option>
+        </select>
+      </div>
+      <button class="btn connect-btn" onclick="checkSolvers()">Check Solvers</button>
+    </div>
 
     <div class="cipher-info" id="cipherInfo" style="display:none">
       <div><span class="label">Cipher: </span><span class="value" id="cipherName">-</span></div>
@@ -433,13 +470,26 @@ async function uploadFile(event) {
 
 async function runWorkflow(type) {
   hideWelcome();
+  if (!confirm(`Run ${type} analysis now? This may invoke an external solver and write trail artifacts.`)) return;
+  const modelType = document.getElementById('analysisModelType').value;
+  const solver = document.getElementById('analysisSolver').value.trim();
+  const solutionNumber = document.getElementById('solutionNumber').value;
+  const objective = document.getElementById('analysisObjective').value;
   addMessage('user', `[Run ${type} analysis]`);
   showTyping(true);
   try {
+    const payload = {
+      analysis_type: type,
+      model_type: modelType,
+      objective_target: objective,
+      confirmed: true,
+    };
+    if (solver) payload.solver = solver;
+    if (solutionNumber) payload.solution_number = Number(solutionNumber);
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({analysis_type: type, model_type: 'milp'}),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     showTyping(false);
@@ -458,13 +508,15 @@ async function runWorkflow(type) {
 
 async function generateCode() {
   hideWelcome();
+  if (!confirm('Generate implementation code now? This will write an artifact file.')) return;
+  const language = document.getElementById('codeLanguage').value;
   addMessage('user', '[Generate Python code]');
   showTyping(true);
   try {
     const res = await fetch('/api/code', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({language: 'python', test: true}),
+      body: JSON.stringify({language, test: true, confirmed: true}),
     });
     const data = await res.json();
     showTyping(false);
@@ -482,10 +534,15 @@ async function generateCode() {
 
 async function generateVisualization() {
   hideWelcome();
+  if (!confirm('Generate visualization now? This will write a PDF artifact.')) return;
   addMessage('user', '[Generate visualization]');
   showTyping(true);
   try {
-    const res = await fetch('/api/visualize', {method: 'POST'});
+    const res = await fetch('/api/visualize', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({confirmed: true}),
+    });
     const data = await res.json();
     showTyping(false);
     if (data.success) {
@@ -497,6 +554,20 @@ async function generateVisualization() {
   } catch (e) {
     showTyping(false);
     addMessage('error', `Visualization failed: ${e.message}`);
+  }
+}
+
+async function checkSolvers() {
+  try {
+    const res = await fetch('/api/solvers');
+    const data = await res.json();
+    if (!data.success) {
+      addMessage('error', data.error || 'Solver check failed.');
+      return;
+    }
+    addMessage('system', `Solver capabilities:\n\`\`\`json\n${JSON.stringify(data.capabilities, null, 2)}\n\`\`\``);
+  } catch (e) {
+    addMessage('error', `Solver check failed: ${e.message}`);
   }
 }
 
