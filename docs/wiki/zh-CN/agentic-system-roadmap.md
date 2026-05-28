@@ -168,6 +168,7 @@ Provider factory 应支持：
 5. 添加 CLI 确认流程。
    初始 `draft <cipher text>` 确认流程已就位。
 6. 添加网页文本工作区和草稿审阅 UI。
+   初始网页 draft/confirm endpoint 和 `Draft` UI 动作已就位。
 7. 添加可复现 job 记录和产物链接。
 8. 将 PDF/image 抽取降级为 experimental import helper。
 

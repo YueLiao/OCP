@@ -1,0 +1,65 @@
+import web.app as web_app
+
+from agent.interfaces.api import OCPAgent
+from agent.llm.provider import LLMProvider
+from agent.types import UserIntent
+
+
+class FakeFactsProvider(LLMProvider):
+    def parse_user_request(self, user_message, conversation_history, available_skills, session_context):
+        return UserIntent(raw_text=user_message)
+
+    def generate_response(self, results, original_intent, conversation_history, session_context):
+        return "ok"
+
+    def handle_error(self, error, failed_request, session_context):
+        return str(error)
+
+    def call_llm(self, prompt, image_data=None):
+        return """{
+          "cipher_facts": {
+            "name": "TinyARX",
+            "primitive_type": "permutation",
+            "state": {"block_size": 32, "word_bitsize": 16, "nbr_words": 2},
+            "rounds": {"nbr_rounds": 2},
+            "operations": [
+              {"type": "rotation", "params": {"direction": "r", "amount": 7, "word_index": 0}},
+              {"type": "modadd", "params": {"input_indices": [[0, 1]], "output_indices": [0]}},
+              {"type": "rotation", "params": {"direction": "l", "amount": 2, "word_index": 1}},
+              {"type": "xor", "params": {"input_indices": [[0, 1]], "output_indices": [1]}}
+            ]
+          }
+        }"""
+
+
+def setup_function():
+    web_app.agent = None
+    web_app.config = {"provider": None, "model": None, "connected": False}
+
+
+def test_text_draft_requires_connected_agent():
+    client = web_app.app.test_client()
+
+    response = client.post("/api/text/draft", json={"text": "x <- y"})
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "Not connected. Configure provider first."
+
+
+def test_text_draft_and_confirm_builds_cipher():
+    web_app.agent = OCPAgent(llm_provider=FakeFactsProvider())
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    draft_response = client.post("/api/text/draft", json={"text": "tiny arx text"})
+    draft_data = draft_response.get_json()
+    confirm_response = client.post("/api/text/confirm")
+    confirm_data = confirm_response.get_json()
+
+    assert draft_response.status_code == 200
+    assert draft_data["success"] is True
+    assert draft_data["draft"]["is_valid"] is True
+    assert draft_data["draft"]["spec"]["name"] == "TinyARX"
+    assert confirm_response.status_code == 200
+    assert confirm_data["success"] is True
+    assert confirm_data["data"]["cipher_name"] == "TinyARX_PERM"

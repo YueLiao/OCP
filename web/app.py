@@ -28,6 +28,18 @@ agent = None
 config = {"provider": None, "model": None, "connected": False}
 
 
+def _draft_payload(draft):
+    return {
+        "spec": draft.spec,
+        "validation_errors": draft.validation_errors,
+        "warnings": draft.warnings,
+        "assumptions": draft.assumptions,
+        "clarification_questions": draft.clarification_questions,
+        "requires_user_confirmation": draft.requires_user_confirmation,
+        "is_valid": draft.is_valid,
+    }
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -82,6 +94,54 @@ def chat():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/text/draft", methods=["POST"])
+def draft_text_cipher():
+    """Extract text-first cipher facts and return a reviewable draft."""
+    global agent
+    if agent is None:
+        return jsonify({"success": False, "error": "Not connected. Configure provider first."}), 400
+
+    data = request.json or {}
+    text = data.get("text", "")
+    if not text.strip():
+        return jsonify({"success": False, "error": "Empty cipher text."}), 400
+
+    result = agent.extract_cipher_facts(
+        text,
+        source_type=data.get("source_type", "direct_text"),
+        format_hint=data.get("format_hint", "mixed"),
+        source_name=data.get("source_name"),
+        language_hint=data.get("language_hint", "unknown"),
+    )
+    if not result.success:
+        return jsonify({"success": False, "error": result.error, "data": result.data}), 400
+
+    draft = agent.draft_cipher_spec()
+    return jsonify({
+        "success": True,
+        "summary": result.summary,
+        "draft": _draft_payload(draft),
+        "context": agent.session.get_context(),
+    })
+
+
+@app.route("/api/text/confirm", methods=["POST"])
+def confirm_text_cipher():
+    """Confirm and build the pending text-first CipherSpec draft."""
+    global agent
+    if agent is None:
+        return jsonify({"success": False, "error": "Not connected. Configure provider first."}), 400
+
+    result = agent.confirm_cipher_spec()
+    return jsonify({
+        "success": result.success,
+        "summary": result.summary,
+        "error": result.error,
+        "data": result.data,
+        "context": agent.session.get_context(),
+    }), 200 if result.success else 400
 
 
 @app.route("/api/upload", methods=["POST"])

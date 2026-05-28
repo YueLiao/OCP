@@ -55,6 +55,9 @@ DeepSeek 使用 OpenAI-compatible 协议。设置 `DEEPSEEK_API_KEY` 即可；�
 python3 web/app.py --port 5001
 ```
 
+网页端包含 chat、provider 配置，以及面向文本优先密码描述的 `Draft` 动作。`Draft`
+会抽取 facts、返回可审阅的 `CipherSpec` 草稿，并在构建 cipher 前要求确认。
+
 ## 文本优先密码输入
 
 推荐的抽取路径是用户提供文本：纯文本、Markdown、LaTeX、伪代码或结构化笔记。PDF/图片抽取

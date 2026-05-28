@@ -56,6 +56,10 @@ flow. The CLI prints the proposed `CipherSpec` draft and asks before building.
 python3 web/app.py --port 5001
 ```
 
+The web UI includes chat, provider configuration, and a `Draft` action for
+text-first cipher descriptions. `Draft` extracts facts, returns a reviewable
+`CipherSpec` draft, and asks for confirmation before building the cipher.
+
 ## Text-First Cipher Input
 
 The preferred extraction path is user-provided text: plain text, Markdown,

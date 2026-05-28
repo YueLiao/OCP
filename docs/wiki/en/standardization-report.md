@@ -33,6 +33,7 @@ document, and extend.
 - Added text-first cipher input dataclasses, Markdown/LaTeX normalization, deterministic fact validation, prompt/parse boundaries, and draft-to-spec conversion helpers.
 - Added direct `OCPAgent` APIs for text-first fact extraction, draft creation, and explicit confirmation before building.
 - Added a CLI `draft <cipher text>` review-and-confirm flow for text-first cipher drafts.
+- Added web text draft/confirm endpoints and a `Draft` UI action for review-before-build workflows.
 - Expanded the text-first Agentic roadmap into a reviewable implementation contract for schemas, web flow, providers, safety gates, and tests.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
 - Consolidated repeated operator model helpers across Boolean, modular, S-box, and matrix operators.
@@ -53,10 +54,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `86 passed, 106 skipped`.
+Latest default pytest status: `88 passed, 106 skipped`.
 
 ## Next Work
 
-1. Add web text workspace and draft review endpoints.
+1. Add replayable text-first job records and artifact links.
 2. Profile model generation before deeper performance rewrites.
 3. Continue narrowing broad exception handling in solver/model generation paths.

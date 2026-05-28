@@ -183,6 +183,7 @@ The confirmation view should show:
 5. Add CLI confirmation flow.
    Initial `draft <cipher text>` confirmation flow is in place.
 6. Add web text workspace and draft review UI.
+   Initial web draft/confirm endpoints and a `Draft` UI action are in place.
 7. Add replayable job records and artifact links.
 8. Relegate PDF/image extraction to an experimental import helper.
 

@@ -239,6 +239,7 @@
           &#128206;
           <input type="file" accept=".txt,.md,.tex,.rst,.pdf,.png,.jpg,.jpeg" onchange="uploadFile(event)">
         </button>
+        <button class="btn" onclick="draftCipherText()">Draft</button>
         <button class="btn btn-primary" onclick="sendMessage()">Send</button>
       </div>
     </div>
@@ -328,6 +329,62 @@ async function sendMessage() {
   } catch (e) {
     showTyping(false);
     addMessage('error', `Request failed: ${e.message}`);
+  }
+}
+
+async function draftCipherText() {
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  autoResize(input);
+  hideWelcome();
+  addMessage('user', `[Draft cipher]\n${text}`);
+  showTyping(true);
+
+  try {
+    const res = await fetch('/api/text/draft', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, source_type: 'direct_text', format_hint: 'mixed'}),
+    });
+    const data = await res.json();
+    showTyping(false);
+    if (!data.success) {
+      addMessage('error', data.error || 'Draft failed');
+      return;
+    }
+    const draftText = JSON.stringify(data.draft.spec, null, 2);
+    const issues = [
+      ...(data.draft.validation_errors || []).map(x => `Error: ${x}`),
+      ...(data.draft.warnings || []).map(x => `Warning: ${x}`),
+      ...(data.draft.assumptions || []).map(x => `Assumption: ${x}`),
+    ].join('\n');
+    addMessage('assistant', `CipherSpec draft:\n\`\`\`json\n${draftText}\n\`\`\`${issues ? '\n' + issues : ''}`);
+    if (!data.draft.is_valid) return;
+    if (!confirm('Build this cipher from the draft?')) return;
+    await confirmCipherDraft();
+  } catch (e) {
+    showTyping(false);
+    addMessage('error', `Draft failed: ${e.message}`);
+  }
+}
+
+async function confirmCipherDraft() {
+  showTyping(true);
+  try {
+    const res = await fetch('/api/text/confirm', {method: 'POST'});
+    const data = await res.json();
+    showTyping(false);
+    if (data.success) {
+      addMessage('assistant', data.summary || `Built cipher: ${data.data?.cipher_name || 'custom cipher'}`);
+      updateCipherInfo(data.context);
+    } else {
+      addMessage('error', data.error || 'Build failed');
+    }
+  } catch (e) {
+    showTyping(false);
+    addMessage('error', `Build failed: ${e.message}`);
   }
 }
 
