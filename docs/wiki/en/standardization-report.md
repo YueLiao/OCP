@@ -44,6 +44,7 @@ document, and extend.
 - Added explicit solver capability reporting for optional MILP/SAT backends and documented the current solver fallbacks.
 - Replaced repeated constraint/objective list concatenation in attack/model generation paths with explicit in-place extension.
 - Added opt-in model generation profiling to record per-operator constraint counts and timings.
+- Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
 - Reclassified PDF/image extraction as an experimental import helper and disabled web upload auto-build.
 - Clarified legacy operator scripts as manual experiments.
 - Split documentation into English and Chinese pages with language switch links.
@@ -57,7 +58,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `91 passed, 106 skipped`.
+Latest default pytest status: `92 passed, 106 skipped`.
 
 ## Next Work
 

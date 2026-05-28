@@ -81,3 +81,5 @@ config_model = {"profile_model_generation": True}
 
 After model construction, `config_model["model_generation_profile"]` contains
 per-operator call counts, generated constraint counts, and elapsed time.
+Parsed constraint templates are cached by filename and modification time, so
+template regeneration invalidates the cache automatically.

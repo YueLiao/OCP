@@ -1,4 +1,5 @@
 import ast
+from functools import lru_cache
 from importlib import import_module
 from importlib.util import find_spec
 import os
@@ -672,16 +673,9 @@ def generate_and_save_constraints(model_type, tool_type, mode, ttable, input_var
             file.write(f"Python version: {sys.version.split()[0]}\n")
             file.write(f"Platform: {platform.platform()}\n")
 
-def load_constraints_template(filename):
-    """
-    Load template constraints/objective function from file.
-
-    Returns:
-        tuple[list[str] | None, str | None]: (constraints, objective_fun)
-    """
+@lru_cache(maxsize=128)
+def _load_constraints_template_cached(filename, mtime_ns):
     constraints, objective_fun = None, None
-    if not os.path.exists(filename):
-        return None, None
     with open(filename, "r", encoding="utf-8") as file:
         for line in file:
             line = line.strip()
@@ -693,7 +687,23 @@ def load_constraints_template(filename):
                     raise ValueError(f"Failed to parse constraints from {filename}: {constraints_str}") from e
             elif line.startswith("Weight:"):
                 objective_fun = line.split(":", 1)[1].strip()
-    return constraints, objective_fun
+    return tuple(constraints) if constraints is not None else None, objective_fun
+
+
+def load_constraints_template(filename):
+    """
+    Load template constraints/objective function from file.
+
+    Returns:
+        tuple[list[str] | None, str | None]: (constraints, objective_fun)
+    """
+    if not os.path.exists(filename):
+        return None, None
+    constraints, objective_fun = _load_constraints_template_cached(
+        filename,
+        os.stat(filename).st_mtime_ns,
+    )
+    return list(constraints) if constraints is not None else None, objective_fun
 
 def gen_constraints_obj_func_from_template(filename, var_in, var_out, var_p=None):
     """

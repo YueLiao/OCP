@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import builtins
 
 import pytest
 
@@ -11,6 +12,7 @@ from tools.model_constraints import (
     gen_matrix_constraints,
     gen_predefined_constraints,
     gen_sequential_encoding_sat,
+    load_constraints_template,
 )
 
 
@@ -124,3 +126,29 @@ def test_round_model_generation_can_record_profile():
     assert profile["operators"]["FakeInputConstraint"]["calls"] == 1
     assert profile["operators"]["FakeRoundConstraint"]["constraints"] == 2
     assert profile["total_time_s"] >= 0
+
+
+def test_constraints_template_loading_is_cached(monkeypatch, tmp_path):
+    template = tmp_path / "template.txt"
+    template.write_text(
+        "Input: a0; msb: a0\n"
+        "Output: b0; msb: b0\n"
+        "Constraints: ['a0 - b0 = 0']\n"
+        "Weight: p0\n",
+        encoding="utf-8",
+    )
+
+    real_open = builtins.open
+    open_calls = []
+
+    def counting_open(*args, **kwargs):
+        if args and args[0] == str(template):
+            open_calls.append(args[0])
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", counting_open)
+
+    assert load_constraints_template(str(template)) == (["a0 - b0 = 0"], "p0")
+    assert load_constraints_template(str(template)) == (["a0 - b0 = 0"], "p0")
+
+    assert open_calls == [str(template)]

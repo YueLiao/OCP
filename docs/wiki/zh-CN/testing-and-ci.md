@@ -75,3 +75,4 @@ config_model = {"profile_model_generation": True}
 
 模型构建结束后，`config_model["model_generation_profile"]` 会包含每类 operator 的调用次数、
 生成约束数量和耗时。
+已解析的约束模板会按文件名和修改时间缓存，因此模板重新生成后会自动失效。
