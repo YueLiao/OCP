@@ -104,6 +104,11 @@ class CodeGenerationSkill(BaseSkill):
                 results_data["test_results"] = test_results
                 passed = sum(1 for r in test_results if r is True)
                 total = len(test_results)
+                results_data["test_summary"] = {
+                    "passed": passed,
+                    "total": total,
+                    "failed": total - passed,
+                }
                 summary = f"Generated {language} code: {filename}. Tests: {passed}/{total} passed."
             else:
                 summary = f"Generated {language} code: {filename}."

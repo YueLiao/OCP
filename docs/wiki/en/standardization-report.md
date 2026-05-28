@@ -31,6 +31,7 @@ document, and extend.
 - Removed import-time attack output path snapshots so model and trail filenames honor runtime `OCP_FILES_DIR` changes.
 - Removed import-time runtime path snapshots from logic minimization and default agent code generation output.
 - Routed default `OCPAgent` code generation and visualization outputs through runtime `OCP_FILES_DIR`.
+- Added structured pass/fail summaries to agent code generation test results while preserving legacy result entries.
 - Reduced import-time optional dependency noise for solver/modeling backends.
 - Added analysis skill boundary validation for unsupported model types.
 - Narrowed trail solution-bit error handling to numeric conversion failures.
@@ -69,7 +70,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `108 passed, 106 skipped`.
+Latest default pytest status: `109 passed, 106 skipped`.
 
 ## Next Work
 

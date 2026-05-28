@@ -29,6 +29,7 @@
 - 移除 attack 输出路径的 import-time 快照，让模型和 trail 文件名能响应运行时 `OCP_FILES_DIR` 变化。
 - 移除 logic minimization 和 agent 代码生成默认输出目录里的 import-time 路径快照。
 - 让默认 `OCPAgent` 代码生成和可视化输出通过运行时 `OCP_FILES_DIR` 解析。
+- 为 agent 代码生成测试结果添加结构化通过/失败统计，同时保留旧的结果条目。
 - 减少 solver/modeling 可选后端在 import 阶段的噪声。
 - 为 analysis skill 添加不支持 model type 的边界校验。
 - 将 trail solution-bit 的异常处理收窄到数值转换失败。
@@ -67,7 +68,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`108 passed, 106 skipped`。
+最新默认 pytest 状态：`109 passed, 106 skipped`。
 
 ## 后续工作
 
