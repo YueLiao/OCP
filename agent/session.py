@@ -41,7 +41,17 @@ class Session:
         return list(self._trace)
 
     def add_artifacts(self, artifacts):
-        self._artifacts.extend(artifacts or [])
+        for artifact in artifacts or []:
+            artifact_id = artifact.get("id") if isinstance(artifact, dict) else None
+            if artifact_id is None:
+                self._artifacts.append(artifact)
+                continue
+            self._artifacts = [
+                existing
+                for existing in self._artifacts
+                if not (isinstance(existing, dict) and existing.get("id") == artifact_id)
+            ]
+            self._artifacts.append(artifact)
 
     def get_artifacts(self):
         return list(self._artifacts)

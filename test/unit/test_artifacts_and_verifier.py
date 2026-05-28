@@ -36,6 +36,19 @@ def test_artifact_ids_are_deterministic():
     assert len(first[0]["id"]) == 16
 
 
+def test_session_artifact_registry_deduplicates_by_id():
+    session = Session()
+    first = {"id": "same", "label": "old", "path": "/tmp/old.txt"}
+    latest = {"id": "same", "label": "new", "path": "/tmp/new.txt"}
+    other = {"id": "other", "label": "other", "path": "/tmp/other.txt"}
+
+    session.add_artifacts([first, other])
+    session.add_artifacts([latest])
+
+    assert session.get_artifacts() == [other, latest]
+    assert session.get_context()["artifact_count"] == 2
+
+
 def test_verifier_blocks_risky_actions_without_cipher():
     session = Session()
 
