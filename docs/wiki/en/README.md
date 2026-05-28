@@ -18,6 +18,7 @@ and expose the same capabilities through a direct Python API.
 - [Development and Standardization](development-and-standardization.md)
 - [Standardization Report](standardization-report.md)
 - [Agentic System Roadmap](agentic-system-roadmap.md)
+- [Performance Baseline](performance-baseline.md)
 - [Testing and CI](testing-and-ci.md)
 
 ## Typical Workflows

@@ -1,7 +1,10 @@
 from primitives.primitives import Permutation
-from operators.modular_operators import ModAdd
-from operators.boolean_operators import XOR
-from operators.operators import Equal
+from primitives.arx import (
+    add_feedforward_final_round,
+    add_salsa_quarter_round_layers,
+    copy_state_to_temp_words,
+    salsa_quarter_rounds,
+)
 import variables.variables as var
 
 
@@ -29,36 +32,7 @@ class Salsa_permutation(Permutation):
             TW  = [16,17,18,19]
  
             for i in range(1,nbr_rounds+1):  
-                if i%2 == 0:
-                    # Even rounds are row rounds
-                    QR1 = [0, 1, 2, 3]
-                    QR2 = [5, 6, 7, 4]
-                    QR3 = [10, 11, 8,9]
-                    QR4 = [15, 12, 13, 14]
-
-                else:
-                    # Odd rounds are column rounds
-                    QR1 = [0, 4, 8, 12]
-                    QR2 = [5, 9, 13,1]
-                    QR3 = [10, 14, 2,6]
-                    QR4 = [15, 3, 7, 11]
-
-                # 4 quarter rounds in parallel 
-                S.SingleOperatorLayer("Add1", i, 0, ModAdd, [[QR1[0], QR1[3]], [QR2[0], QR2[3]], [QR3[0], QR3[3]], [QR4[0], QR4[3]]], [TW[0], TW[1], TW[2], TW[3]])
-                S.RotationLayer("Rot1", i, 1, [['l', 7, TW[0], TW[0]], ['l', 7, TW[1], TW[1]], ['l', 7, TW[2], TW[2]], ['l', 7, TW[3], TW[3]]])
-                S.SingleOperatorLayer("XOR1", i, 2, XOR, [[TW[0], QR1[1]], [TW[1], QR2[1]], [TW[2], QR3[1]], [TW[3], QR4[1]]], [QR1[1], QR2[1], QR3[1], QR4[1]])
-
-                S.SingleOperatorLayer("Add2", i, 3, ModAdd, [[QR1[0], QR1[1]], [QR2[0], QR2[1]], [QR3[0], QR3[1]], [QR4[0], QR4[1]]], [TW[0], TW[1], TW[2], TW[3]])
-                S.RotationLayer("Rot2", i, 4, [['l', 9, TW[0], TW[0]], ['l', 9, TW[1], TW[1]], ['l', 9, TW[2], TW[2]], ['l', 9, TW[3], TW[3]]])
-                S.SingleOperatorLayer("XOR2", i, 5, XOR, [[TW[0], QR1[2]], [TW[1], QR2[2]], [TW[2], QR3[2]], [TW[3], QR4[2]]], [QR1[2], QR2[2], QR3[2], QR4[2]])
-
-                S.SingleOperatorLayer("Add3", i, 6, ModAdd, [[QR1[1], QR1[2]], [QR2[1], QR2[2]], [QR3[1], QR3[2]], [QR4[1], QR4[2]]], [TW[0], TW[1], TW[2], TW[3]])
-                S.RotationLayer("Rot3", i, 7, [['l', 13, TW[0], TW[0]], ['l', 13, TW[1], TW[1]], ['l', 13, TW[2], TW[2]], ['l', 13, TW[3], TW[3]]])
-                S.SingleOperatorLayer("XOR3", i, 8, XOR, [[TW[0], QR1[3]], [TW[1], QR2[3]], [TW[2], QR3[3]], [TW[3], QR4[3]]], [QR1[3], QR2[3], QR3[3], QR4[3]])
-
-                S.SingleOperatorLayer("Add4", i, 9, ModAdd, [[QR1[2], QR1[3]], [QR2[2], QR2[3]], [QR3[2], QR3[3]], [QR4[2], QR4[3]]], [TW[0], TW[1], TW[2], TW[3]])
-                S.RotationLayer("Rot4", i, 10, [['l', 18, TW[0], TW[0]], ['l', 18, TW[1], TW[1]], ['l', 18, TW[2], TW[2]], ['l', 18, TW[3], TW[3]]])
-                S.SingleOperatorLayer("XOR4", i, 11, XOR, [[TW[0], QR1[0]], [TW[1], QR2[0]], [TW[2], QR3[0]], [TW[3], QR4[0]]], [QR1[0], QR2[0], QR3[0], QR4[0]])
+                add_salsa_quarter_round_layers(S, i, 0, salsa_quarter_rounds(i), TW)
                                      
     def gen_test_vectors(self):
         # Test vectors from https://cr.yp.to/snuffle/salsafamily-20071225.pdf
@@ -107,52 +81,17 @@ class Salsa_keypermutation(Permutation):
             TW  = [16,17,18,19] # Temporary words to store the internal states
         
             for i in range(1,nbr_rounds+1):  
-                if i%2 == 0:
-                    # Even rounds are row rounds
-                    QR1 = [0, 1, 2, 3]
-                    QR2 = [5, 6, 7, 4]
-                    QR3 = [10, 11, 8,9]
-                    QR4 = [15, 12, 13, 14]
-                else:
-                    # Odd rounds are column rounds
-                    QR1 = [0, 4, 8, 12]
-                    QR2 = [5, 9, 13,1]
-                    QR3 = [10, 14, 2,6]
-                    QR4 = [15, 3, 7, 11]
-                
                 # In the first round copy the initial word to temporary words
                 if i == 1:
-                    InIndex = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12], [13], [14], [15]]
-                    OutIndex = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]
-                    S.SingleOperatorLayer("Equal", i, 0, Equal, InIndex, OutIndex)
+                    copy_state_to_temp_words(S, i, 0, temp_start=20)
                 else:
                     S.AddIdentityLayer("Identity", i, 0)
 
 
                 if i == 21:
-                    InIndex = [[0, 20], [1, 21], [2, 22], [3, 23], [4, 24], [5, 25], [6, 26], [7, 27], [8, 28], [9, 29], [10, 30], [11, 31], [12, 32], [13, 33], [14, 34], [15, 35]]
-                    OutIndex = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-                    S.SingleOperatorLayer("Add1", i, 1, ModAdd, InIndex, OutIndex)
-                    for j in range(2, nbr_layers):
-                        name = 'Identity' + str(j)
-                        S.AddIdentityLayer(name, i, j)
+                    add_feedforward_final_round(S, i, 1, nbr_layers, temp_start=20)
                 else:
-                    # 4 quarter rounds in parallel
-                    S.SingleOperatorLayer("Add1", i, 1, ModAdd, [[QR1[0], QR1[3]], [QR2[0], QR2[3]], [QR3[0], QR3[3]], [QR4[0], QR4[3]]], [TW[0], TW[1], TW[2], TW[3]])
-                    S.RotationLayer("Rot1", i, 2, [['l', 7, TW[0], TW[0]], ['l', 7, TW[1], TW[1]], ['l', 7, TW[2], TW[2]], ['l', 7, TW[3], TW[3]]])
-                    S.SingleOperatorLayer("XOR1", i, 3, XOR, [[TW[0], QR1[1]], [TW[1], QR2[1]], [TW[2], QR3[1]], [TW[3], QR4[1]]], [QR1[1], QR2[1], QR3[1], QR4[1]])
-
-                    S.SingleOperatorLayer("Add2", i, 4, ModAdd, [[QR1[0], QR1[1]], [QR2[0], QR2[1]], [QR3[0], QR3[1]], [QR4[0], QR4[1]]], [TW[0], TW[1], TW[2], TW[3]])
-                    S.RotationLayer("Rot2", i, 5, [['l', 9, TW[0], TW[0]], ['l', 9, TW[1], TW[1]], ['l', 9, TW[2], TW[2]], ['l', 9, TW[3], TW[3]]])
-                    S.SingleOperatorLayer("XOR2", i, 6, XOR, [[TW[0], QR1[2]], [TW[1], QR2[2]], [TW[2], QR3[2]], [TW[3], QR4[2]]], [QR1[2], QR2[2], QR3[2], QR4[2]])
-
-                    S.SingleOperatorLayer("Add3", i, 7, ModAdd, [[QR1[1], QR1[2]], [QR2[1], QR2[2]], [QR3[1], QR3[2]], [QR4[1], QR4[2]]], [TW[0], TW[1], TW[2], TW[3]])
-                    S.RotationLayer("Rot3", i, 8, [['l', 13, TW[0], TW[0]], ['l', 13, TW[1], TW[1]], ['l', 13, TW[2], TW[2]], ['l', 13, TW[3], TW[3]]])
-                    S.SingleOperatorLayer("XOR3", i, 9, XOR, [[TW[0], QR1[3]], [TW[1], QR2[3]], [TW[2], QR3[3]], [TW[3], QR4[3]]], [QR1[3], QR2[3], QR3[3], QR4[3]])
-
-                    S.SingleOperatorLayer("Add4", i, 10, ModAdd, [[QR1[2], QR1[3]], [QR2[2], QR2[3]], [QR3[2], QR3[3]], [QR4[2], QR4[3]]], [TW[0], TW[1], TW[2], TW[3]])
-                    S.RotationLayer("Rot4", i, 11, [['l', 18, TW[0], TW[0]], ['l', 18, TW[1], TW[1]], ['l', 18, TW[2], TW[2]], ['l', 18, TW[3], TW[3]]])
-                    S.SingleOperatorLayer("XOR4", i, 12, XOR, [[TW[0], QR1[0]], [TW[1], QR2[0]], [TW[2], QR3[0]], [TW[3], QR4[0]]], [QR1[0], QR2[0], QR3[0], QR4[0]])
+                    add_salsa_quarter_round_layers(S, i, 1, salsa_quarter_rounds(i), TW)
 
     def gen_test_vectors(self):
         # Test vectors from https://cr.yp.to/snuffle/salsafamily-20071225.pdf
@@ -172,5 +111,4 @@ def SALSA_KEYPERMUTATION(r=None, represent_mode=0, copy_operator=False):
     my_permutation.gen_test_vectors()
     my_permutation.post_initialization(copy_operator=copy_operator)
     return my_permutation    
-
 

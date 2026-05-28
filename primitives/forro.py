@@ -1,7 +1,7 @@
 from primitives.primitives import Permutation
+from primitives.arx import add_feedforward_final_round, copy_state_to_temp_words
 from operators.modular_operators import ModAdd
 from operators.boolean_operators import XOR
-from operators.operators import Equal
 import variables.variables as var
 
 
@@ -107,20 +107,13 @@ class Forro_keypermutation(Permutation):
             for i in range(1,nbr_subrounds +1):  
                 # In the first round copy the initial word to temporary words
                 if i == 1:
-                    InIndex = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12], [13], [14], [15]]
-                    OutIndex = [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
-                    S.SingleOperatorLayer("Equal", i, 0, Equal, InIndex, OutIndex)
+                    copy_state_to_temp_words(S, i, 0, temp_start=16)
                 else:
                     S.AddIdentityLayer("Identity", i, 0)
 
 
                 if i == 14*4+1:
-                    InIndex = [[0, 16], [1, 17], [2, 18], [3, 19], [4, 20], [5, 21], [6, 22], [7, 23], [8, 24], [9, 25], [10, 26], [11, 27], [12, 28], [13, 29], [14, 30], [15, 31]]
-                    OutIndex = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-                    S.SingleOperatorLayer("Add1", i, 1, ModAdd, InIndex, OutIndex)
-                    for j in range(2, nbr_layers):
-                        name = 'Identity' + str(j)
-                        S.AddIdentityLayer(name, i, j)
+                    add_feedforward_final_round(S, i, 1, nbr_layers, temp_start=16)
                 else:
                     _add_forro_subround_layers(S, i, 1, _forro_subround_selection(i))
 
@@ -143,7 +136,6 @@ def FORRO_KEYPERMUTATION(r=None, represent_mode=0, copy_operator=False):
     my_permutation.gen_test_vectors()
     my_permutation.post_initialization(copy_operator=copy_operator)
     return my_permutation     
-
 
 
 

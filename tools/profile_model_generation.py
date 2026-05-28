@@ -11,7 +11,7 @@ from attacks.common import parse_and_set_configs
 from tools.model_constraints import gen_round_model_constraint_obj_fun
 
 
-DEFAULT_CASES = ("present:1", "forro:1")
+DEFAULT_CASES = ("present:1", "chacha:1", "salsa:1", "forro:1")
 
 
 def _cipher_factory(name):
@@ -24,7 +24,17 @@ def _cipher_factory(name):
         from primitives.forro import FORRO_PERMUTATION
 
         return FORRO_PERMUTATION
-    raise ValueError(f"Unknown profile case '{name}'. Supported cases: present, forro.")
+    if normalized == "chacha":
+        from primitives.chacha import CHACHA_PERMUTATION
+
+        return CHACHA_PERMUTATION
+    if normalized == "salsa":
+        from primitives.salsa import SALSA_PERMUTATION
+
+        return SALSA_PERMUTATION
+    raise ValueError(
+        f"Unknown profile case '{name}'. Supported cases: present, chacha, salsa, forro."
+    )
 
 
 def _parse_case(case):

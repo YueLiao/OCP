@@ -7,11 +7,14 @@ from operators.matrix import (
     generate_binary_matrix_2,
     generate_binary_matrix_3,
 )
+from primitives.arx import chacha_quarter_rounds, salsa_quarter_rounds
+from primitives.chacha import CHACHA_KEYPERMUTATION, CHACHA_PERMUTATION
 from primitives.forro import (
     FORRO_KEYPERMUTATION,
     FORRO_PERMUTATION,
     _forro_subround_selection,
 )
+from primitives.salsa import SALSA_KEYPERMUTATION, SALSA_PERMUTATION
 from tools.profile_model_generation import profile_case
 
 
@@ -67,6 +70,40 @@ def test_forro_subround_helper_preserves_round_schedule_and_structure():
     ] == [32] * 13
 
 
+def test_chacha_arx_helper_preserves_round_schedule_and_structure():
+    assert chacha_quarter_rounds(1)[0] == (0, 4, 8, 12)
+    assert chacha_quarter_rounds(2)[0] == (0, 5, 10, 15)
+
+    permutation = CHACHA_PERMUTATION(r=1).functions["PERMUTATION"]
+    key_permutation = CHACHA_KEYPERMUTATION(r=1).functions["PERMUTATION"]
+
+    assert permutation.nbr_layers == 12
+    assert key_permutation.nbr_layers == 13
+    assert [len(permutation.constraints[1][i]) for i in range(permutation.nbr_layers)] == [
+        16
+    ] * 12
+    assert [
+        len(key_permutation.constraints[1][i]) for i in range(key_permutation.nbr_layers)
+    ] == [32] * 13
+
+
+def test_salsa_arx_helper_preserves_round_schedule_and_structure():
+    assert salsa_quarter_rounds(1)[0] == (0, 4, 8, 12)
+    assert salsa_quarter_rounds(2)[0] == (0, 1, 2, 3)
+
+    permutation = SALSA_PERMUTATION(r=1).functions["PERMUTATION"]
+    key_permutation = SALSA_KEYPERMUTATION(r=1).functions["PERMUTATION"]
+
+    assert permutation.nbr_layers == 12
+    assert key_permutation.nbr_layers == 13
+    assert [len(permutation.constraints[1][i]) for i in range(permutation.nbr_layers)] == [
+        20
+    ] * 12
+    assert [
+        len(key_permutation.constraints[1][i]) for i in range(key_permutation.nbr_layers)
+    ] == [36] * 13
+
+
 def test_model_generation_profiler_reports_constraint_hotspots():
     report = profile_case("present:1")
 
@@ -75,3 +112,6 @@ def test_model_generation_profiler_reports_constraint_hotspots():
     assert report["constraint_count"] > 0
     assert report["profile"]["operators"]["PRESENT_Sbox"]["calls"] == 16
     assert report["generation_time_s"] >= 0
+
+    assert profile_case("chacha:1")["profile"]["operators"]["ModAdd"]["calls"] == 16
+    assert profile_case("salsa:1")["profile"]["operators"]["ModAdd"]["calls"] == 16

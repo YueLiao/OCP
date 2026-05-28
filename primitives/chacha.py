@@ -1,7 +1,10 @@
 from primitives.primitives import Permutation
-from operators.modular_operators import ModAdd
-from operators.boolean_operators import XOR
-from operators.operators import Equal
+from primitives.arx import (
+    add_chacha_quarter_round_layers,
+    add_feedforward_final_round,
+    chacha_quarter_rounds,
+    copy_state_to_temp_words,
+)
 import variables.variables as var
 
 
@@ -27,34 +30,7 @@ class ChaCha_permutation(Permutation):
             S = self.functions["PERMUTATION"]
         
             for i in range(1,nbr_rounds+1):  
-                if i%2 == 0:
-                    # Even rounds are diagonal rounds
-                    QR1 = [0, 5, 10, 15]
-                    QR2 = [1, 6, 11, 12]
-                    QR3 = [2, 7, 8, 13]
-                    QR4 = [3, 4, 9, 14]
-                else:
-                    # Odd rounds are column rounds
-                    QR1 = [0, 4, 8, 12]
-                    QR2 = [1, 5, 9, 13]
-                    QR3 = [2, 6, 10, 14]
-                    QR4 = [3, 7, 11, 15]
-                
-                # Compute a', d', c', b' for all 4 quater rounds in parallel
-                S.SingleOperatorLayer("Add1", i, 0, ModAdd, [[QR1[0], QR1[1]], [QR2[0], QR2[1]], [QR3[0], QR3[1]], [QR4[0], QR4[1]]], [QR1[0], QR2[0], QR3[0], QR4[0]])
-                S.SingleOperatorLayer("XOR1", i, 1, XOR, [[QR1[0], QR1[3]], [QR2[0], QR2[3]], [QR3[0], QR3[3]], [QR4[0], QR4[3]]], [QR1[3], QR2[3], QR3[3], QR4[3]])
-                S.RotationLayer("Rot1", i, 2, [['l', 16, QR1[3], QR1[3]], ['l', 16, QR2[3], QR2[3]], ['l', 16, QR3[3], QR3[3]], ['l', 16, QR4[3], QR4[3]]])
-                S.SingleOperatorLayer("Add2", i , 3, ModAdd, [[QR1[2], QR1[3]], [QR2[2], QR2[3]], [QR3[2], QR3[3]], [QR4[2], QR4[3]]], [QR1[2], QR2[2], QR3[2], QR4[2]])
-                S.SingleOperatorLayer("XOR2", i, 4, XOR, [[QR1[1], QR1[2]], [QR2[1], QR2[2]], [QR3[1], QR3[2]], [QR4[1], QR4[2]]], [QR1[1], QR2[1], QR3[1], QR4[1]])
-                S.RotationLayer("Rot2", i, 5, [['l', 12, QR1[1], QR1[1]], ['l', 12, QR2[1], QR2[1]], ['l', 12, QR3[1], QR3[1]], ['l', 12, QR4[1], QR4[1]]])
-
-                # Compute a'', d'', c'', b'' for all 4 quater rounds in parallel
-                S.SingleOperatorLayer("Add3", i, 6, ModAdd, [[QR1[0], QR1[1]], [QR2[0], QR2[1]], [QR3[0], QR3[1]], [QR4[0], QR4[1]]], [QR1[0], QR2[0], QR3[0], QR4[0]])
-                S.SingleOperatorLayer("XOR3", i, 7, XOR, [[QR1[0], QR1[3]], [QR2[0], QR2[3]], [QR3[0], QR3[3]], [QR4[0], QR4[3]]], [QR1[3], QR2[3], QR3[3], QR4[3]])
-                S.RotationLayer("Rot3", i, 8, [['l', 8, QR1[3], QR1[3]], ['l', 8, QR2[3], QR2[3]], ['l', 8, QR3[3], QR3[3]], ['l', 8, QR4[3], QR4[3]]])
-                S.SingleOperatorLayer("Add4", i , 9, ModAdd, [[QR1[2], QR1[3]], [QR2[2], QR2[3]], [QR3[2], QR3[3]], [QR4[2], QR4[3]]], [QR1[2], QR2[2], QR3[2], QR4[2]])
-                S.SingleOperatorLayer("XOR4", i, 10, XOR, [[QR1[1], QR1[2]], [QR2[1], QR2[2]], [QR3[1], QR3[2]], [QR4[1], QR4[2]]], [QR1[1], QR2[1], QR3[1], QR4[1]])
-                S.RotationLayer("Rot4", i, 11, [['l', 7, QR1[1], QR1[1]], ['l', 7, QR2[1], QR2[1]], ['l', 7, QR3[1], QR3[1]], ['l', 7, QR4[1], QR4[1]]])
+                add_chacha_quarter_round_layers(S, i, 0, chacha_quarter_rounds(i))
         
     def gen_test_vectors(self):
         # Test vectors from https://datatracker.ietf.org/doc/html/rfc8439
@@ -93,51 +69,17 @@ class ChaCha_keypermutation(Permutation):
             S = self.functions["PERMUTATION"]
         
             for i in range(1,nbr_rounds+1):  
-                if i%2 == 0:
-                    # Even rounds are diagonal rounds
-                    QR1 = [0, 5, 10, 15]
-                    QR2 = [1, 6, 11, 12]
-                    QR3 = [2, 7, 8, 13]
-                    QR4 = [3, 4, 9, 14]
-                else:
-                    # Odd rounds are column rounds
-                    QR1 = [0, 4, 8, 12]
-                    QR2 = [1, 5, 9, 13]
-                    QR3 = [2, 6, 10, 14]
-                    QR4 = [3, 7, 11, 15]
-                
                 # In the first round copy the initial word to temporary words
                 if i == 1:
-                    InIndex = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12], [13], [14], [15]]
-                    OutIndex = [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
-                    S.SingleOperatorLayer("Equal", i, 0, Equal, InIndex, OutIndex)
+                    copy_state_to_temp_words(S, i, 0, temp_start=16)
                 else:
                     S.AddIdentityLayer("Identity", i, 0)
 
 
                 if i == 21:
-                    InIndex = [[0, 16], [1, 17], [2, 18], [3, 19], [4, 20], [5, 21], [6, 22], [7, 23], [8, 24], [9, 25], [10, 26], [11, 27], [12, 28], [13, 29], [14, 30], [15, 31]]
-                    OutIndex = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-                    S.SingleOperatorLayer("Add1", i, 1, ModAdd, InIndex, OutIndex)
-                    for j in range(2, nbr_layers):
-                        name = 'Identity' + str(j)
-                        S.AddIdentityLayer(name, i, j)
+                    add_feedforward_final_round(S, i, 1, nbr_layers, temp_start=16)
                 else:
-                    # Compute a', d', c', b' for all 4 quater rounds in parallel
-                    S.SingleOperatorLayer("Add1", i, 1, ModAdd, [[QR1[0], QR1[1]], [QR2[0], QR2[1]], [QR3[0], QR3[1]], [QR4[0], QR4[1]]], [QR1[0], QR2[0], QR3[0], QR4[0]])
-                    S.SingleOperatorLayer("XOR1", i, 2, XOR, [[QR1[0], QR1[3]], [QR2[0], QR2[3]], [QR3[0], QR3[3]], [QR4[0], QR4[3]]], [QR1[3], QR2[3], QR3[3], QR4[3]])
-                    S.RotationLayer("Rot1", i, 3, [['l', 16, QR1[3], QR1[3]], ['l', 16, QR2[3], QR2[3]], ['l', 16, QR3[3], QR3[3]], ['l', 16, QR4[3], QR4[3]]])
-                    S.SingleOperatorLayer("Add2", i , 4, ModAdd, [[QR1[2], QR1[3]], [QR2[2], QR2[3]], [QR3[2], QR3[3]], [QR4[2], QR4[3]]], [QR1[2], QR2[2], QR3[2], QR4[2]])
-                    S.SingleOperatorLayer("XOR2", i, 5, XOR, [[QR1[1], QR1[2]], [QR2[1], QR2[2]], [QR3[1], QR3[2]], [QR4[1], QR4[2]]], [QR1[1], QR2[1], QR3[1], QR4[1]])
-                    S.RotationLayer("Rot2", i, 6, [['l', 12, QR1[1], QR1[1]], ['l', 12, QR2[1], QR2[1]], ['l', 12, QR3[1], QR3[1]], ['l', 12, QR4[1], QR4[1]]])
-
-                    # Compute a'', d'', c'', b'' for all 4 quater rounds in parallel
-                    S.SingleOperatorLayer("Add3", i, 7, ModAdd, [[QR1[0], QR1[1]], [QR2[0], QR2[1]], [QR3[0], QR3[1]], [QR4[0], QR4[1]]], [QR1[0], QR2[0], QR3[0], QR4[0]])
-                    S.SingleOperatorLayer("XOR3", i, 8, XOR, [[QR1[0], QR1[3]], [QR2[0], QR2[3]], [QR3[0], QR3[3]], [QR4[0], QR4[3]]], [QR1[3], QR2[3], QR3[3], QR4[3]])
-                    S.RotationLayer("Rot3", i, 9, [['l', 8, QR1[3], QR1[3]], ['l', 8, QR2[3], QR2[3]], ['l', 8, QR3[3], QR3[3]], ['l', 8, QR4[3], QR4[3]]])
-                    S.SingleOperatorLayer("Add4", i , 10, ModAdd, [[QR1[2], QR1[3]], [QR2[2], QR2[3]], [QR3[2], QR3[3]], [QR4[2], QR4[3]]], [QR1[2], QR2[2], QR3[2], QR4[2]])
-                    S.SingleOperatorLayer("XOR4", i, 11, XOR, [[QR1[1], QR1[2]], [QR2[1], QR2[2]], [QR3[1], QR3[2]], [QR4[1], QR4[2]]], [QR1[1], QR2[1], QR3[1], QR4[1]])
-                    S.RotationLayer("Rot4", i, 12, [['l', 7, QR1[1], QR1[1]], ['l', 7, QR2[1], QR2[1]], ['l', 7, QR3[1], QR3[1]], ['l', 7, QR4[1], QR4[1]]])
+                    add_chacha_quarter_round_layers(S, i, 1, chacha_quarter_rounds(i))
 
     def gen_test_vectors(self):
         # Test vectors from https://datatracker.ietf.org/doc/html/rfc8439
