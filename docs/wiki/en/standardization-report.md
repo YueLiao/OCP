@@ -34,6 +34,7 @@ document, and extend.
 - Added structured pass/fail summaries to agent code generation test results while preserving legacy result entries.
 - Added artifact links for agent code generation and visualization outputs.
 - Made artifact registry IDs deterministic across Python processes.
+- Added a session-scoped web artifact download endpoint and sidebar download links.
 - Reduced import-time optional dependency noise for solver/modeling backends.
 - Added analysis skill boundary validation for unsupported model types.
 - Added built-in cipher version validation at the agent instantiation boundary.
@@ -82,7 +83,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `154 passed, 106 skipped`.
+Latest default pytest status: `155 passed, 106 skipped`.
 
 ## Next Work
 

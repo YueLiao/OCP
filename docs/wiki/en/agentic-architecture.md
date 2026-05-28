@@ -68,7 +68,9 @@ The Agent also expands links into structured `artifacts`:
 ```
 
 `/api/status` returns recent trace entries and the session artifact registry for
-the web sidebar.
+the web sidebar. Registered artifacts can be downloaded through
+`/api/artifacts/<artifact_id>/download`; the endpoint only serves files already
+present in the current session registry.
 
 ## Text-First Flow
 

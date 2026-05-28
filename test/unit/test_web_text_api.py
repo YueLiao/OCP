@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import web.app as web_app
 
+from agent.artifacts import normalize_artifact_links
 from agent.interfaces.api import OCPAgent
 from agent.llm.provider import LLMProvider
 from agent.types import SkillName, SkillResult, UserIntent
@@ -244,3 +245,25 @@ def test_workflow_preflight_blocks_without_cipher():
     assert response.status_code == 400
     assert data["error_code"] == "verification_failed"
     assert "No cipher is loaded" in data["verification"]["blocking_errors"][0]
+
+
+def test_artifact_download_is_limited_to_session_registry(tmp_path):
+    artifact_path = tmp_path / "trail.txt"
+    artifact_path.write_text("trail-data", encoding="utf-8")
+    artifacts = normalize_artifact_links(
+        [{"label": "trail_text_1", "path": str(artifact_path)}],
+        source_skill="differential_analysis",
+    )
+
+    web_app.agent = OCPAgent()
+    web_app.agent.session.add_artifacts(artifacts)
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    response = client.get(f"/api/artifacts/{artifacts[0]['id']}/download")
+    missing_response = client.get("/api/artifacts/not-registered/download")
+
+    assert response.status_code == 200
+    assert response.data == b"trail-data"
+    assert missing_response.status_code == 404
+    assert missing_response.get_json()["error_code"] == "artifact_not_found"

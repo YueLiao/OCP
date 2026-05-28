@@ -65,6 +65,8 @@ Agent 也会把 links 扩展为结构化 `artifacts`：
 ```
 
 `/api/status` 会返回最近 trace 和 session artifact registry，供网页侧边栏展示。
+已登记 artifact 可通过 `/api/artifacts/<artifact_id>/download` 下载；该 endpoint
+只会提供当前 session registry 中已经存在的文件。
 
 ## 文本优先流程
 

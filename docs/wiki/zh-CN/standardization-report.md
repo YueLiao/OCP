@@ -32,6 +32,7 @@
 - 为 agent 代码生成测试结果添加结构化通过/失败统计，同时保留旧的结果条目。
 - 为 agent 代码生成和可视化输出添加 artifact links。
 - 让 artifact registry ID 在不同 Python 进程之间保持确定性。
+- 添加基于当前 session registry 的网页 artifact 下载 endpoint 和侧边栏下载链接。
 - 减少 solver/modeling 可选后端在 import 阶段的噪声。
 - 为 analysis skill 添加不支持 model type 的边界校验。
 - 在 agent 内置 cipher 实例化边界添加版本校验。
@@ -80,7 +81,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`154 passed, 106 skipped`。
+最新默认 pytest 状态：`155 passed, 106 skipped`。
 
 ## 后续工作
 

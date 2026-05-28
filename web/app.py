@@ -12,11 +12,12 @@ import os
 import sys
 import tempfile
 from contextlib import suppress
+from pathlib import Path
 
 # Add parent directory to path so we can import agent
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 
 from agent.agentic import requires_confirmation
 from agent.interfaces.api import OCPAgent
@@ -362,6 +363,21 @@ def status():
         "trace": trace[-10:],
         "artifacts": artifacts,
     })
+
+
+@app.route("/api/artifacts/<artifact_id>/download", methods=["GET"])
+def download_artifact(artifact_id):
+    """Download an artifact that was registered in the current session."""
+    artifacts = agent.session.get_artifacts() if agent else []
+    artifact = next((item for item in artifacts if str(item.get("id")) == artifact_id), None)
+    if artifact is None:
+        return _error_response("Artifact not found.", 404, "artifact_not_found")
+
+    artifact_path = Path(str(artifact.get("path") or ""))
+    if not artifact_path.is_file():
+        return _error_response("Artifact file is missing.", 404, "artifact_missing")
+
+    return send_file(artifact_path, as_attachment=True, download_name=artifact_path.name)
 
 
 if __name__ == "__main__":

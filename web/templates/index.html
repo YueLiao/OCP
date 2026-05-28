@@ -672,9 +672,12 @@ function renderArtifacts(artifacts) {
     list.innerHTML = '<div>No artifacts yet.</div>';
     return;
   }
-  list.innerHTML = artifacts.slice(-6).reverse().map(a =>
-    `<div><strong>${renderText(a.label || 'artifact')}</strong><br>${renderText(a.type || 'file')} · ${a.exists ? 'exists' : 'missing'}<br><code>${renderText(a.path || '')}</code></div>`
-  ).join('');
+  list.innerHTML = artifacts.slice(-6).reverse().map(a => {
+    const link = a.exists && a.id
+      ? `<br><a href="/api/artifacts/${encodeURIComponent(a.id)}/download" target="_blank" rel="noopener">Download</a>`
+      : '';
+    return `<div><strong>${renderText(a.label || 'artifact')}</strong><br>${renderText(a.type || 'file')} · ${a.exists ? 'exists' : 'missing'}<br><code>${renderText(a.path || '')}</code>${link}</div>`;
+  }).join('');
 }
 
 function renderTrace(trace) {
