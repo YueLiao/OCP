@@ -80,7 +80,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`152 passed, 106 skipped`。
+最新默认 pytest 状态：`154 passed, 106 skipped`。
 
 ## 后续工作
 
