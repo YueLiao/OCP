@@ -1,6 +1,53 @@
 from operators.operators import Operator, BinaryOperator, UnaryOperator, RaiseExceptionVersionNotExisting
 from tools.model_constraints import gen_xor_constraints, gen_word_xor_constraints, gen_nxor_constraints, gen_word_nxor_constraints
 
+
+def _binary_bit_vars(operator):
+    return (
+        operator.get_var_model("in", 0),
+        operator.get_var_model("in", 1),
+        operator.get_var_model("out", 0),
+    )
+
+
+def _generate_and_or_active_weight_model(operator, model_type):
+    model_list = []
+    var_in1, var_in2, var_out = _binary_bit_vars(operator)
+    var_p = [operator.ID + '_p_' + str(i) for i in range(operator.input_vars[0].bitsize)]
+    class_name = operator.__class__.__name__
+
+    if model_type == 'sat':
+        if operator.model_version == class_name + "_XORDIFF":
+            for i1, i2, o, p in zip(var_in1, var_in2, var_out, var_p):
+                model_list += [f'{i1} {i2} -{o}', f'{i1} {i2} -{p}', f'-{i1} {p}', f'-{i2} {p}']
+            operator.weight = var_p
+            return model_list
+        if operator.model_version == class_name + "_LINEAR":
+            for i1, i2, o, p in zip(var_in1, var_in2, var_out, var_p):
+                model_list += [f'{p} -{i1}', f'{p} -{i2}', f'{p} -{o}', f'-{p} {o}']
+            operator.weight = var_p
+            return model_list
+    elif model_type == 'milp':
+        if operator.model_version == class_name + "_XORDIFF":
+            for i1, i2, o, p in zip(var_in1, var_in2, var_out, var_p):
+                model_list += [f'{i1} + {i2} - {o} >= 0', f'{i1} + {i2} - {p} >= 0', f'- {i1} + {p} >= 0', f'- {i2} + {p} >= 0']
+            model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p))
+            operator.weight = [" + ".join(var_p)]
+            return model_list
+        if operator.model_version == class_name + "_LINEAR":
+            for i1, i2, o, p in zip(var_in1, var_in2, var_out, var_p):
+                model_list += [f'{p} - {i1} >= 0', f'{p} - {i2} >= 0', f'{p} - {o} = 0']
+            model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p))
+            operator.weight = [" + ".join(var_p)]
+            return model_list
+    elif model_type == 'cp':
+        RaiseExceptionVersionNotExisting(class_name, operator.model_version, model_type)
+    else:
+        raise Exception(class_name + ": unknown model type '" + model_type + "'")
+
+    RaiseExceptionVersionNotExisting(class_name, operator.model_version, model_type)
+
+
 class AND(BinaryOperator):  # Operator for the bitwise AND operation: compute the bitwise AND on the two input variables towards the output variable
     def __init__(self, input_vars, output_vars, ID = None):
         super().__init__(input_vars, output_vars, ID = ID)
@@ -15,47 +62,7 @@ class AND(BinaryOperator):  # Operator for the bitwise AND operation: compute th
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 
     def generate_model(self, model_type='sat'):
-        model_list = []
-        if model_type == 'sat':
-            if self.model_version == self.__class__.__name__ + "_XORDIFF":
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
-                var_p = [self.ID + '_p_' + str(i) for i in range(self.input_vars[0].bitsize)]
-                for i in range(len(var_in1)):
-                    i1, i2, o, p = var_in1[i], var_in2[i], var_out[i], var_p[i]
-                    model_list += [f'{i1} {i2} -{o}', f'{i1} {i2} -{p}', f'-{i1} {p}', f'-{i2} {p}']
-                self.weight = var_p
-                return model_list
-            elif self.model_version == self.__class__.__name__ + "_LINEAR":
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
-                var_p = [self.ID + '_p_' + str(i) for i in range(self.input_vars[0].bitsize)]
-                for i in range(len(var_in1)):
-                    i1, i2, o, p = var_in1[i], var_in2[i], var_out[i], var_p[i]
-                    model_list += [f'{p} -{i1}', f'{p} -{i2}', f'{p} -{o}', f'-{p} {o}']
-                self.weight = var_p
-                return model_list
-            else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        elif model_type == 'milp':
-            if self.model_version == self.__class__.__name__ + "_XORDIFF":
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
-                var_p = [self.ID + '_p_' + str(i) for i in range(self.input_vars[0].bitsize)]
-                for i in range(len(var_in1)):
-                    i1, i2, o, p = var_in1[i], var_in2[i], var_out[i], var_p[i]
-                    model_list += [f'{i1} + {i2} - {o} >= 0', f'{i1} + {i2} - {p} >= 0', f'- {i1} + {p} >= 0', f'- {i2} + {p} >= 0']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p))
-                self.weight = [" + ".join(var_p)]
-                return model_list
-            elif self.model_version == self.__class__.__name__ + "_LINEAR":
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
-                var_p = [self.ID + '_p_' + str(i) for i in range(self.input_vars[0].bitsize)]
-                for i in range(len(var_in1)):
-                    i1, i2, o, p = var_in1[i], var_in2[i], var_out[i], var_p[i]
-                    model_list += [f'{p} - {i1} >= 0', f'{p} - {i2} >= 0', f'{p} - {o} = 0']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p))
-                self.weight = [" + ".join(var_p)]
-                return model_list
-            else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        return _generate_and_or_active_weight_model(self, model_type)
 
 
 class OR(BinaryOperator):  # Operator for the bitwise OR operation: compute the bitwise OR on the two input variables towards the output variable
@@ -72,47 +79,7 @@ class OR(BinaryOperator):  # Operator for the bitwise OR operation: compute the 
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 
     def generate_model(self, model_type='sat'):
-        model_list = []
-        if model_type == 'sat':
-            if self.model_version == self.__class__.__name__ + "_XORDIFF":
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
-                var_p = [self.ID + '_p_' + str(i) for i in range(self.input_vars[0].bitsize)]
-                for i in range(len(var_in1)):
-                    i1, i2, o, p = var_in1[i], var_in2[i], var_out[i], var_p[i]
-                    model_list += [f'{i1} {i2} -{o}', f'{i1} {i2} -{p}', f'-{i1} {p}', f'-{i2} {p}']
-                self.weight = var_p
-                return model_list
-            elif self.model_version == self.__class__.__name__ + "_LINEAR":
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
-                var_p = [self.ID + '_p_' + str(i) for i in range(self.input_vars[0].bitsize)]
-                for i in range(len(var_in1)):
-                    i1, i2, o, p = var_in1[i], var_in2[i], var_out[i], var_p[i]
-                    model_list += [f'{p} -{i1}', f'{p} -{i2}', f'{p} -{o}', f'-{p} {o}']
-                self.weight = var_p
-                return model_list
-            else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        elif model_type == 'milp':
-            if self.model_version == self.__class__.__name__+"_XORDIFF":
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
-                var_p = [self.ID + '_p_' + str(i) for i in range(self.input_vars[0].bitsize)]
-                for i in range(len(var_in1)):
-                    i1, i2, o, p = var_in1[i], var_in2[i], var_out[i], var_p[i]
-                    model_list += [f'{i1} + {i2} - {o} >= 0', f'{i1} + {i2} - {p} >= 0',  f'- {i1} + {p} >= 0', f'- {i2} + {p} >= 0']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p))
-                self.weight = [" + ".join(var_p)]
-                return model_list
-            elif self.model_version == self.__class__.__name__ + "_LINEAR":
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
-                var_p = [self.ID + '_p_' + str(i) for i in range(self.input_vars[0].bitsize)]
-                for i in range(len(var_in1)):
-                    i1, i2, o, p = var_in1[i], var_in2[i], var_out[i], var_p[i]
-                    model_list += [f'{p} - {i1} >= 0', f'{p} - {i2} >= 0', f'{p} - {o} = 0']
-                model_list.append('Binary\n' +  ' '.join(v for v in var_in1 + var_in2 + var_out + var_p))
-                self.weight = [" + ".join(var_p)]
-                return model_list
-            else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        return _generate_and_or_active_weight_model(self, model_type)
 
 
 class XOR(BinaryOperator):  # Operator for the bitwise XOR operation: compute the bitwise XOR on the two input variables towards the output variable
@@ -133,7 +100,7 @@ class XOR(BinaryOperator):  # Operator for the bitwise XOR operation: compute th
         if model_type in ['sat', 'milp']:
             # Modeling for differential cryptanalysis
             if self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_XORDIFF_1", self.__class__.__name__ + "_XORDIFF_2"]:
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
+                var_in1, var_in2, var_out = _binary_bit_vars(self)
                 version = int(t) if (t := self.model_version.rsplit('_', 1)[-1]).isdigit() else 0
                 for i in range(len(var_in1)):
                     if model_type == 'milp' and version in [1, 2]:
@@ -154,13 +121,13 @@ class XOR(BinaryOperator):  # Operator for the bitwise XOR operation: compute th
                 return model_list
             # Modeling for linear cryptanalysis
             elif model_type == 'sat' and self.model_version in [self.__class__.__name__ + "_LINEAR"]:
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
+                var_in1, var_in2, var_out = _binary_bit_vars(self)
                 for i in range(len(var_in1)):
                     i1, i2, o = var_in1[i],var_in2[i],var_out[i]
                     model_list += [f'{i1} -{o}', f'-{i1} {o}', f'{i2} -{o}', f'-{i2} {o}']
                 return model_list
             elif model_type == 'milp' and self.model_version == self.__class__.__name__ + "_LINEAR":
-                var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
+                var_in1, var_in2, var_out = _binary_bit_vars(self)
                 for i in range(len(var_in1)):
                     i1, i2, o = var_in1[i], var_in2[i], var_out[i]
                     model_list += [f'{i1} - {o} = 0', f'{i2} - {o} = 0']

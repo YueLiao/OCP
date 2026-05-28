@@ -1,5 +1,5 @@
 import variables.variables as var
-from operators.boolean_operators import XOR
+from operators.boolean_operators import AND, OR, XOR
 from operators.operators import Equal, Rot
 from operators.Sbox import PRESENT_Sbox
 from operators.matrix import (
@@ -38,6 +38,30 @@ def test_xor_generates_milp_linear_model():
     assert "in0_0 - out_0 = 0" in model
     assert "in1_1 - out_1 = 0" in model
     assert any(line.startswith("Binary\n") for line in model)
+
+
+def test_and_or_share_stable_active_weight_models():
+    for operator_cls in (AND, OR):
+        left = var.Variable(2, ID="in0")
+        right = var.Variable(2, ID="in1")
+        out = var.Variable(2, ID="out")
+        op = operator_cls([left, right], [out], ID=operator_cls.__name__)
+
+        op.model_version = f"{operator_cls.__name__}_XORDIFF"
+        sat_model = op.generate_model("sat")
+        assert sat_model[:4] == [
+            "in0_0 in1_0 -out_0",
+            f"in0_0 in1_0 -{operator_cls.__name__}_p_0",
+            f"-in0_0 {operator_cls.__name__}_p_0",
+            f"-in1_0 {operator_cls.__name__}_p_0",
+        ]
+        assert op.weight == [f"{operator_cls.__name__}_p_0", f"{operator_cls.__name__}_p_1"]
+
+        op.model_version = f"{operator_cls.__name__}_LINEAR"
+        milp_model = op.generate_model("milp")
+        assert f"{operator_cls.__name__}_p_0 - in0_0 >= 0" in milp_model
+        assert f"{operator_cls.__name__}_p_1 - out_1 = 0" in milp_model
+        assert op.weight == [f"{operator_cls.__name__}_p_0 + {operator_cls.__name__}_p_1"]
 
 
 def test_equal_generates_sat_equivalence_model():
