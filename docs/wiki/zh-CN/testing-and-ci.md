@@ -83,5 +83,7 @@ config_model = {"profile_model_generation": True}
 python -m tools.profile_model_generation present:1 forro:1
 ```
 
+Profile case 使用 `name` 或 `name:rounds` 格式；rounds 必须是正整数。
+
 该命令会输出 JSON，包含 primitive 构建耗时、模型生成耗时、约束数量和按 operator
 聚合的热点统计。它适合在运行更重的求解器流程之前，用来比较小规模性能优化改动。

@@ -64,6 +64,7 @@
 - 收窄 PySAT cardinality fallback 处理，让意外程序错误继续暴露。
 - 将 attack/model generation 路径里的重复约束和 objective 列表拼接改为显式原地扩展。
 - 添加可选模型生成 profiling，用于记录每类 operator 的约束数量和耗时。
+- 为模型生成 profiler 的 case 字符串添加更清晰的校验错误。
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。
 - 将模板实例化里的逐变量多次正则替换改为单次 token 替换，减少约束模板展开开销。
 - 为模型生成添加 opt-in identity elision，用于保守跳过内部 Equal 链。
@@ -83,7 +84,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`157 passed, 106 skipped`。
+最新默认 pytest 状态：`158 passed, 106 skipped`。
 
 ## 后续工作
 

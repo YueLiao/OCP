@@ -1,4 +1,5 @@
 import variables.variables as var
+import pytest
 from attacks.common import parse_and_set_configs
 from operators.Sbox import PRESENT_Sbox, _compute_ddt_cached, _compute_lat_cached
 from operators.matrix import (
@@ -121,6 +122,12 @@ def test_model_generation_profiler_reports_constraint_hotspots():
 
     assert profile_case("chacha:1")["profile"]["operators"]["ModAdd"]["calls"] == 16
     assert profile_case("salsa:1")["profile"]["operators"]["ModAdd"]["calls"] == 16
+
+
+def test_model_generation_profiler_rejects_invalid_cases():
+    for case in ("", ":1", "forro:abc", "forro:0"):
+        with pytest.raises(ValueError, match="[Pp]rofile case|rounds"):
+            profile_case(case)
 
 
 def test_identity_elision_candidate_summary_is_conservative():

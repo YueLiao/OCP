@@ -90,6 +90,8 @@ For a repeatable local snapshot without solving:
 python -m tools.profile_model_generation present:1 forro:1
 ```
 
+Profile cases use `name` or `name:rounds`; rounds must be a positive integer.
+
 The command emits JSON with primitive build time, model generation time,
 constraint counts, and per-operator hotspots. It is intended for comparing
 small optimization changes before running heavier solver workflows.

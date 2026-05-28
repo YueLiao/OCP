@@ -89,9 +89,23 @@ def _cipher_factory(name):
 
 def _parse_case(case):
     if ":" not in case:
+        if not case:
+            raise ValueError("Profile case name cannot be empty.")
         return case, None
     name, rounds = case.split(":", 1)
-    return name, int(rounds)
+    if not name:
+        raise ValueError(f"Invalid profile case '{case}': primitive name cannot be empty.")
+    try:
+        parsed_rounds = int(rounds)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid profile case '{case}': rounds must be a positive integer."
+        ) from exc
+    if parsed_rounds <= 0:
+        raise ValueError(
+            f"Invalid profile case '{case}': rounds must be a positive integer."
+        )
+    return name, parsed_rounds
 
 
 def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit=8, identity_elision=False):
