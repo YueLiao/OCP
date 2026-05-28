@@ -36,6 +36,7 @@
 - 收拢 primitive layer 的 Equal 约束、图遍历、输入/输出链接 helper，并优化 layer 输出查找。
 - 将 attack/solver 进度消息接入 verbose-aware logging，并把工具诊断改为 Python warnings。
 - 添加显式 solver 能力报告，用于检查可选 MILP/SAT 后端，并文档化当前 solver fallback。
+- 将 attack/model generation 路径里的重复约束和 objective 列表拼接改为显式原地扩展。
 - 明确旧式 operator 文件是人工实验脚本。
 - 将文档拆为英文和中文页面，并在顶部提供语言切换链接。
 

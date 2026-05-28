@@ -38,6 +38,7 @@ document, and extend.
 - Consolidated primitive layer Equal constraints, graph iteration, input/output link helpers, and faster layer output lookups.
 - Routed attack/solver progress messages through verbose-aware logging and converted tool diagnostics to Python warnings.
 - Added explicit solver capability reporting for optional MILP/SAT backends and documented the current solver fallbacks.
+- Replaced repeated constraint/objective list concatenation in attack/model generation paths with explicit in-place extension.
 - Clarified legacy operator scripts as manual experiments.
 - Split documentation into English and Chinese pages with language switch links.
 

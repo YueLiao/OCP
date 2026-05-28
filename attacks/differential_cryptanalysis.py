@@ -85,10 +85,10 @@ def search_diff_trail(cipher, goal="DIFFERENTIALPATH_PROB", constraints=["INPUT_
     model_cons = []
     for cons in constraints:
         if cons == "INPUT_NOT_ZERO":  # Deal with specific additional constraints.
-            model_cons += gen_input_non_zero_constraints(cipher, goal, config_model)
+            model_cons.extend(gen_input_non_zero_constraints(cipher, goal, config_model))
         else:
-            model_cons += [cons]
-    model_cons += round_constraints
+            model_cons.append(cons)
+    model_cons.extend(round_constraints)
 
     # For the goal of searching for differentials, fix the input and output differences
     if goal == "DIFFERENTIAL_PROB":
@@ -97,9 +97,9 @@ def search_diff_trail(cipher, goal="DIFFERENTIALPATH_PROB", constraints=["INPUT_
         if input_diff == None and output_diff == None:
             raise ValueError("For goal='DIFFERENTIAL_PROB', either input_diff or output_diff must be specified in config_model.")
         if input_diff is not None:
-            model_cons += gen_fixed_input_output_constraints("input", input_diff, cipher, config_model)
+            model_cons.extend(gen_fixed_input_output_constraints("input", input_diff, cipher, config_model))
         if output_diff is not None:
-            model_cons += gen_fixed_input_output_constraints("output", output_diff, cipher, config_model)
+            model_cons.extend(gen_fixed_input_output_constraints("output", output_diff, cipher, config_model))
 
     # Step 4: Modeling and Solving.
     if model_type == "milp":
