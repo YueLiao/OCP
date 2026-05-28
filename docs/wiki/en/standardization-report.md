@@ -43,6 +43,7 @@ document, and extend.
 - Added direct `OCPAgent` APIs for text-first fact extraction, draft creation, and explicit confirmation before building.
 - Added a CLI `draft <cipher text>` review-and-confirm flow for text-first cipher drafts.
 - Added web text draft/confirm endpoints and a `Draft` UI action for review-before-build workflows.
+- Aligned web provider API-key resolution with CLI environment-variable defaults.
 - Added explicit 400 responses for missing JSON bodies on web JSON endpoints.
 - Returned HTTP 400 for invalid web provider configuration errors.
 - Returned file-extraction data and artifact links from the web upload endpoint.
@@ -64,6 +65,8 @@ document, and extend.
 - Added opt-in model generation profiling to record per-operator constraint counts and timings.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
 - Replaced repeated per-variable template regex passes with single-pass token substitution during constraint template instantiation.
+- Added opt-in identity elision for conservative internal Equal chains in model generation.
+- Verified identity-elision trail extraction, MILP/SAT generation, and primitive-graph boundaries.
 - Reclassified PDF/image extraction as an experimental import helper and disabled web upload auto-build.
 - Added explicit page-range validation for experimental file extraction.
 - Clarified legacy operator scripts as manual experiments.
@@ -78,7 +81,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `120 passed, 106 skipped`.
+Latest default pytest status: `152 passed, 106 skipped`.
 
 ## Next Work
 

@@ -59,6 +59,9 @@ python3 web/app.py --port 5001
 The web UI includes chat, provider configuration, and a `Draft` action for
 text-first cipher descriptions. `Draft` extracts facts, returns a reviewable
 `CipherSpec` draft, and asks for confirmation before building the cipher.
+Provider API keys can be entered in the web form or resolved from the same
+environment variables used by the CLI, such as `DEEPSEEK_API_KEY` and
+`OPENAI_API_KEY`.
 Each text-first draft flow writes a replayable JSON job record under
 `OCP_FILES_DIR/agent_jobs/` and returns it as an artifact link.
 

@@ -73,6 +73,45 @@ def test_config_returns_400_for_unknown_provider():
     assert "Unknown provider" in response.get_json()["error"]
 
 
+def test_config_resolves_api_key_from_provider_environment(monkeypatch):
+    captured = {}
+
+    class FakeProvider:
+        pass
+
+    def fake_create_llm_provider(provider_name, api_key=None, model=None, base_url=None):
+        captured.update(
+            {
+                "provider_name": provider_name,
+                "api_key": api_key,
+                "model": model,
+                "base_url": base_url,
+            }
+        )
+        return FakeProvider()
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "env-deepseek-key")
+    monkeypatch.setattr(web_app, "create_llm_provider", fake_create_llm_provider)
+    client = web_app.app.test_client()
+
+    response = client.post("/api/config", json={"provider": "deepseek"})
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["success"] is True
+    assert data["config"] == {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "connected": True,
+    }
+    assert captured == {
+        "provider_name": "deepseek",
+        "api_key": "env-deepseek-key",
+        "model": "",
+        "base_url": None,
+    }
+
+
 def test_upload_response_includes_data_and_artifact_links():
     class FakeUploadAgent:
         session = SimpleNamespace(get_context=lambda: {"has_cipher": False})

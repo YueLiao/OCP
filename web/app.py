@@ -21,7 +21,7 @@ from flask import Flask, render_template, request, jsonify
 from agent.agentic import requires_confirmation
 from agent.interfaces.api import OCPAgent
 from agent.llm.factory import create_llm_provider
-from agent.llm.provider_config import default_model, get_provider_defaults
+from agent.llm.provider_config import api_key_error, default_model, get_provider_defaults, resolve_api_key
 from agent.result_payload import skill_result_payload
 from agent.verifier import verify_action
 from solving.solving import solver_capabilities
@@ -120,14 +120,15 @@ def set_config():
     if data is None:
         return _error_response("JSON request body is required.", 400, "invalid_json")
     provider_name = data.get("provider", "openai")
-    api_key = data.get("api_key", "")
+    explicit_api_key = data.get("api_key", "")
     model = data.get("model", "")
     base_url = data.get("base_url", "")
 
     try:
         provider_defaults = get_provider_defaults(provider_name)
+        api_key = resolve_api_key(provider_name, explicit_api_key, os.environ)
         if provider_defaults.requires_api_key and not api_key:
-            return _error_response("API key is required.", 400, "missing_api_key")
+            return _error_response(api_key_error(provider_name), 400, "missing_api_key")
 
         provider = create_llm_provider(provider_name, api_key=api_key, model=model, base_url=base_url or None)
         agent = OCPAgent(llm_provider=provider)

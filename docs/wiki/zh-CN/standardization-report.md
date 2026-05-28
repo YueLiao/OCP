@@ -41,6 +41,7 @@
 - 添加文本优先 facts 抽取、draft 创建和显式确认构建的 `OCPAgent` 直接 API。
 - 添加 CLI `draft <cipher text>` 文本优先草稿审阅和确认流程。
 - 添加网页 text draft/confirm endpoint 和 `Draft` UI 动作，用于先审阅再构建。
+- 将网页 provider API key 解析与 CLI 的环境变量默认行为对齐。
 - 为网页 JSON endpoints 缺失 JSON body 的情况添加显式 400 响应。
 - 对网页 provider 配置错误返回 HTTP 400。
 - 从网页上传 endpoint 返回文件抽取 data 和 artifact links。
@@ -62,6 +63,8 @@
 - 添加可选模型生成 profiling，用于记录每类 operator 的约束数量和耗时。
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。
 - 将模板实例化里的逐变量多次正则替换改为单次 token 替换，减少约束模板展开开销。
+- 为模型生成添加 opt-in identity elision，用于保守跳过内部 Equal 链。
+- 验证 identity-elision 下的 trail extraction、MILP/SAT 生成和 primitive graph 边界。
 - 将 PDF/image 抽取重新标注为 experimental import helper，并关闭网页上传自动构建。
 - 为 experimental file extraction 添加显式页码范围校验。
 - 明确旧式 operator 文件是人工实验脚本。
@@ -76,7 +79,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`120 passed, 106 skipped`。
+最新默认 pytest 状态：`152 passed, 106 skipped`。
 
 ## 后续工作
 

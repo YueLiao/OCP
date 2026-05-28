@@ -57,6 +57,8 @@ python3 web/app.py --port 5001
 
 网页端包含 chat、provider 配置，以及面向文本优先密码描述的 `Draft` 动作。`Draft`
 会抽取 facts、返回可审阅的 `CipherSpec` 草稿，并在构建 cipher 前要求确认。
+Provider API key 可以在网页表单里输入，也可以从 CLI 相同的环境变量读取，例如
+`DEEPSEEK_API_KEY` 和 `OPENAI_API_KEY`。
 每次文本优先 draft 流程都会在 `OCP_FILES_DIR/agent_jobs/` 下写出可复现 JSON job
 记录，并作为 artifact link 返回。
 
