@@ -18,3 +18,13 @@ def test_direct_api_reports_unknown_cipher():
 
     assert not result.success
     assert "Unknown cipher" in result.error
+
+
+def test_direct_api_rejects_invalid_builtin_cipher_version():
+    agent = OCPAgent()
+
+    result = agent.instantiate_cipher("speck", "blockcipher", version=[31, 64])
+
+    assert not result.success
+    assert "Invalid version" in result.error
+    assert "[32, 64]" in result.error

@@ -32,8 +32,10 @@ document, and extend.
 - Removed import-time runtime path snapshots from logic minimization and default agent code generation output.
 - Routed default `OCPAgent` code generation and visualization outputs through runtime `OCP_FILES_DIR`.
 - Added structured pass/fail summaries to agent code generation test results while preserving legacy result entries.
+- Added artifact links for agent code generation and visualization outputs.
 - Reduced import-time optional dependency noise for solver/modeling backends.
 - Added analysis skill boundary validation for unsupported model types.
+- Added built-in cipher version validation at the agent instantiation boundary.
 - Narrowed trail solution-bit error handling to numeric conversion failures.
 - Added DeepSeek and generic OpenAI-compatible provider support.
 - Added text-first cipher input dataclasses, Markdown/LaTeX normalization, deterministic fact validation, prompt/parse boundaries, and draft-to-spec conversion helpers.
@@ -43,6 +45,7 @@ document, and extend.
 - Added web text draft/confirm endpoints and a `Draft` UI action for review-before-build workflows.
 - Added explicit 400 responses for missing JSON bodies on web JSON endpoints.
 - Returned HTTP 400 for invalid web provider configuration errors.
+- Returned file-extraction data and artifact links from the web upload endpoint.
 - Added replayable JSON job records and artifact links for text-first extraction, draft, and confirmation.
 - Expanded the text-first Agentic roadmap into a reviewable implementation contract for schemas, web flow, providers, safety gates, and tests.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
@@ -70,7 +73,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `109 passed, 106 skipped`.
+Latest default pytest status: `111 passed, 106 skipped`.
 
 ## Next Work
 

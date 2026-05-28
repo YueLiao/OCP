@@ -30,8 +30,10 @@
 - 移除 logic minimization 和 agent 代码生成默认输出目录里的 import-time 路径快照。
 - 让默认 `OCPAgent` 代码生成和可视化输出通过运行时 `OCP_FILES_DIR` 解析。
 - 为 agent 代码生成测试结果添加结构化通过/失败统计，同时保留旧的结果条目。
+- 为 agent 代码生成和可视化输出添加 artifact links。
 - 减少 solver/modeling 可选后端在 import 阶段的噪声。
 - 为 analysis skill 添加不支持 model type 的边界校验。
+- 在 agent 内置 cipher 实例化边界添加版本校验。
 - 将 trail solution-bit 的异常处理收窄到数值转换失败。
 - 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
 - 添加文本优先密码输入 dataclass、Markdown/LaTeX 规整、确定性 facts 校验、prompt/parse 边界和 draft-to-spec 转换 helper。
@@ -41,6 +43,7 @@
 - 添加网页 text draft/confirm endpoint 和 `Draft` UI 动作，用于先审阅再构建。
 - 为网页 JSON endpoints 缺失 JSON body 的情况添加显式 400 响应。
 - 对网页 provider 配置错误返回 HTTP 400。
+- 从网页上传 endpoint 返回文件抽取 data 和 artifact links。
 - 为 text-first 抽取、draft 和 confirmation 添加可复现 JSON job 记录与 artifact links。
 - 将文本优先 Agentic 路线图扩展为可评审实现契约，覆盖 schema、网页流程、provider、安全确认和测试。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
@@ -68,7 +71,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`109 passed, 106 skipped`。
+最新默认 pytest 状态：`111 passed, 106 skipped`。
 
 ## 后续工作
 

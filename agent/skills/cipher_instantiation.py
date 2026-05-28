@@ -165,6 +165,15 @@ def _format_instantiation_error(cipher_name: str, exc: Exception) -> str:
     return f"Failed to instantiate {cipher_name}: {exc}"
 
 
+def _validate_version(entry, cipher_type, version):
+    valid_versions = entry.get("valid_versions", {}).get(cipher_type)
+    if version is None or valid_versions is None:
+        return None
+    if version not in valid_versions:
+        return f"Invalid version for {cipher_type}: {version}. Supported: {valid_versions}"
+    return None
+
+
 class CipherInstantiationSkill(BaseSkill):
 
     @property
@@ -243,6 +252,14 @@ class CipherInstantiationSkill(BaseSkill):
             kwargs["r"] = rounds
         if version is not None:
             kwargs["version"] = version
+
+        version_error = _validate_version(entry, cipher_type, version)
+        if version_error:
+            return SkillResult(
+                success=False,
+                skill=self.name,
+                error=version_error,
+            )
 
         try:
             mod = importlib.import_module(module_path)

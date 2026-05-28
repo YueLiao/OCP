@@ -65,3 +65,6 @@ def test_agent_visualization_uses_runtime_files_dir_by_default(monkeypatch, tmp_
     assert result.success
     assert generated["filepath"] == tmp_path / "Tiny.pdf"
     assert result.data["filename"] == str(tmp_path / "Tiny.pdf")
+    assert result.data["artifact_links"] == [
+        {"label": "visualization", "path": str(tmp_path / "Tiny.pdf")}
+    ]

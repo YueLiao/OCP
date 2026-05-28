@@ -187,6 +187,8 @@ def upload_file():
             "success": result.success,
             "summary": result.summary,
             "error": result.error,
+            "data": result.data,
+            "artifact_links": (result.data or {}).get("artifact_links", []) if isinstance(result.data, dict) else [],
             "context": ctx,
         })
     except Exception as e:

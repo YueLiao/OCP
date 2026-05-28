@@ -1,8 +1,11 @@
+from io import BytesIO
+from types import SimpleNamespace
+
 import web.app as web_app
 
 from agent.interfaces.api import OCPAgent
 from agent.llm.provider import LLMProvider
-from agent.types import UserIntent
+from agent.types import SkillName, SkillResult, UserIntent
 
 
 class FakeFactsProvider(LLMProvider):
@@ -69,6 +72,38 @@ def test_config_returns_400_for_unknown_provider():
     assert response.status_code == 400
     assert response.get_json()["success"] is False
     assert "Unknown provider" in response.get_json()["error"]
+
+
+def test_upload_response_includes_data_and_artifact_links():
+    class FakeUploadAgent:
+        session = SimpleNamespace(get_context=lambda: {"has_cipher": False})
+
+        def extract_cipher_from_file(self, file_path, focus=None, auto_build=False):
+            return SkillResult(
+                success=True,
+                skill=SkillName.CIPHER_EXTRACTION,
+                data={
+                    "artifact_links": [{"label": "extract_log", "path": file_path}],
+                    "note": "ok",
+                },
+                summary="uploaded",
+            )
+
+    web_app.agent = FakeUploadAgent()
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    response = client.post(
+        "/api/upload",
+        data={"file": (BytesIO(b"cipher text"), "cipher.txt")},
+        content_type="multipart/form-data",
+    )
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["success"] is True
+    assert data["data"]["note"] == "ok"
+    assert data["artifact_links"][0]["label"] == "extract_log"
 
 
 def test_text_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):

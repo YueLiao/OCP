@@ -30,6 +30,9 @@ def test_code_generation_uses_runtime_files_dir_by_default(monkeypatch, tmp_path
     assert result.success
     assert generated["filename"] == tmp_path / "Tiny.py"
     assert result.data["filename"] == str(tmp_path / "Tiny.py")
+    assert result.data["artifact_links"] == [
+        {"label": "generated_code", "path": str(tmp_path / "Tiny.py")}
+    ]
 
 
 def test_code_generation_respects_explicit_output_dir(monkeypatch, tmp_path):

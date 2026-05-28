@@ -56,7 +56,10 @@ class VisualizationSkill(BaseSkill):
             return SkillResult(
                 success=True,
                 skill=self.name,
-                data={"filename": str(filepath)},
+                data={
+                    "filename": str(filepath),
+                    "artifact_links": [{"label": "visualization", "path": str(filepath)}],
+                },
                 summary=f"Generated visualization: {filepath}",
             )
         except Exception as e:

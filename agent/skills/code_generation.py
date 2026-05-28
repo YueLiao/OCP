@@ -82,7 +82,12 @@ class CodeGenerationSkill(BaseSkill):
 
         try:
             imp.generate_implementation(cipher, filename, language, unroll)
-            results_data = {"filename": str(filename), "language": language, "unrolled": unroll}
+            results_data = {
+                "filename": str(filename),
+                "language": language,
+                "unrolled": unroll,
+                "artifact_links": [{"label": "generated_code", "path": str(filename)}],
+            }
 
             # Run tests if requested
             test_results = []
