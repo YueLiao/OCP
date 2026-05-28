@@ -15,7 +15,7 @@ from primitives.forro import (
     _forro_subround_selection,
 )
 from primitives.salsa import SALSA_KEYPERMUTATION, SALSA_PERMUTATION
-from tools.profile_model_generation import profile_case
+from tools.profile_model_generation import profile_case, summarize_identity_elision_candidates
 
 
 def test_sbox_ddt_lat_are_cached_across_instances():
@@ -119,3 +119,36 @@ def test_model_generation_profiler_reports_constraint_hotspots():
 
     assert profile_case("chacha:1")["profile"]["operators"]["ModAdd"]["calls"] == 16
     assert profile_case("salsa:1")["profile"]["operators"]["ModAdd"]["calls"] == 16
+
+
+def test_identity_elision_candidate_summary_is_conservative():
+    report = profile_case("forro:1", top_limit=2)
+    summary = report["identity_elision_candidates"]
+
+    assert summary["estimated_constraints"] == 11520
+    assert summary["estimated_ratio"] == round(11520 / report["constraint_count"], 6)
+    assert summary["top_candidates"] == [
+        {
+            "name": "Equal:Add1_EQ",
+            "calls": 15,
+            "constraints": 960,
+            "time_s": summary["top_candidates"][0]["time_s"],
+        },
+        {
+            "name": "Equal:Add2_EQ",
+            "calls": 15,
+            "constraints": 960,
+            "time_s": summary["top_candidates"][1]["time_s"],
+        },
+    ]
+
+    profile = {
+        "total_constraints": 20,
+        "operator_prefixes": {
+            "Equal:IN_LINK_EQ": {"calls": 1, "constraints": 2, "time_s": 0.0},
+            "Equal:OUT_LINK_EQ": {"calls": 1, "constraints": 2, "time_s": 0.0},
+            "Equal:LINK_EQ": {"calls": 1, "constraints": 2, "time_s": 0.0},
+            "Equal:Add1_EQ": {"calls": 1, "constraints": 8, "time_s": 0.0},
+        },
+    }
+    assert summarize_identity_elision_candidates(profile)["estimated_constraints"] == 8

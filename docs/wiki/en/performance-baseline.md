@@ -35,6 +35,9 @@ around an `Add1` layer.
 For quick inspection, each report also includes `top_operators` and
 `top_operator_prefixes`, sorted by generated constraint count. Use
 `--top-limit` to control how many rows are included in those summaries.
+`identity_elision_candidates` estimates the conservative subset of internal
+identity constraints that could be removed by a future alias-based pass. See
+[Identity Elision Design](identity-elision-design.md).
 
 ## Reading the Numbers
 

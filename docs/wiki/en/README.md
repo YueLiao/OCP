@@ -19,6 +19,7 @@ and expose the same capabilities through a direct Python API.
 - [Standardization Report](standardization-report.md)
 - [Agentic System Roadmap](agentic-system-roadmap.md)
 - [Performance Baseline](performance-baseline.md)
+- [Identity Elision Design](identity-elision-design.md)
 - [Testing and CI](testing-and-ci.md)
 
 ## Typical Workflows

@@ -12,6 +12,11 @@ from tools.model_constraints import gen_round_model_constraint_obj_fun
 
 
 DEFAULT_CASES = ("present:1", "chacha:1", "salsa:1", "forro:1")
+NON_ELIDABLE_EQUAL_PREFIXES = (
+    "Equal:IN_LINK",
+    "Equal:OUT_LINK",
+    "Equal:LINK_EQ",
+)
 
 
 def _top_profile_entries(entries, limit):
@@ -28,6 +33,35 @@ def _top_profile_entries(entries, limit):
         }
         for name, stats in sorted_entries[:limit]
     ]
+
+
+def _is_identity_elision_candidate(prefix_name):
+    return prefix_name.startswith("Equal:") and not prefix_name.startswith(
+        NON_ELIDABLE_EQUAL_PREFIXES
+    )
+
+
+def summarize_identity_elision_candidates(profile, top_limit=8):
+    """Estimate internal identity-equivalence constraints that may be elidable.
+
+    This is a conservative diagnostic. It does not remove constraints; it only
+    groups internal Equal constraints by ID prefix so a later graph-level
+    identity-elision pass can be designed against measured hotspots.
+    """
+
+    candidates = {
+        name: stats
+        for name, stats in profile.get("operator_prefixes", {}).items()
+        if _is_identity_elision_candidate(name)
+    }
+    estimated_constraints = sum(stats["constraints"] for stats in candidates.values())
+    total_constraints = profile.get("total_constraints", 0)
+    ratio = estimated_constraints / total_constraints if total_constraints else 0.0
+    return {
+        "estimated_constraints": estimated_constraints,
+        "estimated_ratio": round(ratio, 6),
+        "top_candidates": _top_profile_entries(candidates, top_limit),
+    }
 
 
 def _cipher_factory(name):
@@ -100,6 +134,7 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit
     profile = config_model["model_generation_profile"]
     top_operators = _top_profile_entries(profile["operators"], top_limit)
     top_operator_prefixes = _top_profile_entries(profile["operator_prefixes"], top_limit)
+    identity_elision = summarize_identity_elision_candidates(profile, top_limit=top_limit)
     return {
         "case": case,
         "cipher": cipher.name,
@@ -112,6 +147,7 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit
         "objective_rows": len(objective),
         "top_operators": top_operators,
         "top_operator_prefixes": top_operator_prefixes,
+        "identity_elision_candidates": identity_elision,
         "profile": profile,
     }
 

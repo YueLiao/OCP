@@ -31,6 +31,8 @@ Profiler 还会输出 `operator_prefixes`，按 operator 类型和 ID 前缀聚�
 
 为了快速查看，每份报告还会包含 `top_operators` 和 `top_operator_prefixes`，
 按生成约束数量排序。可以用 `--top-limit` 控制摘要行数。
+`identity_elision_candidates` 会保守估算未来基于 alias 的优化可能移除的内部
+identity 约束子集。详见 [Identity Elision 设计](identity-elision-design.md)。
 
 ## 如何理解这些数字
 
