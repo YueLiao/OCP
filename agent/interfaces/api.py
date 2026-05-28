@@ -1,14 +1,19 @@
 """Programmatic API for the OCP agent."""
 
-from typing import Any, Dict, List, Optional
-
-from typing import Union
+from typing import Any, Dict, List, Optional, Union
 
 from agent.core import AgentCore
 from agent.types import SkillName, SkillRequest, SkillResult
 from agent.session import Session
 from agent.skills import SkillRegistry, create_default_registry
 from agent.skills.cipher_spec import CipherSpec
+from agent.skills.cipher_text_input import (
+    CipherFacts,
+    CipherSpecDraft,
+    build_cipher_spec_draft,
+    parse_cipher_facts_response,
+)
+from agent.llm.prompt_templates import build_cipher_facts_extraction_prompt
 from agent.llm.provider import LLMProvider
 
 
@@ -205,6 +210,105 @@ class OCPAgent:
             skill=SkillName.CIPHER_DEFINITION,
             params={"spec": spec},
         ))
+
+    def extract_cipher_facts(
+        self,
+        text: str,
+        source_type: str = "direct_text",
+        format_hint: str = "mixed",
+        source_name: Optional[str] = None,
+        language_hint: str = "unknown",
+    ) -> SkillResult:
+        """Extract text-first cipher facts with the configured LLM provider."""
+
+        if self._core.llm is None:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_EXTRACTION,
+                error="No LLM provider configured for text-first fact extraction.",
+            )
+
+        from agent.skills.cipher_text_input import CipherInput
+
+        cipher_input = CipherInput(
+            raw_text=text,
+            source_type=source_type,
+            format_hint=format_hint,
+            source_name=source_name,
+            language_hint=language_hint,
+        )
+        input_errors = cipher_input.validate()
+        if input_errors:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_EXTRACTION,
+                error="; ".join(input_errors),
+            )
+
+        prompt = build_cipher_facts_extraction_prompt(cipher_input)
+        try:
+            raw_response = self._core.llm.call_llm(prompt)
+        except NotImplementedError as exc:
+            return SkillResult(success=False, skill=SkillName.CIPHER_EXTRACTION, error=str(exc))
+
+        facts = parse_cipher_facts_response(raw_response)
+        if facts is None:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_EXTRACTION,
+                error="LLM response did not contain parseable cipher facts JSON.",
+            )
+
+        errors, warnings = facts.validate()
+        self.session.set_metadata("pending_cipher_facts", facts)
+        return SkillResult(
+            success=not errors,
+            skill=SkillName.CIPHER_EXTRACTION,
+            data={"facts": facts, "validation_errors": errors, "warnings": warnings},
+            summary=f"Extracted candidate facts for {facts.name or 'an unnamed cipher'}.",
+            error="; ".join(errors) if errors else None,
+        )
+
+    def draft_cipher_spec(self, facts: Union[CipherFacts, Dict[str, Any], None] = None) -> CipherSpecDraft:
+        """Create a user-reviewable CipherSpec draft from extracted facts."""
+
+        if facts is None:
+            facts = self.session.get_metadata("pending_cipher_facts")
+        if isinstance(facts, dict):
+            facts = CipherFacts.from_dict(facts)
+        if not isinstance(facts, CipherFacts):
+            raise ValueError("CipherFacts are required to draft a CipherSpec.")
+
+        draft = build_cipher_spec_draft(facts)
+        self.session.set_metadata("pending_cipher_spec_draft", draft)
+        self.session.set_metadata("pending_cipher_spec", draft.spec)
+        return draft
+
+    def confirm_cipher_spec(self, draft: Optional[Union[CipherSpecDraft, Dict[str, Any]]] = None) -> SkillResult:
+        """Confirm and build a reviewed text-first CipherSpec draft."""
+
+        if draft is None:
+            draft = self.session.get_metadata("pending_cipher_spec_draft")
+        if isinstance(draft, dict):
+            draft = CipherSpecDraft(spec=draft)
+            draft.validate_spec()
+        if not isinstance(draft, CipherSpecDraft):
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_DEFINITION,
+                error="No pending CipherSpecDraft is available to confirm.",
+            )
+        if draft.validation_errors:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_DEFINITION,
+                error="Cannot confirm CipherSpecDraft with validation errors: "
+                + "; ".join(draft.validation_errors),
+            )
+
+        draft.requires_user_confirmation = False
+        self.session.set_metadata("confirmed_cipher_spec", draft.spec)
+        return self.define_custom_cipher(draft.spec)
 
     def extract_cipher_from_file(
         self,

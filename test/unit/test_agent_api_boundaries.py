@@ -1,4 +1,34 @@
 from agent import CipherSpec, LayerSpec, OCPAgent
+from agent.llm.provider import LLMProvider
+from agent.types import UserIntent
+
+
+class FakeFactsProvider(LLMProvider):
+    def parse_user_request(self, user_message, conversation_history, available_skills, session_context):
+        return UserIntent(raw_text=user_message)
+
+    def generate_response(self, results, original_intent, conversation_history, session_context):
+        return "ok"
+
+    def handle_error(self, error, failed_request, session_context):
+        return str(error)
+
+    def call_llm(self, prompt, image_data=None):
+        self.prompt = prompt
+        return """{
+          "cipher_facts": {
+            "name": "TinyARX",
+            "primitive_type": "permutation",
+            "state": {"block_size": 32, "word_bitsize": 16, "nbr_words": 2},
+            "rounds": {"nbr_rounds": 2},
+            "operations": [
+              {"type": "rotation", "params": {"direction": "r", "amount": 7, "word_index": 0}},
+              {"type": "modadd", "params": {"input_indices": [[0, 1]], "output_indices": [0]}},
+              {"type": "rotation", "params": {"direction": "l", "amount": 2, "word_index": 1}},
+              {"type": "xor", "params": {"input_indices": [[0, 1]], "output_indices": [1]}}
+            ]
+          }
+        }"""
 
 
 def test_custom_cipher_definition_validates_missing_round_structure():
@@ -33,3 +63,49 @@ def test_custom_cipher_definition_builds_tiny_arx_permutation():
     assert result.success
     assert result.data["cipher_name"] == "TinyARX_PERM"
     assert agent.session.get_cipher().name == "TinyARX_PERM"
+
+
+def test_text_first_extraction_requires_llm_provider():
+    agent = OCPAgent()
+
+    result = agent.extract_cipher_facts("x <- y")
+
+    assert not result.success
+    assert "No LLM provider configured" in result.error
+
+
+def test_text_first_extract_draft_and_confirm_builds_cipher():
+    provider = FakeFactsProvider()
+    agent = OCPAgent(llm_provider=provider)
+
+    extraction = agent.extract_cipher_facts(
+        r"x_0 \leftarrow (x_0 \ggg 7) \boxplus x_1",
+        format_hint="latex",
+    )
+    draft = agent.draft_cipher_spec()
+    result = agent.confirm_cipher_spec(draft)
+
+    assert extraction.success
+    assert "x_0  <-  (x_0  ROTR  7)  MODADD  x_1" in provider.prompt
+    assert draft.is_valid
+    assert not draft.requires_user_confirmation
+    assert result.success
+    assert result.data["cipher_name"] == "TinyARX_PERM"
+
+
+def test_confirm_cipher_spec_rejects_invalid_draft():
+    agent = OCPAgent()
+    draft = agent.draft_cipher_spec(
+        {
+            "name": "Broken",
+            "primitive_type": "permutation",
+            "state": {"block_size": 32, "word_bitsize": 16, "nbr_words": 2},
+            "rounds": {"nbr_rounds": 2},
+            "operations": [],
+        }
+    )
+
+    result = agent.confirm_cipher_spec(draft)
+
+    assert not result.success
+    assert "validation errors" in result.error

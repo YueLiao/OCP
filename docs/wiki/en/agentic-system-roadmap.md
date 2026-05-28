@@ -179,6 +179,7 @@ The confirmation view should show:
    Initial fact validation and draft conversion are in place.
 4. Add direct API methods for `extract_cipher_facts`, `draft_cipher_spec`, and
    `confirm_cipher_spec`.
+   Initial direct API methods are in place.
 5. Add CLI confirmation flow.
 6. Add web text workspace and draft review UI.
 7. Add replayable job records and artifact links.

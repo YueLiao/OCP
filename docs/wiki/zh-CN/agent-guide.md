@@ -98,3 +98,18 @@ draft = build_cipher_spec_draft(facts)
 assert draft.is_valid
 assert draft.requires_user_confirmation
 ```
+
+高层 `OCPAgent` API 暴露同一套流程：
+
+```python
+agent = OCPAgent(llm_provider=my_provider)
+
+facts_result = agent.extract_cipher_facts(
+    r"x_0 \leftarrow (x_0 \ggg 7) \boxplus x_1",
+    format_hint="latex",
+)
+draft = agent.draft_cipher_spec()
+
+# 先审阅 draft.validation_errors、draft.warnings 和 draft.assumptions。
+build_result = agent.confirm_cipher_spec(draft)
+```

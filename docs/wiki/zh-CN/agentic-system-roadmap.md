@@ -164,6 +164,7 @@ Provider factory 应支持：
 3. 添加确定性 validator 和 draft-to-spec 转换 helper。
    初始 facts 校验和 draft 转换已就位。
 4. 添加 `extract_cipher_facts`、`draft_cipher_spec` 和 `confirm_cipher_spec` 直接 API。
+   初始直接 API 已就位。
 5. 添加 CLI 确认流程。
 6. 添加网页文本工作区和草稿审阅 UI。
 7. 添加可复现 job 记录和产物链接。
