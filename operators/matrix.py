@@ -146,14 +146,11 @@ def _matrix_power_mod2_cached(matrix_tuple, power):
 @lru_cache(maxsize=None)
 def _generate_pmr_for_mds_cached(mds_tuple, mod_poly, degree):
     mds = [list(row) for row in mds_tuple]
-    sig_degree = (1 << degree)
-    if isinstance(mod_poly, str):
-        mod_poly = int(mod_poly, 0)
-    if mod_poly < sig_degree: mod_poly += sig_degree
+    mod_poly = _normalize_mod_poly(mod_poly, degree)
     matrix2 = generate_binary_matrix_2(mod_poly, degree)
     matrix3 = generate_binary_matrix_3(mod_poly, degree)
     pri = find_primitive_element_gf2m(mod_poly, degree)
-    elements_to_exponents, exponents_to_elements = generate_gf2_elements_and_exponents(pri, mod_poly, degree)
+    elements_to_exponents, _ = generate_gf2_elements_and_exponents(pri, mod_poly, degree)
     if pri == 2: companion_matrix = matrix2
     elif pri == 3: companion_matrix = matrix3
     else: companion_matrix = matrix_power_mod2(matrix2, elements_to_exponents[pri])
@@ -172,7 +169,7 @@ def _generate_pmr_for_mds_cached(mds_tuple, mod_poly, degree):
             for j in range(size):
                 start_index = j * degree
                 end_index = start_index + degree
-            pmr_new[base_index][start_index:end_index] = pmr[i][j][row_offset]
+                pmr_new[base_index][start_index:end_index] = pmr[i][j][row_offset]
     return pmr_new
 
 

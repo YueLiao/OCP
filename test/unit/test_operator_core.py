@@ -2,7 +2,13 @@ import variables.variables as var
 from operators.boolean_operators import XOR
 from operators.operators import Equal, Rot
 from operators.Sbox import PRESENT_Sbox
-from operators.matrix import generate_pmr_for_mds, matrix_multiply_mod2, matrix_power_mod2
+from operators.matrix import (
+    generate_binary_matrix_2,
+    generate_binary_matrix_3,
+    generate_pmr_for_mds,
+    matrix_multiply_mod2,
+    matrix_power_mod2,
+)
 
 
 def test_xor_generates_implementation_and_sat_xordiff_model():
@@ -92,3 +98,15 @@ def test_gf2_matrix_helpers_are_stable_and_return_mutable_copies():
     assert len(regenerated) == 16
     assert len(regenerated[0]) == 16
     assert regenerated[0][0] != 99
+
+
+def test_pmr_generation_populates_each_mds_block():
+    degree = 8
+    mod_poly = "0x1b"
+    pmr = generate_pmr_for_mds([[2, 3], [1, 1]], mod_poly, degree)
+
+    matrix2 = generate_binary_matrix_2(0x11B, degree)
+    matrix3 = generate_binary_matrix_3(0x11B, degree)
+
+    assert pmr[0][:degree] == matrix2[0]
+    assert pmr[0][degree:] == matrix3[0]

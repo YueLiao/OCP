@@ -223,6 +223,18 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
         float_w = w - int_w
         return [0] * (max(integers_weight) - int_w) + [1] * int_w + [1 if f == float_w else 0 for f in floats_weight]
 
+    def _bitwise_model_vars(self):
+        var_in, var_out = [], []
+        for i in range(len(self.input_vars)):
+            var_in += self.get_var_model("in", i)
+        for i in range(len(self.output_vars)):
+            var_out += self.get_var_model("out", i)
+        return var_in, var_out
+
+    @staticmethod
+    def _template_io_vars(var_in, var_out):
+        return [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
+
     # ---------------- Implementation Code Generation ---------------- #
     def generate_implementation(self, implementation_type='python', unroll=False):
         if implementation_type == 'python':
@@ -285,11 +297,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
         else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
 
     def _generate_model_diff_linear_pr(self, model_type, tool_type, mode):
-        var_in, var_out = [], []
-        for i in range(len(self.input_vars)):
-            var_in += self.get_var_model("in", i)
-        for i in range(len(self.output_vars)):
-            var_out += self.get_var_model("out", i)
+        var_in, var_out = self._bitwise_model_vars()
 
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_PR"]:
             table = self.computeDDT()
@@ -326,7 +334,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             else:
                 RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
 
-            input_variables, output_variables = [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
+            input_variables, output_variables = self._template_io_vars(var_in, var_out)
             generate_and_save_constraints(model_type, tool_type, mode, ttable, input_variables, output_variables, pr_variables, objective_fun=objective_fun, model_filename=self.model_filename)
             model_list, obj_fun = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out, var_p)
         self.weight = [obj_fun]
@@ -336,11 +344,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_A", self.__class__.__name__ + "_LINEAR_A"]:
             self.model_filename = str(BASE_PATH / f"constraints_{model_type}_{self.model_version.replace('_A', '')}_{tool_type}_{mode}.txt")
 
-        var_in, var_out = [], []
-        for i in range(len(self.input_vars)):
-            var_in += self.get_var_model("in", i)
-        for i in range(len(self.output_vars)):
-            var_out += self.get_var_model("out", i)
+        var_in, var_out = self._bitwise_model_vars()
 
         if self.filename_load and os.path.exists(self.model_filename):
             model_list, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
@@ -351,7 +355,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                 ttable = self.star_lat_to_truthtable()
             else:
                  RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-            input_variables, output_variables = [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
+            input_variables, output_variables = self._template_io_vars(var_in, var_out)
             generate_and_save_constraints(model_type, tool_type, mode, ttable, input_variables, output_variables, model_filename=self.model_filename)
             model_list, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
 
@@ -369,11 +373,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
     def _generate_model_diff_linear_p(self, model_type, tool_type, mode): # for large sbox, self.input_bitsize >= 8, e.g., skinny, use teh method from: MILP Modeling for (Large) S-boxes to Optimize Probability of Differential Characteristics. (2017). IACR Transactions on Symmetric Cryptology, 2017(4), 99-129.
         model_list = []
 
-        var_in, var_out = [], []
-        for i in range(len(self.input_vars)):
-            var_in += self.get_var_model("in", i)
-        for i in range(len(self.output_vars)):
-            var_out += self.get_var_model("out", i)
+        var_in, var_out = self._bitwise_model_vars()
 
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_P"]:
             table = self.computeDDT()
@@ -399,7 +399,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                     ttable = self.plat_to_truthtable(spectrum[i])
                 else:
                     RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-                input_variables, output_variables = [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
+                input_variables, output_variables = self._template_io_vars(var_in, var_out)
                 generate_and_save_constraints(model_type, tool_type, mode, ttable, input_variables, output_variables, model_filename=self.model_filename)
                 sbox_inequalities, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
 
