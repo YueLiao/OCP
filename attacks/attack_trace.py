@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import json
+import warnings
 from tools.paths import get_files_dir
 
 
 def _emit_warning(message, warn=True):
     if warn:
-        print(message)
+        warnings.warn(message, RuntimeWarning)
 
 
 def bin_to_hex(bits, warn=True): # Format bits as hex (with "-" for unknown nibbles).

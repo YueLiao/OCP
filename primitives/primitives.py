@@ -1,4 +1,5 @@
 from abc import ABC
+import sys
 import variables.variables as var
 import operators.operators as op
 from operators.matrix import Matrix, GF2Linear_Trans
@@ -55,10 +56,22 @@ class Layered_Function:
         constraint_id = generateID(name + "_EQ", crt_round, crt_layer + 1, position if id_position is None else id_position)
         self._layer_constraints(crt_round, crt_layer).append(op.Equal([in_var], [out_var], ID=constraint_id))
 
-    def display(self, representation='binary'):   # method that displays in details the function
-        print("Name: " + str(self.name), " / nbr_words: " + str(self.nbr_words), " / word_bitsize: " + str(self.word_bitsize))
-        print("Vars: [" + str([ len(self.vars[i]) for i in range(len(self.vars))])   + "]")
-        print("Constraints: [" + str([ len(self.constraints[i]) for i in range(len(self.constraints))])  + "]")
+    def format_display(self, representation='binary'):
+        return "\n".join(
+            [
+                "Name: " + str(self.name) + " / nbr_words: " + str(self.nbr_words) + " / word_bitsize: " + str(self.word_bitsize),
+                "Vars: [" + str([len(self.vars[i]) for i in range(len(self.vars))]) + "]",
+                "Constraints: [" + str([len(self.constraints[i]) for i in range(len(self.constraints))]) + "]",
+            ]
+        )
+
+    def display(self, representation='binary', output_func=None):   # method that displays in details the function
+        text = self.format_display(representation)
+        if output_func is None:
+            sys.stdout.write(text + "\n")
+        else:
+            output_func(text)
+        return text
 
     # apply a layer "name" of an Sbox, at the round "crt_round", at the layer "crt_layer", with the Sbox operator "sbox_operator". Only the positions where mask=1 will have the Sbox applied, the rest being just identity
     def SboxLayer(self, name, crt_round, crt_layer, sbox_operator, mask = None, index=None):

@@ -29,6 +29,22 @@ def test_xor_generates_implementation_and_sat_xordiff_model():
     assert "-in0_1 -in1_1 -out_1" in model
 
 
+def test_operator_display_can_be_captured_without_printing(capsys):
+    left = var.Variable(2, ID="in0")
+    right = var.Variable(2, ID="in1")
+    out = var.Variable(2, ID="out")
+    op = XOR([left, right], [out], ID="XOR")
+    captured = []
+
+    assert left.format_display() == "ID: in0 / bitsize: 2 / value: Invalid representation"
+    assert op.display(output_func=captured.append) == "XOR"
+
+    assert "ID: XOR" in captured[0]
+    assert "ID: in0" in captured[0]
+    assert "ID: out" in captured[0]
+    assert capsys.readouterr().out == ""
+
+
 def test_xor_generates_milp_linear_model():
     left = var.Variable(2, ID="in0")
     right = var.Variable(2, ID="in1")

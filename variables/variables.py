@@ -1,6 +1,8 @@
 # ********************* VARIABLES ********************* #
 # Class that represents a variable object, i.e. a type of node in our graph modeling (the other type being the operators/contraints)
-# A Variable node can only be linked to a Constraint node in the graph representation 
+# A Variable node can only be linked to a Constraint node in the graph representation
+
+import sys
 
 class Variable:
     def __init__(self, bitsize, value = None, ID = None, copyorigin = None):
@@ -21,9 +23,16 @@ class Variable:
         else:
             return "Invalid representation"
         
-    def display(self, representation='binary'):   # method that displays some information for that variable
-        print("ID: " + self.ID + " / bitsize: " + str(self.bitsize) + " / value: " + self.display_value(representation))
+    def format_display(self, representation='binary'):
+        return "ID: " + self.ID + " / bitsize: " + str(self.bitsize) + " / value: " + self.display_value(representation)
+
+    def display(self, representation='binary', output_func=None):   # method that displays some information for that variable
+        text = self.format_display(representation)
+        if output_func is None:
+            sys.stdout.write(text + "\n")
+        else:
+            output_func(text)
+        return text
             
     def remove_round_from_ID(self):   # method that removes the round number from the ID of that variable (used when unroll mode if off)
         return '_'.join(part for i, part in enumerate(self.ID.split("_")) if i != 1)
-        

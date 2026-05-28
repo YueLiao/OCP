@@ -28,6 +28,19 @@ def test_add_identity_layer_creates_equal_constraints_for_all_words():
     assert [constraint.output_vars[0].ID for constraint in constraints] == ["v_1_1_0", "v_1_1_1", "v_1_1_2"]
 
 
+def test_layered_function_display_can_be_captured_without_printing(capsys):
+    function = Layered_Function("F", "", 1, 1, 2, 1, 4)
+    captured = []
+
+    text = function.display(output_func=captured.append)
+
+    assert text == captured[0]
+    assert "Name: F / nbr_words: 2 / word_bitsize: 4" in text
+    assert "Vars: [" in text
+    assert "Constraints: [" in text
+    assert capsys.readouterr().out == ""
+
+
 def test_permutation_layer_extends_missing_positions_as_identity():
     function = Layered_Function("F", "", 1, 1, 3, 1, 4)
 

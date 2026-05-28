@@ -1,4 +1,5 @@
 from attacks.attack_trace import DifferentialTrail, bin_to_hex
+import pytest
 
 
 def _trail_data():
@@ -28,6 +29,12 @@ def _trail_data():
 
 def test_bin_to_hex_can_suppress_warnings(capsys):
     assert bin_to_hex("10-", warn=False) == "-"
+    assert capsys.readouterr().out == ""
+
+
+def test_bin_to_hex_emits_runtime_warning_instead_of_printing(capsys):
+    with pytest.warns(RuntimeWarning, match="mixed unknown bits"):
+        assert bin_to_hex("10--", warn=True) == "-"
     assert capsys.readouterr().out == ""
 
 

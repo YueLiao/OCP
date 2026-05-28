@@ -160,7 +160,6 @@ def _generate_pmr_for_mds_cached(mds_tuple, mod_poly, degree):
     size = len(mds)
     pmr = [[matrix_representation[elements_to_exponents[mds[i][j]]]for j in range(size)] for i in range(size)]
     pmr_new = [[0 for _ in range(size * degree)] for _ in range(size * degree)]
-    # print("\nPMR Binary Matrix Representation:\n", pmr)
     for i in range(size):
         for row_offset in range(degree):
             base_index = i * degree + row_offset

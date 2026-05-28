@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import sys
 from tools.model_constraints import gen_xor_constraints, gen_word_xor_constraints, gen_nxor_constraints, gen_word_nxor_constraints
 
 
@@ -38,24 +39,28 @@ class Operator(ABC):
                     var_in.connected_vars.append((var_out,self,'in'))
                     var_out.connected_vars.append((var_in,self,'out'))
 
-    def display(self):
-        print("ID: ", self.ID)
-
-        print("Input:")
-        for i in range(len(self.input_vars)):
-            if not isinstance(self.input_vars[i], list):
-                self.input_vars[i].display()
+    def format_display(self):
+        lines = [f"ID: {self.ID}", "Input:"]
+        for input_var in self.input_vars:
+            if not isinstance(input_var, list):
+                lines.append(input_var.format_display())
             else:
-                for j in range(len(self.input_vars[i])):
-                    self.input_vars[i][j].display()
+                lines.extend(var.format_display() for var in input_var)
 
-        print("Output:")
-        for i in range(len(self.output_vars)):
-            if not isinstance(self.output_vars[i], list):
-                self.output_vars[i].display()
+        lines.append("Output:")
+        for output_var in self.output_vars:
+            if not isinstance(output_var, list):
+                lines.append(output_var.format_display())
             else:
-                for j in range(len(self.output_vars[i])):
-                    self.output_vars[i][j].display()
+                lines.extend(var.format_display() for var in output_var)
+        return "\n".join(lines)
+
+    def display(self, output_func=None):
+        text = self.format_display()
+        if output_func is None:
+            sys.stdout.write(text + "\n")
+        else:
+            output_func(text)
         return self.__class__.__name__
 
     # obtain the ID of the variable located at "index" of input or output (in_out) for that operator. Compresses the ID if unroll is False

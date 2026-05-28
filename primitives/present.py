@@ -2,6 +2,7 @@ from primitives.primitives import Permutation, Block_cipher
 from operators.Sbox import PRESENT_Sbox
 from operators.boolean_operators import XOR
 import variables.variables as var
+import warnings
 
 
 # The PRESENT internal permutation
@@ -57,7 +58,10 @@ class PRESENT_block_cipher(Block_cipher):
         p_bitsize, k_bitsize = version[0], version[1]
         if nbr_rounds==None or nbr_rounds==31: # If nbr_rounds is unspecified or set to 31, extend it to 32 rounds to add the final round key addition
             nbr_rounds=32
-            print(f"[INFO] For PRESENT, after 31 round transformations, there is still a final AddRoundKey layer. Hence, the internal modeling round number is set to {nbr_rounds}. Please keep this in mind when interpreting subsequent relative files.")
+            warnings.warn(
+                f"For PRESENT, after 31 round transformations, there is still a final AddRoundKey layer. Hence, the internal modeling round number is set to {nbr_rounds}. Please keep this in mind when interpreting subsequent relative files.",
+                RuntimeWarning,
+            )
         if represent_mode==0:
             (s_nbr_layers, s_nbr_words, s_nbr_temp_words, s_word_bitsize), (k_nbr_layers, k_nbr_words, k_nbr_temp_words, k_word_bitsize), (sk_nbr_layers, sk_nbr_words, sk_nbr_temp_words, sk_word_bitsize) = (3, p_bitsize, 0, 1),  (3, k_bitsize, 0, 1),  (1, p_bitsize, 0, 1)
             perm_ks = [(61+i)%k_bitsize for i in range(k_bitsize)]
