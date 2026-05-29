@@ -75,6 +75,7 @@ document, and extend.
 - Added clearer validation and CLI usage errors for model-generation profiler inputs.
 - Centralized model-generation profiling config keys.
 - Split model-generation profiling and identity-elision state helpers out of `tools.model_constraints` while preserving compatibility imports.
+- Split PySAT cardinality backend helpers out of `tools.model_constraints` while preserving compatibility wrappers.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
 - Replaced repeated per-variable template regex passes with single-pass token substitution during constraint template instantiation.
 - Added opt-in identity elision for conservative internal Equal chains in model generation.
