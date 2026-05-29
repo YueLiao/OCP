@@ -77,6 +77,7 @@ document, and extend.
 - Split model-generation profiling and identity-elision state helpers out of `tools.model_constraints` while preserving compatibility imports.
 - Split PySAT cardinality backend helpers out of `tools.model_constraints` while preserving compatibility wrappers.
 - Split constraint template generation, caching, and instantiation helpers out of `tools.model_constraints` while preserving public imports.
+- Split Boolean XOR/NXOR and matrix constraint helpers out of `tools.model_constraints` while preserving public imports.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
 - Replaced repeated per-variable template regex passes with single-pass token substitution during constraint template instantiation.
 - Added opt-in identity elision for conservative internal Equal chains in model generation.
