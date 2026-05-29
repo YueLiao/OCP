@@ -4,7 +4,8 @@ import copy
 import warnings
 from functools import lru_cache
 from operators.operators import Operator, UnaryOperator, RaiseExceptionVersionNotExisting, binary_declaration
-from tools.model_constraints import gen_matrix_constraints, gen_constraints_obj_func_from_template, generate_and_save_constraints, gen_word_matrix_constraints, gen_word_nxor_constraints
+from tools.bit_constraints import gen_matrix_constraints, gen_word_matrix_constraints, gen_word_nxor_constraints
+from tools.model_templates import generate_and_save_constraints, gen_constraints_obj_func_from_template
 from tools.paths import get_files_dir
 from itertools import product
 

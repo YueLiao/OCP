@@ -2,7 +2,7 @@ import math
 import os
 from functools import lru_cache
 from operators.operators import Operator, RaiseExceptionVersionNotExisting, binary_declaration
-from tools.model_constraints import generate_and_save_constraints, gen_constraints_obj_func_from_template
+from tools.model_templates import generate_and_save_constraints, gen_constraints_obj_func_from_template
 from tools.paths import get_files_dir
 
 BASE_PATH = get_files_dir("sbox_modeling")

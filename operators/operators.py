@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import sys
-from tools.model_constraints import gen_xor_constraints, gen_word_xor_constraints, gen_nxor_constraints, gen_word_nxor_constraints
+from tools.bit_constraints import gen_xor_constraints, gen_word_xor_constraints, gen_nxor_constraints, gen_word_nxor_constraints
 
 
 def RaiseExceptionVersionNotExisting(class_name, model_version, model_type):

@@ -7,7 +7,7 @@ from operators.operators import (
     milp_equivalence_constraints,
     sat_equivalence_constraints,
 )
-from tools.model_constraints import gen_xor_constraints, gen_word_xor_constraints, gen_nxor_constraints, gen_word_nxor_constraints
+from tools.bit_constraints import gen_xor_constraints, gen_word_xor_constraints, gen_nxor_constraints, gen_word_nxor_constraints
 
 
 def _binary_bit_vars(operator):
