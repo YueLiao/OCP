@@ -1,4 +1,5 @@
 from tools import bit_constraints
+from tools import model_configuration
 from tools import model_templates
 from tools import predefined_constraints
 from tools import sat_cardinality
@@ -61,113 +62,48 @@ def _pysat_cardinality_error_types():
 
 # --------------------------- Model Configuration ---------------------------
 def fill_functions_rounds_layers_positions(cipher, functions=None, rounds=None, layers=None, positions=None):
-    """
-    Fill in functions, rounds, layers, and positions to full coverage when the corresponding argument is None; otherwise, keep user-supplied values.
-
-    Parameters:
-        cipher (object): The cipher object.
-        functions (list[str]): List of functions. If None, use all functions of the cipher. Example: ["PERMUTATION", "KEY_SCHEDULE", "SUBKEYS"].
-        rounds (dict): Dictionary specifying rounds. If None, use all. Example: {"PERMUTATION": [1, 2, 3]}.
-        layers (dict): Dictionary specifying layers. If None, use all. Example: {"PERMUTATION": {1: [0, 1], 2: [0, 1], 3: [0, 1]}}.
-        positions (dict): Dictionary specifying positions. If None, use all. Example: {"PERMUTATION": {1: {0: [0, 1], 1: [0, 1]}, 2: {0: [0, 1], 1: [0, 1]}, 3: {0: [0, 1], 1: [0, 1]}}}.
-
-    Returns:
-        tuple: (functions, rounds, layers, positions)
-    """
-    if functions is None:
-        functions = [f for f in cipher.functions]
-    if rounds is None:
-        rounds = {f: list(range(1, cipher.functions[f].nbr_rounds + 1)) for f in functions}
-    if layers is None:
-        layers = {f: {r: list(range(cipher.functions[f].nbr_layers+1)) for r in rounds[f]} for f in functions}
-    if positions is None:
-        positions = {f: {r: {l: list(range(len(cipher.functions[f].constraints[r][l]))) for l in layers[f][r]} for r in rounds[f]} for f in functions}
-    return functions, rounds, layers, positions
+    return model_configuration.fill_functions_rounds_layers_positions(
+        cipher,
+        functions=functions,
+        rounds=rounds,
+        layers=layers,
+        positions=positions,
+    )
 
 
-def configure_model_version(cipher, goal, config_model): # Configure the model version for all operators in the cipher based on the attack goal and config_model.
-    functions, rounds, layers, positions = config_model.get("functions"), config_model.get("rounds"), config_model.get("layers"), config_model.get("positions")
-
-    if goal == 'DIFFERENTIAL_SBOXCOUNT':
-        set_model_versions(cipher, "XORDIFF", functions, rounds, layers, positions) # Set model_version = "XORDIFF" for all operators
-        set_model_versions(cipher, "XORDIFF_A", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "XORDIFF_A" for all Sbox operators
-
-    elif goal == 'DIFFERENTIALPATH_PROB' or  goal == "DIFFERENTIAL_PROB":
-        set_model_versions(cipher, "XORDIFF", functions, rounds, layers, positions) # Set model_version = "XORDIFF" for all operators
-        set_model_versions(cipher, "XORDIFF_PR", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "XORDIFF_PR" for all Sbox operators
-
-    elif goal == 'LINEAR_SBOXCOUNT':
-        set_model_versions(cipher, "LINEAR", functions, rounds, layers, positions) # Set model_version = "LINEAR" for all operators
-        set_model_versions(cipher, "LINEAR_A", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "LINEAR_A" for all Sbox operators
-
-    elif goal == 'LINEARPATH_CORR' or goal == "LINEARHULL_CORR":
-        set_model_versions(cipher, "LINEAR", functions, rounds, layers, positions) # Set model_version = "LINEAR" for all operators
-        set_model_versions(cipher, "LINEAR_PR", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "LINEAR_PR" for all Sbox operators
-
-    elif goal == "TRUNCATEDDIFF_SBOXCOUNT":
-        set_model_versions(cipher, "TRUNCATEDDIFF", functions, rounds, layers, positions) # Set model_version = "TRUNCATEDDIFF" for all operators
-        set_model_versions(cipher, "TRUNCATEDDIFF_A", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "TRUNCATEDDIFF_A" for all Sbox operators
-
-    elif goal == "TRUNCATEDLINEAR_SBOXCOUNT":
-        set_model_versions(cipher, "TRUNCATEDLINEAR", functions, rounds, layers, positions) # Set model_version = "TRUNCATEDLINEAR" for all operators
-        set_model_versions(cipher, "TRUNCATEDLINEAR_A", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "TRUNCATEDLINEAR_A" for all Sbox operators
-
-    else:
-        raise ValueError(f"Invalid goal: {goal}.")
-
-    if "model_version" in config_model: # Set a specific model version for an operator. Example: config_model['model_version'] = {'model_version': 'XOR_XORDIFF_1', 'operator_name': 'XOR'}.
-        version = config_model.get("model_version").get("model_version")
-        operator_name = config_model.get("model_version").get("operator_name", None)
-        set_model_versions(cipher, version, functions, rounds, layers, positions, operator_name=operator_name)
+def configure_model_version(cipher, goal, config_model):
+    return model_configuration.configure_model_version(
+        cipher,
+        goal,
+        config_model,
+        set_versions=set_model_versions,
+    )
 
 
-def set_model_versions(cipher, version, functions, rounds, layers, positions, operator_name=None): # Assigns a specified model_version to constraints (operators) in the cipher based on specified parameters.
-    def _assgn_version(cons):
-        if operator_name is None: # Assign model_version to all operators in the cipher.
-            cons.model_version = cons.__class__.__name__ + "_" + version
-        elif operator_name is not None and (operator_name == cons.__class__.__name__ or (operator_name=="Sbox" and cons.__class__.__name__.endswith("Sbox"))): # Assign model_version to operators with a specific name.
-            cons.model_version = cons.__class__.__name__ + "_" + version
-
-    # Assign model_version to input/output constraints
-    for cons in cipher.inputs_constraints:
-        _assgn_version(cons)
-    for cons in cipher.outputs_constraints:
-        _assgn_version(cons)
-
-    # Assign model_version to function
-    for f in functions:
-        for r in rounds[f]:
-            for l in layers[f][r]:
-                for cons in cipher.functions[f].constraints[r][l]: # Only support all constraints in a layer for now.
-                    _assgn_version(cons)
+def set_model_versions(cipher, version, functions, rounds, layers, positions, operator_name=None):
+    return model_configuration.set_model_versions(
+        cipher,
+        version,
+        functions,
+        rounds,
+        layers,
+        positions,
+        operator_name=operator_name,
+    )
 
 
-def gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model): # Generate constraints for a given cipher based on user-specified parameters.
-    configure_model_version(cipher, goal, config_model)
-    _reset_model_generation_profile(config_model)
-    _configure_identity_elision(cipher, config_model)
-    constraint = []
-    obj_fun = [[] for _ in range(cipher.functions["PERMUTATION"].nbr_rounds)]
-
-    # Generate constraints linking input and output
-    for cons in cipher.inputs_constraints:
-        constraint.extend(_generate_model_with_profile(cons, model_type, config_model))
-    for cons in cipher.outputs_constraints:
-        constraint.extend(_generate_model_with_profile(cons, model_type, config_model))
-
-    # Generate constraints and objective function for each round/layer/operator
-    functions, rounds, layers, positions = config_model.get("functions"), config_model.get("rounds"), config_model.get("layers"), config_model.get("positions")
-    for f in functions:
-        for r in rounds[f]:
-            for l in layers[f][r]:
-                for i in positions[f][r][l]:
-                    cons = cipher.functions[f].constraints[r][l][i]
-                    cons_class_name = cons.__class__.__name__
-                    params = (config_model.get("model_params") or {}).get(cons_class_name, {}) # get operator-specific params if available. Options: {cons_class_name: {parame_name: param_value}}. Example: config_model["model_params"] = {"PRESENT_Sbox": {"tool_type": "polyhedron"}}
-                    constraint.extend(_generate_model_with_profile(cons, model_type, config_model, **params))
-                    if hasattr(cons, 'weight'):
-                        obj_fun[r-1].extend(_apply_identity_aliases(cons.weight, config_model.get(IDENTITY_ELISION_ALIASES_KEY) or {}))
-    return constraint, obj_fun
+def gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model):
+    return model_configuration.gen_round_model_constraint_obj_fun(
+        cipher,
+        goal,
+        model_type,
+        config_model,
+        configure_versions=configure_model_version,
+        reset_profile=_reset_model_generation_profile,
+        configure_identity=_configure_identity_elision,
+        generate_with_profile=_generate_model_with_profile,
+        apply_aliases=_apply_identity_aliases,
+    )
 
 
 # -------------------- Predefined Constraint Generation --------------------

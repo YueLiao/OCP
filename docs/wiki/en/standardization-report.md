@@ -80,6 +80,7 @@ document, and extend.
 - Split Boolean XOR/NXOR and matrix constraint helpers out of `tools.model_constraints` while preserving public imports.
 - Split sequential SAT encoding and Matsui search constraint helpers out of `tools.model_constraints` while preserving public imports.
 - Split predefined SAT/MILP constraint builders out of `tools.model_constraints` while preserving public imports.
+- Split model scope, version assignment, and round model generation helpers out of `tools.model_constraints` while preserving public imports.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
 - Replaced repeated per-variable template regex passes with single-pass token substitution during constraint template instantiation.
 - Added opt-in identity elision for conservative internal Equal chains in model generation.
