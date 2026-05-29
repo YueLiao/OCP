@@ -8,7 +8,12 @@ import json
 import time
 
 from attacks.common import parse_and_set_configs
-from tools.model_constraints import IDENTITY_ELISION_PROFILE_KEY, gen_round_model_constraint_obj_fun
+from tools.model_constraints import (
+    IDENTITY_ELISION_PROFILE_KEY,
+    MODEL_GENERATION_PROFILE_ENABLED_KEY,
+    MODEL_GENERATION_PROFILE_KEY,
+    gen_round_model_constraint_obj_fun,
+)
 
 
 DEFAULT_CASES = ("present:1", "chacha:1", "salsa:1", "forro:1")
@@ -137,7 +142,7 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit
         "EXISTENCE",
         {
             "model_type": model_type,
-            "profile_model_generation": True,
+            MODEL_GENERATION_PROFILE_ENABLED_KEY: True,
             "verbose": False,
             "identity_elision": identity_elision,
         },
@@ -153,7 +158,7 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit
     )
     generation_time_s = time.perf_counter() - generation_start
 
-    profile = config_model["model_generation_profile"]
+    profile = config_model[MODEL_GENERATION_PROFILE_KEY]
     top_operators = _top_profile_entries(profile["operators"], top_limit)
     top_operator_prefixes = _top_profile_entries(profile["operator_prefixes"], top_limit)
     identity_candidates = summarize_identity_elision_candidates(profile, top_limit=top_limit)

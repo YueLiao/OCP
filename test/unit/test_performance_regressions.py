@@ -20,6 +20,7 @@ from primitives.salsa import SALSA_KEYPERMUTATION, SALSA_PERMUTATION
 from tools.model_constraints import (
     IDENTITY_ELISION_ALIASES_KEY,
     IDENTITY_ELISION_PROFILE_KEY,
+    MODEL_GENERATION_PROFILE_ENABLED_KEY,
     gen_round_model_constraint_obj_fun,
 )
 from tools.profile_model_generation import main, profile_case, summarize_identity_elision_candidates
@@ -242,7 +243,7 @@ def test_identity_elision_does_not_mutate_primitive_graph():
         {
             "identity_elision": True,
             "model_type": "sat",
-            "profile_model_generation": True,
+            MODEL_GENERATION_PROFILE_ENABLED_KEY: True,
         },
         {},
     )
@@ -287,7 +288,7 @@ def test_identity_elision_disabled_clears_private_state_on_reused_config():
         {
             "identity_elision": True,
             "model_type": "sat",
-            "profile_model_generation": True,
+            MODEL_GENERATION_PROFILE_ENABLED_KEY: True,
         },
         {},
     )

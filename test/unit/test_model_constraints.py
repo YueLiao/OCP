@@ -8,6 +8,8 @@ import pytest
 import variables.variables as var
 import tools.model_constraints as model_constraints
 from tools.model_constraints import (
+    MODEL_GENERATION_PROFILE_ENABLED_KEY,
+    MODEL_GENERATION_PROFILE_KEY,
     gen_constraints_obj_func_from_template,
     gen_constraints_sum_at_most,
     gen_matrix_constraints,
@@ -116,7 +118,7 @@ def test_round_model_generation_can_record_profile():
         "rounds": {"PERMUTATION": [1]},
         "layers": {"PERMUTATION": {1: [0]}},
         "positions": {"PERMUTATION": {1: {0: [0]}}},
-        "profile_model_generation": True,
+        MODEL_GENERATION_PROFILE_ENABLED_KEY: True,
     }
 
     constraints, obj_fun = gen_round_model_constraint_obj_fun(
@@ -128,7 +130,7 @@ def test_round_model_generation_can_record_profile():
 
     assert constraints == ["input", "output", "round_a", "round_b"]
     assert obj_fun == [["w0"]]
-    profile = config_model["model_generation_profile"]
+    profile = config_model[MODEL_GENERATION_PROFILE_KEY]
     assert profile["total_constraints"] == 4
     assert profile["operators"]["FakeInputConstraint"]["calls"] == 1
     assert profile["operators"]["FakeRoundConstraint"]["constraints"] == 2

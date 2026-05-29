@@ -18,6 +18,8 @@ pysat_import = find_spec("pysat") is not None
 _MODEL_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_])(-?)([A-Za-z][A-Za-z0-9_]*)(?![A-Za-z0-9_])")
 IDENTITY_ELISION_ALIASES_KEY = "_identity_elision_aliases"
 IDENTITY_ELISION_PROFILE_KEY = "identity_elision_profile"
+MODEL_GENERATION_PROFILE_ENABLED_KEY = "profile_model_generation"
+MODEL_GENERATION_PROFILE_KEY = "model_generation_profile"
 _NON_ELIDABLE_EQUAL_PREFIXES = (
     "Equal:IN_LINK",
     "Equal:OUT_LINK",
@@ -162,8 +164,8 @@ def set_model_versions(cipher, version, functions, rounds, layers, positions, op
 
 
 def _reset_model_generation_profile(config_model):
-    if config_model.get("profile_model_generation"):
-        config_model["model_generation_profile"] = {
+    if config_model.get(MODEL_GENERATION_PROFILE_ENABLED_KEY):
+        config_model[MODEL_GENERATION_PROFILE_KEY] = {
             "total_constraints": 0,
             "total_time_s": 0.0,
             "operators": {},
@@ -264,10 +266,10 @@ def _update_profile_bucket(bucket, generated_count, elapsed_s):
 
 
 def _record_model_generation_profile(config_model, cons, generated_count, elapsed_s):
-    if not config_model.get("profile_model_generation"):
+    if not config_model.get(MODEL_GENERATION_PROFILE_ENABLED_KEY):
         return
     operator_name = cons.__class__.__name__
-    profile = config_model["model_generation_profile"]
+    profile = config_model[MODEL_GENERATION_PROFILE_KEY]
     profile["total_constraints"] += generated_count
     profile["total_time_s"] = round(profile["total_time_s"] + elapsed_s, 6)
     operator_profile = profile["operators"].setdefault(
