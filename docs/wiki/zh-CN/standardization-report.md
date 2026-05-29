@@ -76,6 +76,7 @@
 - 为模型生成添加 opt-in identity elision，用于保守跳过内部 Equal 链。
 - 验证 identity-elision 下的 trail extraction、MILP/SAT 生成和 primitive graph 边界。
 - 复用 model config 并关闭 identity elision 时，会清理其私有状态。
+- 集中管理 identity-elision 在模型生成和 trail extraction 中使用的私有 config key。
 - 将 PDF/image 抽取重新标注为 experimental import helper，并关闭网页上传自动构建。
 - 为 experimental file extraction 添加显式页码范围校验。
 - 明确旧式 operator 文件是人工实验脚本。

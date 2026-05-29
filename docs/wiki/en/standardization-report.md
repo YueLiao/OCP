@@ -78,6 +78,7 @@ document, and extend.
 - Added opt-in identity elision for conservative internal Equal chains in model generation.
 - Verified identity-elision trail extraction, MILP/SAT generation, and primitive-graph boundaries.
 - Cleared identity-elision private state when reused model configs disable the option.
+- Centralized identity-elision private config keys for model generation and trail extraction.
 - Reclassified PDF/image extraction as an experimental import helper and disabled web upload auto-build.
 - Added explicit page-range validation for experimental file extraction.
 - Clarified legacy operator scripts as manual experiments.

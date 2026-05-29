@@ -16,6 +16,8 @@ CardEnc = None
 vpool = None
 pysat_import = find_spec("pysat") is not None
 _MODEL_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_])(-?)([A-Za-z][A-Za-z0-9_]*)(?![A-Za-z0-9_])")
+IDENTITY_ELISION_ALIASES_KEY = "_identity_elision_aliases"
+IDENTITY_ELISION_PROFILE_KEY = "identity_elision_profile"
 _NON_ELIDABLE_EQUAL_PREFIXES = (
     "Equal:IN_LINK",
     "Equal:OUT_LINK",
@@ -244,12 +246,12 @@ def _apply_identity_aliases(model_lines, aliases):
 
 def _configure_identity_elision(cipher, config_model):
     if not config_model.get("identity_elision"):
-        config_model.pop("_identity_elision_aliases", None)
-        config_model.pop("identity_elision_profile", None)
+        config_model.pop(IDENTITY_ELISION_ALIASES_KEY, None)
+        config_model.pop(IDENTITY_ELISION_PROFILE_KEY, None)
         return
     aliases = _build_identity_elision_aliases(cipher, config_model)
-    config_model["_identity_elision_aliases"] = aliases
-    config_model["identity_elision_profile"] = {
+    config_model[IDENTITY_ELISION_ALIASES_KEY] = aliases
+    config_model[IDENTITY_ELISION_PROFILE_KEY] = {
         "aliases": len(aliases),
         "skipped_constraints": 0,
     }
@@ -283,11 +285,11 @@ def _record_model_generation_profile(config_model, cons, generated_count, elapse
 
 
 def _generate_model_with_profile(cons, model_type, config_model, **params):
-    aliases = config_model.get("_identity_elision_aliases") or {}
+    aliases = config_model.get(IDENTITY_ELISION_ALIASES_KEY) or {}
     if aliases and _is_identity_elision_candidate(cons):
         generated = []
         _record_model_generation_profile(config_model, cons, 0, 0.0)
-        config_model["identity_elision_profile"]["skipped_constraints"] += 1
+        config_model[IDENTITY_ELISION_PROFILE_KEY]["skipped_constraints"] += 1
         return generated
 
     time_start = time.perf_counter()
@@ -327,7 +329,7 @@ def gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model): 
                     params = (config_model.get("model_params") or {}).get(cons_class_name, {}) # get operator-specific params if available. Options: {cons_class_name: {parame_name: param_value}}. Example: config_model["model_params"] = {"PRESENT_Sbox": {"tool_type": "polyhedron"}}
                     constraint.extend(_generate_model_with_profile(cons, model_type, config_model, **params))
                     if hasattr(cons, 'weight'):
-                        obj_fun[r-1].extend(_apply_identity_aliases(cons.weight, config_model.get("_identity_elision_aliases") or {}))
+                        obj_fun[r-1].extend(_apply_identity_aliases(cons.weight, config_model.get(IDENTITY_ELISION_ALIASES_KEY) or {}))
     return constraint, obj_fun
 
 

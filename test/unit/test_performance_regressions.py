@@ -17,7 +17,11 @@ from primitives.forro import (
     _forro_subround_selection,
 )
 from primitives.salsa import SALSA_KEYPERMUTATION, SALSA_PERMUTATION
-from tools.model_constraints import gen_round_model_constraint_obj_fun
+from tools.model_constraints import (
+    IDENTITY_ELISION_ALIASES_KEY,
+    IDENTITY_ELISION_PROFILE_KEY,
+    gen_round_model_constraint_obj_fun,
+)
 from tools.profile_model_generation import main, profile_case, summarize_identity_elision_candidates
 
 
@@ -266,7 +270,7 @@ def test_identity_elision_does_not_mutate_primitive_graph():
     ]
 
     assert len(constraints) == 5066
-    assert config_model["identity_elision_profile"] == {
+    assert config_model[IDENTITY_ELISION_PROFILE_KEY] == {
         "aliases": 180,
         "skipped_constraints": 180,
     }
@@ -303,5 +307,5 @@ def test_identity_elision_disabled_clears_private_state_on_reused_config():
     )
 
     assert len(constraints) == 16586
-    assert "_identity_elision_aliases" not in config_model
-    assert "identity_elision_profile" not in config_model
+    assert IDENTITY_ELISION_ALIASES_KEY not in config_model
+    assert IDENTITY_ELISION_PROFILE_KEY not in config_model

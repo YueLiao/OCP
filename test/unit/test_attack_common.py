@@ -8,6 +8,7 @@ from attacks import common
 from attacks.attack_trace import DifferentialTrail
 from attacks import differential_cryptanalysis as diff
 from attacks import linear_cryptanalysis as linear
+from tools.model_constraints import IDENTITY_ELISION_ALIASES_KEY
 from tools import model_objective
 
 
@@ -100,7 +101,7 @@ def test_extract_trail_structures_uses_identity_elision_aliases():
         functions={"PERMUTATION": cipher_function},
     )
     solution = {"v_1_1_0_0": 1, "v_1_1_0_1": 0}
-    config_model = {"_identity_elision_aliases": {"v_1_2_0": "v_1_1_0"}}
+    config_model = {IDENTITY_ELISION_ALIASES_KEY: {"v_1_2_0": "v_1_1_0"}}
 
     trail = common.extract_trail_structures(
         cipher,

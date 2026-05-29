@@ -8,7 +8,7 @@ import json
 import time
 
 from attacks.common import parse_and_set_configs
-from tools.model_constraints import gen_round_model_constraint_obj_fun
+from tools.model_constraints import IDENTITY_ELISION_PROFILE_KEY, gen_round_model_constraint_obj_fun
 
 
 DEFAULT_CASES = ("present:1", "chacha:1", "salsa:1", "forro:1")
@@ -174,7 +174,7 @@ def profile_case(case, goal="DIFFERENTIALPATH_PROB", model_type="sat", top_limit
         "profile": profile,
     }
     if identity_elision:
-        report["identity_elision_profile"] = config_model["identity_elision_profile"]
+        report["identity_elision_profile"] = config_model[IDENTITY_ELISION_PROFILE_KEY]
     return report
 
 

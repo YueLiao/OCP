@@ -163,7 +163,7 @@ def extract_trail_structures(cipher, goal, solution, truncated_marker, config_mo
     """Extract a structured trail from a solver assignment."""
 
     bitwise = truncated_marker not in goal
-    aliases = (config_model or {}).get("_identity_elision_aliases") or {}
+    aliases = (config_model or {}).get(model_constraints.IDENTITY_ELISION_ALIASES_KEY) or {}
 
     def node(var):
         ids = expand_var_ids(var, bitwise=bitwise)
