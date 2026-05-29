@@ -17,11 +17,11 @@ from primitives.forro import (
     _forro_subround_selection,
 )
 from primitives.salsa import SALSA_KEYPERMUTATION, SALSA_PERMUTATION
-from tools.model_constraints import (
+from tools.model_configuration import gen_round_model_constraint_obj_fun
+from tools.model_generation_state import (
     IDENTITY_ELISION_ALIASES_KEY,
     IDENTITY_ELISION_PROFILE_KEY,
     MODEL_GENERATION_PROFILE_ENABLED_KEY,
-    gen_round_model_constraint_obj_fun,
 )
 from tools.profile_model_generation import main, profile_case, summarize_identity_elision_candidates
 

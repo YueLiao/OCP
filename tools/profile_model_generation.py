@@ -8,11 +8,11 @@ import json
 import time
 
 from attacks.common import parse_and_set_configs
-from tools.model_constraints import (
+from tools.model_configuration import gen_round_model_constraint_obj_fun
+from tools.model_generation_state import (
     IDENTITY_ELISION_PROFILE_KEY,
     MODEL_GENERATION_PROFILE_ENABLED_KEY,
     MODEL_GENERATION_PROFILE_KEY,
-    gen_round_model_constraint_obj_fun,
 )
 
 

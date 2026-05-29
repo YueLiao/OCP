@@ -1,6 +1,8 @@
 """Shared helpers for differential and linear attack frontends."""
 
-import tools.model_constraints as model_constraints
+from tools.model_configuration import fill_functions_rounds_layers_positions
+from tools.model_generation_state import IDENTITY_ELISION_ALIASES_KEY, rewrite_token_with_alias
+from tools.predefined_constraints import gen_predefined_constraints
 from tools.paths import get_files_dir
 
 
@@ -11,7 +13,7 @@ def parse_and_set_configs(cipher, goal, objective_target, config_model, config_s
     config_solver = config_solver or {}
     config_model["model_type"] = config_model.get("model_type", "milp").lower()
 
-    functions, rounds, layers, positions = model_constraints.fill_functions_rounds_layers_positions(cipher)
+    functions, rounds, layers, positions = fill_functions_rounds_layers_positions(cipher)
     config_model.setdefault("functions", functions)
     config_model.setdefault("rounds", rounds)
     config_model.setdefault("layers", layers)
@@ -51,7 +53,7 @@ def gen_input_non_zero_constraints(cipher, goal, config_model, truncated_marker)
     model_type = config_model.get("model_type", "milp").lower()
     encoding = config_model.get("atleast_encoding_sat", "SEQUENTIAL") if model_type == "sat" else None
     bitwise = truncated_marker not in goal
-    constraints = model_constraints.gen_predefined_constraints(
+    constraints = gen_predefined_constraints(
         model_type=model_type,
         cons_type="SUM_AT_LEAST",
         cons_vars=cons_vars,
@@ -150,7 +152,7 @@ def solution_bit(solution, var_id, aliases=None):
 
     value = solution.get(var_id, None)
     if value is None and aliases:
-        value = solution.get(model_constraints._rewrite_token_with_alias(var_id, aliases), None)
+        value = solution.get(rewrite_token_with_alias(var_id, aliases), None)
     if value is None:
         return "-"
     try:
@@ -163,7 +165,7 @@ def extract_trail_structures(cipher, goal, solution, truncated_marker, config_mo
     """Extract a structured trail from a solver assignment."""
 
     bitwise = truncated_marker not in goal
-    aliases = (config_model or {}).get(model_constraints.IDENTITY_ELISION_ALIASES_KEY) or {}
+    aliases = (config_model or {}).get(IDENTITY_ELISION_ALIASES_KEY) or {}
 
     def node(var):
         ids = expand_var_ids(var, bitwise=bitwise)

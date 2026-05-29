@@ -2,7 +2,7 @@ from math import log2
 
 from attacks import common
 from attacks.attack_trace import LinearTrail
-import tools.model_constraints as model_constraints
+from tools.model_configuration import gen_round_model_constraint_obj_fun
 import tools.model_objective as model_objective
 import tools.milp_search as milp_search
 import tools.sat_search as sat_search
@@ -80,7 +80,7 @@ def search_linear_trail(cipher, goal="LINEARPATH_CORR", constraints=["INPUT_NOT_
     model_type = config_model.get("model_type", "milp")
 
     # Step 2. Generate round constraints and objective function for the cipher.
-    round_constraints, obj_fun = model_constraints.gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model)
+    round_constraints, obj_fun = gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model)
 
     # Step 3. Process additional constraints.
     model_cons = []

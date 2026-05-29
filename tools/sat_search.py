@@ -1,7 +1,8 @@
 import os
 
-import tools.model_constraints as model_constraints
 import tools.model_objective as model_objective
+from tools.predefined_constraints import gen_predefined_constraints
+from tools.search_constraints import gen_matsui_constraints_sat
 from tools.search_reporting import log, log_search_summary
 import solving.solving as solving
 
@@ -303,7 +304,7 @@ def gen_sat_constraints_from_objective_target(objective_function, config_model, 
         assert len(obj_val_decimal) == len(obj_fun_vars_decimal), f"Length mismatch between objective function decimal variables and obj_val_decimal."
         for i in range(len(obj_fun_vars_decimal)):
             hw_list = [obj for row in obj_fun_vars_decimal[i] for obj in row]
-            constraints += model_constraints.gen_predefined_constraints("sat", cons_type, hw_list, obj_val_decimal[i], encoding=encoding)
+            constraints += gen_predefined_constraints("sat", cons_type, hw_list, obj_val_decimal[i], encoding=encoding)
     else:
         obj_fun_vars = model_objective.gen_obj_fun_variables(objective_function, obj_fun_decimal=False)
 
@@ -317,17 +318,17 @@ def gen_sat_constraints_from_objective_target(objective_function, config_model, 
         if Round is None or best_obj is None:
             raise ValueError("[WARNING] Please provide 'Round' and 'best_obj' for Matsui strategy.")
         if obj_val >= best_obj[-1]:
-            constraints += model_constraints.gen_matsui_constraints_sat(Round, best_obj, obj_val, obj_fun_vars, GroupConstraintChoice, GroupNumForChoice)
+            constraints += gen_matsui_constraints_sat(Round, best_obj, obj_val, obj_fun_vars, GroupConstraintChoice, GroupNumForChoice)
         else:
             log(
                 f"[WARNING] Skipping Matsui constraints since obj_val = {obj_val} < best_obj[-1] = {best_obj[-1]}.",
                 config_model,
             )
             hw_list = [obj for row in obj_fun_vars for obj in row]
-            constraints += model_constraints.gen_predefined_constraints("sat", cons_type, hw_list, obj_val, encoding=encoding)
+            constraints += gen_predefined_constraints("sat", cons_type, hw_list, obj_val, encoding=encoding)
     else: # Add constraints for integer objective function values
         hw_list = [obj for row in obj_fun_vars for obj in row]
-        constraints += model_constraints.gen_predefined_constraints("sat", cons_type, hw_list, obj_val, encoding=encoding)
+        constraints += gen_predefined_constraints("sat", cons_type, hw_list, obj_val, encoding=encoding)
     return constraints
 
 # Core function for modeling and solving SAT.

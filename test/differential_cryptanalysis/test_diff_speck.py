@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[2]  # this file -> differential cryptana
 sys.path.insert(0, str(ROOT))
 from primitives.speck import SPECK_PERMUTATION, SPECK_BLOCKCIPHER
 import attacks.attacks as attacks
-from tools.model_constraints import gen_predefined_constraints
+from tools.predefined_constraints import gen_predefined_constraints
 
 
 # Example: Test known differential trail for 9-round SPECK-32.

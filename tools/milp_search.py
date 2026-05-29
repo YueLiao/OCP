@@ -1,8 +1,9 @@
 import os
 import copy
 
-import tools.model_constraints as model_constraints
 import tools.model_objective as model_objective
+from tools.predefined_constraints import gen_predefined_constraints
+from tools.search_constraints import gen_matsui_constraints_milp
 from tools.search_reporting import log_search_summary
 import solving.solving as solving
 
@@ -22,19 +23,19 @@ def gen_milp_constraints_from_objective_target(objective_target): # Generate con
             max_val = float(objective_target.split()[-1])
         except ValueError:
             raise ValueError(f"Invalid format: '{objective_target}'. Expected 'AT MOST X'.")
-        constraints = model_constraints.gen_predefined_constraints("milp", "AT_MOST", ["obj"], max_val) # Generate the constraint for the objective function value <= atmost_val
+        constraints = gen_predefined_constraints("milp", "AT_MOST", ["obj"], max_val) # Generate the constraint for the objective function value <= atmost_val
     elif objective_target.startswith("EXACTLY"):
         try:
             exact_val = float(objective_target.split()[-1])
         except ValueError:
             raise ValueError(f"Invalid format: '{objective_target}'. Expected 'EXACTLY X'.")
-        constraints = model_constraints.gen_predefined_constraints("milp", "EXACTLY", ["obj"], exact_val) # Generate the constraint for the objective function value = exact_val.
+        constraints = gen_predefined_constraints("milp", "EXACTLY", ["obj"], exact_val) # Generate the constraint for the objective function value = exact_val.
     elif objective_target.startswith("AT LEAST"):
         try:
             atleast_value = float(objective_target.split()[-1])
         except ValueError:
             raise ValueError(f"Invalid format: '{objective_target}'. Expected 'AT LEAST X'.")
-        constraints = model_constraints.gen_predefined_constraints("milp", "AT_LEAST", ["obj"], atleast_value) # Generate the constraint for the objective function value >= atleast_value.
+        constraints = gen_predefined_constraints("milp", "AT_LEAST", ["obj"], atleast_value) # Generate the constraint for the objective function value >= atleast_value.
     else:
         constraints = []
     return constraints
@@ -107,7 +108,7 @@ def modeling_solving_milp(objective_target, constraints, objective_function, con
         cons_type = config_model["matsui_constraint"].get("matsui_milp_cons_type", "ALL")
         if Round is None or best_obj is None or len(best_obj) != (Round-1):
             raise ValueError("Must provide correct 'Round' and 'best_obj' for Matsui strategy.")
-        model_cons += model_constraints.gen_matsui_constraints_milp(Round, best_obj, objective_function, cons_type)
+        model_cons += gen_matsui_constraints_milp(Round, best_obj, objective_function, cons_type)
 
     # Step 3. Generate the standard MILP model.
     if objective_target == "EXISTENCE":

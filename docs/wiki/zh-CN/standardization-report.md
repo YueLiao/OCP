@@ -80,6 +80,7 @@
 - 将 predefined SAT/MILP 约束构造 helper 从 `tools.model_constraints` 拆出，同时保留公开 import。
 - 将 model scope、version assignment 和 round model generation helper 从 `tools.model_constraints` 拆出，同时保留公开 import。
 - 将 operator 内部 import 改为直接依赖新的 bit-constraint 和 model-template 模块，而不是兼容 facade。
+- 将 attack/search/profiler 内部 import 改为直接依赖新的 model-configuration、predefined-constraint、search-constraint 和 state 模块。
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。
 - 将模板实例化里的逐变量多次正则替换改为单次 token 替换，减少约束模板展开开销。
 - 为模型生成添加 opt-in identity elision，用于保守跳过内部 Equal 链。

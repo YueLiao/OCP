@@ -8,7 +8,7 @@ from attacks import common
 from attacks.attack_trace import DifferentialTrail
 from attacks import differential_cryptanalysis as diff
 from attacks import linear_cryptanalysis as linear
-from tools.model_constraints import IDENTITY_ELISION_ALIASES_KEY
+from tools.model_generation_state import IDENTITY_ELISION_ALIASES_KEY
 from tools import model_objective
 
 
