@@ -72,6 +72,7 @@
 - 添加可选模型生成 profiling，用于记录每类 operator 的约束数量和耗时。
 - 为模型生成 profiler 输入添加更清晰的校验和 CLI usage 错误。
 - 集中管理模型生成 profiling 的 config key。
+- 将模型生成 profiling 和 identity-elision 状态 helper 从 `tools.model_constraints` 拆出，同时保留兼容 import。
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。
 - 将模板实例化里的逐变量多次正则替换改为单次 token 替换，减少约束模板展开开销。
 - 为模型生成添加 opt-in identity elision，用于保守跳过内部 Equal 链。
