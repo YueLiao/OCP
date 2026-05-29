@@ -1,5 +1,6 @@
 from tools import bit_constraints
 from tools import model_templates
+from tools import predefined_constraints
 from tools import sat_cardinality
 from tools import search_constraints
 from tools.model_generation_state import (
@@ -171,15 +172,7 @@ def gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model): 
 
 # -------------------- Predefined Constraint Generation --------------------
 def _expand_constraint_vars(cons_vars, bitwise=True):
-    cons_vars_name = []
-    for var in cons_vars:
-        if isinstance(var, str):
-            cons_vars_name.append(var)
-        elif bitwise and var.bitsize > 1:
-            cons_vars_name.extend(f"{var.ID}_{j}" for j in range(var.bitsize))
-        else:
-            cons_vars_name.append(var.ID)
-    return cons_vars_name
+    return predefined_constraints.expand_constraint_vars(cons_vars, bitwise=bitwise)
 
 
 def _readable_cardinality_clauses(cnf, reverse_map):
@@ -199,108 +192,59 @@ def _pysat_cardinality_constraints(cons_vars, cons_value, encoding, encoder, enc
 
 
 def gen_predefined_constraints(model_type, cons_type, cons_vars, cons_value, bitwise=True, encoding=None):
-    """
-    Generate commonly used, predefined model constraints based on type and parameters.
-
-    Args:
-        cons_type (str): The constraint type, must be one of the predefined types:
-            - "EXACTLY": All selected variables == a target value.
-            - "AT_LEAST": All selected variables >= target value.
-            - "AT_MOST": All selected variables <= target value.
-            - "SUM_EXACTLY": Sum of selected variables == target value.
-            - "SUM_AT_LEAST": Sum of selected variables >= target value.
-            - "SUM_AT_MOST": Sum of selected variables <= target value.
-        cons_vars (list): Variable names or Variables objects with ID and bitsize attributes.
-        cons_value (int): Target value.
-        bitwise (bool): If True, expand variables by bit.
-
-    Returns:
-        list[str]: List of generated model constraint strings.
-
-    """
-    if cons_type in ["EXACTLY", "SUM_EXACTLY", "AT_LEAST", "SUM_AT_LEAST", "AT_MOST", "SUM_AT_MOST"]:
-        cons_vars_name = _expand_constraint_vars(cons_vars, bitwise=bitwise)
-        if cons_type == "EXACTLY":
-            return gen_constraints_exactly(model_type, cons_vars_name, cons_value)
-        elif cons_type == "SUM_EXACTLY":
-            return gen_constraints_sum_exactly(model_type, cons_vars_name, cons_value, encoding)
-        elif cons_type == "AT_MOST":
-            return gen_constraints_at_most(model_type, cons_vars_name, cons_value)
-        elif cons_type == "SUM_AT_MOST":
-            return gen_constraints_sum_at_most(model_type, cons_vars_name, cons_value, encoding)
-        elif cons_type == "AT_LEAST":
-            return gen_constraints_at_least(model_type, cons_vars_name, cons_value)
-        elif cons_type == "SUM_AT_LEAST":
-            return gen_constraints_sum_at_least(model_type, cons_vars_name, cons_value, encoding)
-    raise ValueError(f"Unsupported cons_type '{cons_type}'.")
+    return predefined_constraints.gen_predefined_constraints(
+        model_type,
+        cons_type,
+        cons_vars,
+        cons_value,
+        bitwise=bitwise,
+        encoding=encoding,
+        pysat_available=lambda: pysat_import,
+        require_cardenc=_require_pysat_cardenc,
+        cardinality_constraints=_pysat_cardinality_constraints,
+    )
 
 def gen_constraints_exactly(model_type, cons_vars, cons_value):
-    if model_type == "milp":
-        return [f"{cons_vars[i]} = {cons_value}" for i in range(len(cons_vars))]
-    elif model_type == "sat" and cons_value == 0:
-        return [f"-{cons_vars[i]}" for i in range(len(cons_vars))]
-    elif model_type == "sat" and cons_value == 1:
-        return [f"{cons_vars[i]}" for i in range(len(cons_vars))]
-    else:
-        raise ValueError(f"Unsupported model_type '{model_type}' for EXACTLY constraint.")
+    return predefined_constraints.gen_constraints_exactly(model_type, cons_vars, cons_value)
 
 def gen_constraints_sum_exactly(model_type, cons_vars, cons_value, encoding=1):
-    if model_type == "milp":
-        return [' + '.join(f"{cons_vars[i]}" for i in range(len(cons_vars))) + f" = {cons_value}"]
-    elif model_type == "sat" and cons_value == 0:
-        return [f"-{cons_vars[i]}" for i in range(len(cons_vars))]
-    elif model_type == "sat" and pysat_import:
-        if not encoding:
-            encoding = 1  # Default to 1 if not specified
-        assert encoding in [0,1,2,3,4,5,6,7,8,9], f"[ERROR] Invalid encoding = {encoding}, refer https://pysathq.github.io/docs/html/api/card.html"
-        card_enc = _require_pysat_cardenc()
-        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, card_enc.equals, "equals")
-    else:
-        raise ValueError(f"Unsupported model_type '{model_type}' for SUM_EXACTLY constraint.")
+    return predefined_constraints.gen_constraints_sum_exactly(
+        model_type,
+        cons_vars,
+        cons_value,
+        encoding,
+        pysat_available=lambda: pysat_import,
+        require_cardenc=_require_pysat_cardenc,
+        cardinality_constraints=_pysat_cardinality_constraints,
+    )
 
 def gen_constraints_at_most(model_type, cons_vars, cons_value):
-    if model_type == "milp":
-        return [f"{cons_vars[i]} <= {cons_value}" for i in range(len(cons_vars))]
-    elif model_type == "sat" and cons_value == 0:
-        return [f"-{cons_vars[i]}" for i in range(len(cons_vars))]
-    elif model_type == "sat" and cons_value == 1:
-        return []
-    else:
-        raise ValueError(f"Unsupported model_type '{model_type}' for AT_MOST constraint.")
+    return predefined_constraints.gen_constraints_at_most(model_type, cons_vars, cons_value)
 
 def gen_constraints_sum_at_most(model_type, cons_vars, cons_value, encoding="SEQUENTIAL"):
-    if model_type == "milp":
-        return [' + '.join(f"{cons_vars[i]}" for i in range(len(cons_vars))) + f" <= {cons_value}"]
-    elif model_type == "sat" and (encoding == "SEQUENTIAL" or encoding is None):
-        return gen_sequential_encoding_sat(cons_vars, cons_value)
-    elif model_type == "sat" and pysat_import:
-        if not isinstance(encoding, int):
-            encoding = 1  # Default to 1 if the encoding is not specified as an integer
-        card_enc = _require_pysat_cardenc()
-        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, card_enc.atmost, "atmost")
-    else:
-        raise ValueError(f"Unsupported model_type '{model_type}' for SUM_AT_MOST constraint.")
+    return predefined_constraints.gen_constraints_sum_at_most(
+        model_type,
+        cons_vars,
+        cons_value,
+        encoding,
+        pysat_available=lambda: pysat_import,
+        require_cardenc=_require_pysat_cardenc,
+        cardinality_constraints=_pysat_cardinality_constraints,
+    )
 
 def gen_constraints_at_least(model_type, cons_vars, cons_value):
-    if model_type == "milp":
-        return [f"{cons_vars[i]} >= {cons_value}" for i in range(len(cons_vars))]
-    elif model_type == "sat" and cons_value == 1:
-        return [f"{cons_vars[i]}" for i in range(len(cons_vars))]
-    elif model_type == "sat" and cons_value == 0:
-        return []
-    else:
-        raise ValueError(f"Unsupported model_type '{model_type}' for GREATER_EQUAL constraint.")
+    return predefined_constraints.gen_constraints_at_least(model_type, cons_vars, cons_value)
 
 def gen_constraints_sum_at_least(model_type, cons_vars, cons_value, encoding=1):
-    if model_type == "milp":
-        return [' + '.join(f"{cons_vars[i]}" for i in range(len(cons_vars))) + f" >= {cons_value}"]
-    elif model_type == "sat" and cons_value == 1:
-        return [' '.join(f"{cons_vars[i]}" for i in range(len(cons_vars)))]
-    elif model_type == "sat" and pysat_import:
-        card_enc = _require_pysat_cardenc()
-        return _pysat_cardinality_constraints(cons_vars, cons_value, encoding, card_enc.atleast, "atleast")
-    else:
-        raise ValueError(f"Unsupported model_type '{model_type}' for SUM_GREATER_EQUAL constraint.")
+    return predefined_constraints.gen_constraints_sum_at_least(
+        model_type,
+        cons_vars,
+        cons_value,
+        encoding,
+        pysat_available=lambda: pysat_import,
+        require_cardenc=_require_pysat_cardenc,
+        cardinality_constraints=_pysat_cardinality_constraints,
+    )
 
 def gen_sequential_encoding_sat(hw_list, weight, dummy_variables=None):
     return search_constraints.gen_sequential_encoding_sat(hw_list, weight, dummy_variables)
