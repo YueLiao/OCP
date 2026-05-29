@@ -17,6 +17,7 @@ skill，维护会话状态，并通过直接 Python API 暴露同样能力。
 - [Agentic 系统路线图](agentic-system-roadmap.md)
 - [性能基线](performance-baseline.md)
 - [Identity Elision 设计](identity-elision-design.md)
+- [Primitive 支持状态](primitive-support-status.md)
 - [测试与 CI](testing-and-ci.md)
 
 ## 常见工作流

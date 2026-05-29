@@ -41,6 +41,7 @@
 - 为 analysis skill 添加非正 solution count 的边界校验。
 - 在 agent 内置 cipher 实例化边界添加版本校验。
 - 将 Agent 中 SHACAL2 实例化限制为已实现的 256-bit 版本，并澄清 Trivium catalog 状态。
+- 添加 primitive 支持状态页面，记录 SHACAL2 部分覆盖和 Trivium 原型状态。
 - 将 trail solution-bit 的异常处理收窄到数值转换失败。
 - 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
 - 添加文本优先密码输入 dataclass、Markdown/LaTeX 规整、确定性 facts 校验、prompt/parse 边界和 draft-to-spec 转换 helper。

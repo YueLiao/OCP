@@ -1,3 +1,9 @@
+"""SHACAL-2 primitive graph builders.
+
+The 256-bit variant is implemented. The 512-bit variant remains incomplete
+because its constant table and regression test vectors are not yet provided.
+"""
+
 from primitives.primitives import Block_cipher
 from operators.modular_operators import ModAdd
 from operators.SHACAL2BooleanFunctions import SHACAL2_Sigma0, SHACAL2_Sigma1, SHACAL2_Sum0, SHACAL2_Sum1, SHACAL2_Maj, SHACAL2_Ch

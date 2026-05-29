@@ -20,6 +20,7 @@ and expose the same capabilities through a direct Python API.
 - [Agentic System Roadmap](agentic-system-roadmap.md)
 - [Performance Baseline](performance-baseline.md)
 - [Identity Elision Design](identity-elision-design.md)
+- [Primitive Support Status](primitive-support-status.md)
 - [Testing and CI](testing-and-ci.md)
 
 ## Typical Workflows

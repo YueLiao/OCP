@@ -1,3 +1,10 @@
+"""Prototype Trivium graph scaffold.
+
+This module is intentionally not exposed through the Agent catalog yet. The
+full Trivium update equations and official test vectors still need to be
+completed before the primitive should be documented as supported.
+"""
+
 from primitives.primitives import Stream_cipher
 from operators.boolean_operators import XOR, AND
 from operators.operators import Equal
@@ -178,4 +185,3 @@ def TRIVIUM(nbr_rounds_init=1152, nbr_rounds_update=1, nbr_rounds_keystream=1, r
     my_cipher.gen_test_vectors()
     
     return my_cipher
-
