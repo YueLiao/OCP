@@ -87,6 +87,7 @@ document, and extend.
 - Split optimal SAT search-strategy parsing into `tools.objective_targets`.
 - Centralized SAT decimal-objective combination lookup in `tools.objective_targets`.
 - Consolidated repeated SAT objective-constraint solve calls behind a private helper.
+- Centralized SAT optimal-search strategy to `SUM_*` constraint-type mapping.
 - Made decimal SAT objective filtering skip malformed solutions that lack `obj_fun_value`.
 - Split SAT CNF and MILP LP model serialization helpers into `tools.model_io`.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.

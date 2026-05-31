@@ -85,6 +85,7 @@
 - 将 optimal SAT search-strategy 解析拆到 `tools.objective_targets`。
 - 将 SAT decimal-objective combination 查找集中到 `tools.objective_targets`。
 - 将重复的 SAT objective-constraint 求解调用收拢到私有 helper。
+- 集中 SAT optimal-search strategy 到 `SUM_*` 约束类型的映射。
 - 让 decimal SAT objective 过滤跳过缺少 `obj_fun_value` 的异常解记录。
 - 将 SAT CNF 和 MILP LP 模型序列化 helper 拆到 `tools.model_io`。
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。

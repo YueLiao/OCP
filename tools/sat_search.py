@@ -37,6 +37,14 @@ def _solve_with_objective_target(
     return modeling_solving(constraints + obj_constraints, objective_function, config_model, config_solver)
 
 
+def _sum_constraint_type(constraint_strategy):
+    if constraint_strategy == "AT MOST":
+        return "SUM_AT_MOST"
+    if constraint_strategy == "EXACTLY":
+        return "SUM_EXACTLY"
+    raise ValueError(f"Unsupported SAT objective constraint strategy: {constraint_strategy}")
+
+
 def modeling_solving_sat(objective_target, constraints, objective_function, config_model, config_solver):
     strategy, value = parse_objective_target(objective_target)
 
@@ -84,16 +92,12 @@ def modeling_solving_optimal_intobj(constraints, objective_function, config_mode
 
     while obj_val != end_obj_value:
         log(f"[INFO] Current SAT objective value: {obj_val}", config_model, config_solver)
-        if search_plan.constraint_strategy == "AT MOST":
-            cons_type = "SUM_AT_MOST"
-        elif search_plan.constraint_strategy == "EXACTLY":
-            cons_type = "SUM_EXACTLY"
         current_solutions = _solve_with_objective_target(
             constraints,
             objective_function,
             config_model,
             config_solver,
-            cons_type,
+            _sum_constraint_type(search_plan.constraint_strategy),
             obj_val,
         )
         if isinstance(current_solutions, list) and len(current_solutions) > 0:
@@ -136,6 +140,8 @@ def modeling_solving_optimal_decimalobj(constraints, objective_function, config_
     if solutions is None or len(solutions) == 0:
         return []
     optimal_search_strategy_sat = config_model.get("optimal_search_strategy_sat", "INCREASING FROM AT MOST 0")
+    search_plan = parse_optimal_sat_search_strategy(optimal_search_strategy_sat)
+    cons_type = _sum_constraint_type(search_plan.constraint_strategy)
     max_obj_val = solutions[0]["obj_fun_value"] # The current objective function value is the upper bound
     int_obj_val = solutions[0]["integer_obj_fun_value"] # Start searching from the minimal integer objective function value
     log(
@@ -156,10 +162,6 @@ def modeling_solving_optimal_decimalobj(constraints, objective_function, config_
             config_model,
             config_solver,
         )
-        if "AT MOST" in optimal_search_strategy_sat:
-            cons_type = "SUM_AT_MOST"
-        elif "EXACTLY" in optimal_search_strategy_sat:
-            cons_type = "SUM_EXACTLY"
         decimal_solutions = _solve_with_objective_target(
             constraints,
             objective_function,
