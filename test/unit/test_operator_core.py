@@ -199,6 +199,66 @@ def test_modular_implementation_respects_explicit_non_word_modulo():
     assert modmul.generate_implementation("c", unroll=True) == ["out = (in0 * in1) % 5;"]
 
 
+def test_constant_add_generates_headers_and_non_word_modulo_code():
+    left = var.Variable(3, ID="in")
+    out = var.Variable(3, ID="out")
+    op = ConstantAdd([left], [out], [[1, 2], [3, 4]], round=2, index=1, modulo=5, ID="CADD")
+
+    assert op.generate_implementation("python", unroll=True) == ["out = (in + 0x4) % 5"]
+    assert op.generate_implementation("c", unroll=True) == ["out = (in + 0x4) % 5;"]
+    assert op.generate_implementation("verilog", unroll=True) == ["assign out = (in + 0x4) % 5;"]
+    assert op.generate_implementation("python", unroll=False) == ["out = (in + RC[i][1]) % 5"]
+    assert op.generate_implementation_header("python") == ["#Constraints List\nRC=[[1, 2], [3, 4]]"]
+    assert op.generate_implementation_header("c") == [
+        "// Constraints List\nuint8_t RC[][2] = {\n    { 1, 2 }, { 3, 4 }\n};",
+    ]
+    assert op.generate_implementation_header("verilog") == [
+        "// Constraints List\nreg [2:0] RC [0:1][0:1];",
+        "initial begin",
+        "    RC[0][0] = 3'h1;",
+        "    RC[0][1] = 3'h2;",
+        "    RC[1][0] = 3'h3;",
+        "    RC[1][1] = 3'h4;",
+        "end",
+    ]
+
+
+def test_modadd_xordiff_and_linear_models_keep_weight_variables_stable():
+    left = var.Variable(2, ID="in0")
+    right = var.Variable(2, ID="in1")
+    out = var.Variable(2, ID="out")
+    op = ModAdd([left, right], [out], ID="ADD")
+
+    op.model_version = "ModAdd_XORDIFF"
+    sat_model = op.generate_model("sat")
+    assert len(sat_model) == 17
+    assert sat_model[:2] == [
+        "in0_0 in1_0 -out_0 in0_1 in1_1 out_1",
+        "in0_0 -in1_0 out_0 in0_1 in1_1 out_1",
+    ]
+    assert sat_model[-1] == "-in0_1 -in1_1 -out_1 -ADD_p_0"
+    assert op.weight == ["ADD_p_0"]
+
+    milp_model = op.generate_model("milp")
+    assert len(milp_model) == 19
+    assert milp_model[0] == "in1_1 - out_1 + ADD_p_0 >= 0"
+    assert milp_model[-1] == "Binary\nin0_0 in0_1 in1_0 in1_1 out_0 out_1 ADD_p_0 ADD_d"
+    assert op.weight == ["ADD_p_0"]
+
+    op.model_version = "ModAdd_LINEAR"
+    linear_sat = op.generate_model("sat")
+    assert len(linear_sat) == 17
+    assert linear_sat[:2] == ["-ADD_p_0", "in0_0 in1_0 out_0 -ADD_p_1"]
+    assert linear_sat[-1] == "-in1_1 out_1 ADD_p_1"
+    assert op.weight == ["ADD_p_0", "ADD_p_1"]
+
+    linear_milp = op.generate_model("milp")
+    assert len(linear_milp) == 18
+    assert linear_milp[0] == "ADD_p_0 = 0"
+    assert linear_milp[-1] == "Binary\nin0_0 in0_1 in1_0 in1_1 out_0 out_1 ADD_p_0 ADD_p_1 ADD_p_2"
+    assert op.weight == ["ADD_p_0 + ADD_p_1"]
+
+
 def test_equal_generates_sat_equivalence_model():
     left = var.Variable(2, ID="in0")
     out = var.Variable(2, ID="out")
