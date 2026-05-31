@@ -3,7 +3,7 @@ import pytest
 from operators.boolean_operators import AND, ConstantXOR, NOT, N_XOR, OR, XOR
 from operators.modular_operators import ConstantAdd, ModAdd, ModMul
 from operators.operators import CopyOperator, Equal, NoneOperator, Rot, Shift
-from operators.Sbox import PRESENT_Sbox, Sbox
+from operators.Sbox import AES_Sbox, PRESENT_Sbox, Sbox
 from operators.matrix import (
     Matrix,
     generate_binary_matrix_2,
@@ -535,6 +535,49 @@ def test_present_sbox_ddt_lat_and_truth_tables_are_stable():
     assert lat_truth.count("1") == 133
 
 
+def test_present_sbox_code_generation_and_branch_numbers_are_stable():
+    op = PRESENT_Sbox([var.Variable(4, ID="in")], [var.Variable(4, ID="out")], ID="S")
+
+    assert op.is_bijective()
+    assert op.differential_branch_number() == 3
+    assert op.linear_branch_number() == 2
+    assert op.generate_implementation("python", unroll=True) == ["out = PRESENT_Sbox[in]"]
+    assert op.generate_implementation("c", unroll=True) == ["out = PRESENT_Sbox[in];"]
+    assert op.generate_implementation_header("python") == [
+        "PRESENT_Sbox = [12, 5, 6, 11, 9, 0, 10, 13, 3, 14, 15, 8, 4, 7, 1, 2]",
+    ]
+    assert op.generate_implementation_header("c") == [
+        "uint8_t PRESENT_Sbox[16] = {12, 5, 6, 11, 9, 0, 10, 13, 3, 14, 15, 8, 4, 7, 1, 2};",
+    ]
+
+
+def test_present_sbox_bitsliced_code_generation_is_stable():
+    op = PRESENT_Sbox(
+        [var.Variable(1, ID=f"in{i}") for i in range(4)],
+        [var.Variable(1, ID=f"out{i}") for i in range(4)],
+        ID="Sbits",
+    )
+
+    assert op.generate_implementation("python", unroll=True) == [
+        "x = (in0 << 3) | (in1 << 2) | (in2 << 1) | (in3 << 0)",
+        "y = PRESENT_Sbox[x]",
+        "out0, out1, out2, out3 = (y >> 3) & 1, (y >> 2) & 1, (y >> 1) & 1, (y >> 0) & 1",
+    ]
+    assert op.generate_implementation("c", unroll=True) == [
+        "x = (in0 << 3) | (in1 << 2) | (in2 << 1) | (in3 << 0);",
+        "y = PRESENT_Sbox[x];",
+        "out0 = (y >> 3) & 1;",
+        "out1 = (y >> 2) & 1;",
+        "out2 = (y >> 1) & 1;",
+        "out3 = (y >> 0) & 1;",
+    ]
+    assert op.generate_implementation_header("c") == [
+        "uint8_t PRESENT_Sbox[16] = {12, 5, 6, 11, 9, 0, 10, 13, 3, 14, 15, 8, 4, 7, 1, 2};",
+        "uint8_t x;",
+        "uint8_t y;",
+    ]
+
+
 def test_present_sbox_weighted_truth_tables_are_stable():
     op = PRESENT_Sbox([var.Variable(4, ID="in")], [var.Variable(4, ID="out")], ID="S")
 
@@ -551,6 +594,21 @@ def test_present_sbox_weighted_truth_tables_are_stable():
         assert truth_table.count("1") == active_count
         assert truth_table[:32] == prefix
         assert truth_table[-32:] == suffix
+
+
+def test_sbox_weight_helpers_and_aes_header_are_stable():
+    present = PRESENT_Sbox([var.Variable(4, ID="in")], [var.Variable(4, ID="out")], ID="S")
+    aes = AES_Sbox([var.Variable(8, ID="ain")], [var.Variable(8, ID="aout")], ID="AES")
+
+    assert present.gen_weights(present.computeDDT()) == [3.0, 2.0]
+    assert present.gen_integer_float_weight(present.computeLAT()) == ([1, 2], [])
+    assert present.gen_weight_pattern_sat([1, 2], [0.5], 2.5) == [1, 1, 1]
+    assert aes.is_bijective()
+    assert aes.differential_branch_number() == 2
+    assert aes.linear_branch_number() == 2
+    assert aes.generate_implementation_header("c")[0].startswith(
+        "uint8_t AES_Sbox[256] = {99, 124, 119, 123",
+    )
 
 
 def test_gf2_matrix_helpers_are_stable_and_return_mutable_copies():
