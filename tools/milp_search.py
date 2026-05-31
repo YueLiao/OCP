@@ -1,7 +1,7 @@
-import os
 import copy
 
 import tools.model_objective as model_objective
+from tools.model_io import write_milp_model
 from tools.objective_targets import gen_milp_constraints_from_objective_target
 from tools.search_constraints import gen_matsui_constraints_milp
 from tools.search_reporting import log_search_summary
@@ -17,59 +17,6 @@ import solving.solving as solving
 
 
 # -------------------------- MILP Model Writing ---------------------------
-def write_milp_model(constraints, obj_fun=None, filename="milp.lp"): # Generate and write the MILP model in standard .lp format, based on the given constraints and objective function.
-    dir_path = os.path.dirname(filename)
-    if dir_path:
-        os.makedirs(dir_path, exist_ok=True)
-
-    with open(filename, "w") as f:
-        # === Step 1: Define the MILP Model Structure === #
-        # If an objective function (obj_fun) is provided, write a symbolic objective name "obj", which will be defined later in the constraint section. Otherwise, write "Minimize 0" to indicate a feasibility-only model.
-        if obj_fun:
-            f.write("Minimize\n obj\nSubject To\n")
-        else:
-            f.write("Minimize\n 0\nSubject To\n")
-
-        # === Step 2: Process Constraints === #
-        bin_vars, in_vars = set(), set()
-        for constraint in constraints:
-            if "Binary" in constraint:
-                parts = constraint.split('Binary\n')
-                if parts[0].strip():
-                    f.write(parts[0].strip() + "\n")
-                for segment in parts[1:]:
-                    seg = segment.strip()
-                    if seg:
-                        bin_vars.update(seg.split())
-            elif "Integer" in constraint:
-                parts = constraint.split('Integer\n')
-                if parts[0].strip():
-                    f.write(parts[0].strip() + "\n")
-                for segment in parts[1:]:
-                    seg = segment.strip()
-                    if seg:
-                        in_vars.update(seg.split())
-            else:
-                f.write(constraint if constraint.endswith('\n') else constraint + '\n')
-
-        # === Step 3: Define the Objective Function === #
-        if obj_fun:
-            if isinstance(obj_fun[0], list):
-                obj_terms = [obj for row in obj_fun for obj in row]
-            else:
-                obj_terms = obj_fun
-            f.write(" + ".join(obj_terms) + " - obj = 0" + "\n")
-
-        # === Step 4: Declare Binary and Integer Variables === #
-        if bin_vars:
-            f.write("Binary\n" + " ".join(sorted(bin_vars)) + "\n")
-        if in_vars:
-            f.write("Integer\n" + " ".join(sorted(in_vars)) + "\n")
-
-        f.write("End\n")
-    return None
-
-
 # ------------------------ Modeling and Solving Interface ----------------------
 def modeling_solving_milp(objective_target, constraints, objective_function, config_model, config_solver): # Construct and solve the MILP model.
     # Step 1. Generate model constraints

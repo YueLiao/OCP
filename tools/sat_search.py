@@ -1,6 +1,5 @@
-import os
-
 import tools.model_objective as model_objective
+from tools.model_io import create_numerical_cnf, write_sat_model
 from tools.objective_targets import (
     gen_sat_constraints_from_objective_target as _gen_sat_constraints_from_objective_target,
     parse_objective_target,
@@ -296,42 +295,3 @@ def modeling_solving(constraints, objective_function, config_model, config_solve
             sol["rounds_obj_fun_values"] = round_values
             sol["obj_fun_value"] = sum(round_values)
     return solutions
-
-
-# ------------------- CNF Generation and SAT Model Writing -------------------
-def create_numerical_cnf(cnf): # Convert a given CNF formula into numerical CNF format. Return (number of variables, mapping of variables to numerical IDs, numerical CNF constraints)
-    # Extract unique variables and assign numerical IDs
-    family_of_variables = ' '.join(cnf).replace('-', '')
-    variables = sorted(set(family_of_variables.split()))
-    variable2number = {variable: i + 1 for (i, variable) in enumerate(variables)}
-
-    # Convert CNF constraints to numerical format
-    numerical_cnf = []
-    for clause in cnf:
-        literals = clause.split()
-        numerical_literals = []
-        lits_are_neg = (literal[0] == '-' for literal in literals)
-        numerical_literals.extend(tuple(f'{"-" * lit_is_neg}{variable2number[literal[lit_is_neg:]]}' for lit_is_neg, literal in zip(lits_are_neg, literals)))
-        numerical_clause = ' '.join(numerical_literals)
-        numerical_cnf.append(numerical_clause)
-    return len(variables), variable2number, numerical_cnf
-
-def write_sat_model(constraints=None, filename="sat.cnf"): # Generate and write the SAT model.
-    constraints = constraints or []
-    dir_path = os.path.dirname(filename)
-    if dir_path:
-        os.makedirs(dir_path, exist_ok=True)
-
-    # === Step 1: Convert Constraints to Numerical CNF Format === #
-    num_var, variable_map, numerical_cnf = create_numerical_cnf(constraints)
-
-    # === Step 2: Prepare and write CNF file === #
-    num_clause = len(constraints)
-
-    with open(filename, "w") as f:
-        f.write(f"p cnf {num_var} {num_clause}\n")
-        for constraint in numerical_cnf:
-            f.write(f"{constraint} 0\n")
-
-    # === Step 3: Return metadata === #
-    return {"variable_map": variable_map}

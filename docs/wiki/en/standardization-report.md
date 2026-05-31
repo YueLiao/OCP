@@ -84,6 +84,7 @@ document, and extend.
 - Routed internal operator imports to the new bit-constraint and model-template modules instead of the compatibility facade.
 - Routed attack/search/profiler imports to the new model-configuration, predefined-constraint, search-constraint, and state modules.
 - Split objective-target parsing and SAT/MILP objective constraint builders into `tools.objective_targets`.
+- Split SAT CNF and MILP LP model serialization helpers into `tools.model_io`.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
 - Replaced repeated per-variable template regex passes with single-pass token substitution during constraint template instantiation.
 - Added opt-in identity elision for conservative internal Equal chains in model generation.
