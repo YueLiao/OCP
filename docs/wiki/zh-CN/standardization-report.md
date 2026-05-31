@@ -68,6 +68,7 @@
 - 将运行时资源监控的异常处理收窄到 psutil/OS 失败。
 - 收窄 SCIP solver 失败处理，让意外程序错误继续暴露。
 - 收窄 PySAT cardinality fallback 处理，让意外程序错误继续暴露。
+- 将 attack 入口基于 `assert` 的参数校验替换为共享的显式 `ValueError` 校验。
 - 将 attack/model generation 路径里的重复约束和 objective 列表拼接改为显式原地扩展。
 - 添加可选模型生成 profiling，用于记录每类 operator 的约束数量和耗时。
 - 为模型生成 profiler 输入添加更清晰的校验和 CLI usage 错误。

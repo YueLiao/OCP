@@ -70,6 +70,7 @@ document, and extend.
 - Narrowed runtime resource monitor exception handling to psutil/OS failures.
 - Narrowed SCIP solver failure handling so unexpected programming errors propagate.
 - Narrowed PySAT cardinality fallback handling so unexpected programming errors propagate.
+- Replaced assertion-based attack entry validation with shared explicit `ValueError` checks.
 - Replaced repeated constraint/objective list concatenation in attack/model generation paths with explicit in-place extension.
 - Added opt-in model generation profiling to record per-operator constraint counts and timings.
 - Added clearer validation and CLI usage errors for model-generation profiler inputs.

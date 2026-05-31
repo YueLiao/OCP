@@ -208,6 +208,30 @@ def test_attack_model_filename_honors_runtime_files_dir(monkeypatch, tmp_path):
     assert Path(config_model["filename"]).parent == tmp_path
 
 
+def test_attack_search_request_validation_uses_value_errors():
+    with pytest.raises(ValueError, match="Invalid objective_target"):
+        common.validate_attack_search_request(
+            "DIFFERENTIAL_SBOXCOUNT",
+            ["DIFFERENTIAL_SBOXCOUNT"],
+            [],
+            "AT MOST",
+            0,
+            {},
+            {},
+        )
+
+    with pytest.raises(ValueError, match="Invalid constraints"):
+        common.validate_attack_search_request(
+            "DIFFERENTIAL_SBOXCOUNT",
+            ["DIFFERENTIAL_SBOXCOUNT"],
+            "INPUT_NOT_ZERO",
+            "EXISTENCE",
+            0,
+            {},
+            {},
+        )
+
+
 def test_attack_trace_fallback_filename_honors_runtime_files_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
 

@@ -2,8 +2,39 @@
 
 from tools.model_configuration import fill_functions_rounds_layers_positions
 from tools.model_generation_state import IDENTITY_ELISION_ALIASES_KEY, rewrite_token_with_alias
+from tools.objective_targets import parse_objective_target
 from tools.predefined_constraints import gen_predefined_constraints
 from tools.paths import get_files_dir
+
+
+def validate_attack_search_request(
+    goal,
+    allowed_goal_prefixes,
+    constraints,
+    objective_target,
+    show_mode,
+    config_model,
+    config_solver,
+):
+    """Validate public attack-search arguments at the API boundary."""
+
+    if not any(goal.startswith(prefix) for prefix in allowed_goal_prefixes):
+        raise ValueError(f"Invalid goal: {goal}. Expected one of {list(allowed_goal_prefixes)}.")
+    if not isinstance(constraints, list):
+        raise ValueError(f"Invalid constraints: {constraints}. Expected a list of strings.")
+    try:
+        parse_objective_target(objective_target)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid objective_target: {objective_target}. Expected one of "
+            "['OPTIMAL', 'AT MOST X', 'EXACTLY X', 'AT LEAST X', 'EXISTENCE']."
+        ) from exc
+    if show_mode not in [0, 1, 2, 3]:
+        raise ValueError(f"Invalid show_mode: {show_mode}. Expected one of [0, 1, 2, 3].")
+    if not (isinstance(config_model, dict) or config_model is None):
+        raise ValueError(f"Invalid config_model: {config_model}. Expected a dictionary or None.")
+    if not (isinstance(config_solver, dict) or config_solver is None):
+        raise ValueError(f"Invalid config_solver: {config_solver}. Expected a dictionary or None.")
 
 
 def parse_and_set_configs(cipher, goal, objective_target, config_model, config_solver, many_solution_goal=None):

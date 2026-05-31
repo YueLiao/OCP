@@ -65,12 +65,15 @@ def search_diff_trail(cipher, goal="DIFFERENTIALPATH_PROB", constraints=["INPUT_
     Returns: A list of differential trail objects.
     """
 
-    assert any(goal.startswith(prefix) for prefix in ["DIFFERENTIAL_SBOXCOUNT", "DIFFERENTIALPATH_PROB", "DIFFERENTIAL_PROB", "TRUNCATEDDIFF_SBOXCOUNT"]), f"Invalid goal: {goal}. Expected one of ['DIFFERENTIAL_SBOXCOUNT', 'DIFFERENTIALPATH_PROB', 'DIFFERENTIAL_PROB', 'TRUNCATEDDIFF_SBOXCOUNT']"
-    assert isinstance(constraints, list), f"Invalid constraints: {constraints}. Expected a list of strings."
-    assert any(objective_target.startswith(prefix) for prefix in ['OPTIMAL', 'AT MOST', 'EXACTLY', 'AT LEAST', 'EXISTENCE']), f"Invalid objective_target: {objective_target}. Expected one of ['OPTIMAL', 'AT MOST X', 'EXACTLY X', 'AT LEAST X']"
-    assert show_mode in [0, 1, 2, 3], f"Invalid show_mode: {show_mode}. Expected one of [0, 1, 2]"
-    assert isinstance(config_model, dict) or config_model is None, f"Invalid config_model: {config_model}. Expected a dictionary or None."
-    assert isinstance(config_solver, dict) or config_solver is None, f"Invalid config_solver: {config_solver}. Expected a dictionary or None."
+    common.validate_attack_search_request(
+        goal,
+        ["DIFFERENTIAL_SBOXCOUNT", "DIFFERENTIALPATH_PROB", "DIFFERENTIAL_PROB", "TRUNCATEDDIFF_SBOXCOUNT"],
+        constraints,
+        objective_target,
+        show_mode,
+        config_model,
+        config_solver,
+    )
 
     # Step 1. Parse and set model and solver configurations.
     config_model, config_solver = parse_and_set_configs(cipher, goal, objective_target, config_model, config_solver)
