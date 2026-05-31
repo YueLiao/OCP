@@ -140,6 +140,7 @@
 - 集中 bitwise S-box 在 Python/C 实现生成中的输入打包和输出解包 helper。
 - 为 Web text-first draft 构建接口添加显式确认要求。
 - 避免 direct API 确认流程原地修改调用者传入的 `CipherSpecDraft` 对象。
+- 修正 Matrix 私有 bit-model helper，使错误 version 调用显式报错，而不是返回 `None`。
 
 ## 验证
 

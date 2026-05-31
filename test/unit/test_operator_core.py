@@ -845,6 +845,21 @@ def test_matrix_branch_number_placeholders_fail_explicitly():
         op.linear_branch_number()
 
 
+def test_matrix_private_bit_model_helpers_raise_for_wrong_versions():
+    inputs = [var.Variable(1, ID="x0"), var.Variable(1, ID="x1")]
+    outputs = [var.Variable(1, ID="y0"), var.Variable(1, ID="y1")]
+    op = Matrix("M", inputs, outputs, [[1, 1], [0, 1]], ID="M")
+    bin_matrix = op._binary_matrix_representation()
+
+    op.model_version = "Matrix_LINEAR"
+    with pytest.raises(Exception, match="version Matrix_LINEAR not existing"):
+        op._generate_model_diff("sat", bin_matrix)
+
+    op.model_version = "Matrix_XORDIFF"
+    with pytest.raises(Exception, match="version Matrix_XORDIFF not existing"):
+        op._generate_model_linear("sat", bin_matrix)
+
+
 def test_matrix_truncated_fallback_warns_and_uses_runtime_files_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
     inputs = [var.Variable(1, ID="x0"), var.Variable(1, ID="x1")]

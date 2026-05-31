@@ -702,7 +702,7 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
             dummy_prefix = self.ID + '_d' if model_type == 'milp' else None
             return self._generate_bit_matrix_constraints(model_type, bin_matrix, self.input_vars, self.output_vars, dummy_prefix=dummy_prefix)
         else:
-            Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+            RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
 
     def _generate_model_linear(self, model_type, bin_matrix): # Modeling for bit-wise linear cryptanalysis
         # Modeling for linear cryptanalysis
@@ -711,7 +711,7 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
             dummy_prefix = self.ID + '_d' if model_type == 'milp' else None
             return self._generate_bit_matrix_constraints(model_type, bin_matrix, self.output_vars, self.input_vars, dummy_prefix=dummy_prefix)
         else:
-            Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+            RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
 
     def _generate_model_truncated_diff_linear_branch_num(self, model_type, branch_num):
         # Generate the MILP model for truncated differential or truncated linear propagation using the branch number of the matrix.
