@@ -70,6 +70,7 @@ document, and extend.
 - Added golden text-first fixtures for ARX, SPN, and S-box/permutation draft validation.
 - Migrated additional XOR and bitwise-OR-as-S-box behavior into stable operator unit tests.
 - Migrated N-XOR implementation, linear, and truncated-linear behavior into stable operator unit tests.
+- Migrated ConstantXOR and NOT implementation/header/truncated behavior into stable operator unit tests.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
 - Consolidated repeated operator model helpers across Boolean, modular, S-box, and matrix operators.
 - Refined S-box weighted truth-table generation, matrix bit-model generation, explicit modular arithmetic, and unfinished operator abstractions.

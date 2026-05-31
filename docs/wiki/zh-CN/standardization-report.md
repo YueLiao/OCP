@@ -68,6 +68,7 @@
 - 添加 ARX、SPN 和 S-box/permutation 的 text-first golden fixtures，用于 draft 校验。
 - 将更多 XOR 和 bitwise OR 作为 S-box 的行为迁移到稳定 operator 单测。
 - 将 N-XOR 的实现生成、linear 和 truncated-linear 行为迁移到稳定 operator 单测。
+- 将 ConstantXOR 和 NOT 的实现生成、header、truncated 行为迁移到稳定 operator 单测。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
 - 收拢 Boolean、modular、S-box 和 matrix operator 中重复的模型生成 helper。
 - 清理 S-box 带权 truth-table、matrix bit-model、显式 modular arithmetic 和未完成 operator 抽象。

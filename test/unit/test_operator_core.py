@@ -254,6 +254,56 @@ def test_unary_equivalence_operators_share_stable_models():
         assert milp_model[-1] == "Binary\nin0_0 in0_1 out_0 out_1"
 
 
+def test_constant_xor_generates_stable_code_headers_and_truncated_models():
+    left = var.Variable(2, ID="in")
+    out = var.Variable(2, ID="out")
+    op = ConstantXOR([left], [out], [[1, 2], [3, 4]], round=2, index=1, ID="CX")
+
+    assert op.generate_implementation("python", unroll=True) == ["out = in ^ 0x4"]
+    assert op.generate_implementation("c", unroll=True) == ["out = in ^ 0x4;"]
+    assert op.generate_implementation("verilog", unroll=True) == ["assign out = in ^ 0x4;"]
+    assert op.generate_implementation("python", unroll=False) == ["out = in ^ RC[i][1]"]
+    assert op.generate_implementation_header("python") == ["#Constraints List\nRC=[[1, 2], [3, 4]]"]
+    assert op.generate_implementation_header("c") == [
+        "// Constraints List\nuint8_t RC[][2] = {\n    { 1, 2 }, { 3, 4 }\n};",
+    ]
+    assert op.generate_implementation_header("verilog") == [
+        "// Constraints List\nreg [2:0] RC [0:1][0:1];",
+        "initial begin",
+        "    RC[0][0] = 3'h1;",
+        "    RC[0][1] = 3'h2;",
+        "    RC[1][0] = 3'h3;",
+        "    RC[1][1] = 3'h4;",
+        "end",
+    ]
+
+    op.model_version = "ConstantXOR_TRUNCATEDDIFF"
+    assert op.generate_model("sat") == ["-in out", "in -out"]
+    assert op.generate_model("milp") == ["in - out = 0", "Binary\nin out"]
+
+
+def test_not_generates_stable_code_and_sbox_tables():
+    left = var.Variable(2, ID="in")
+    out = var.Variable(2, ID="out")
+    op = NOT([left], [out], ID="NOT")
+
+    assert op.generate_implementation("python", unroll=True) == ["out = in ^ 0x3"]
+    assert op.generate_implementation("c", unroll=True) == ["out = in ^ 0x3;"]
+    assert op.generate_implementation("verilog", unroll=True) == ["assign out = ~in;"]
+
+    not_sbox = Sbox(
+        [var.Variable(1, ID="in")],
+        [var.Variable(1, ID="out")],
+        input_bitsize=1,
+        output_bitsize=1,
+        ID="not_sbox",
+    )
+    not_sbox.table = [1, 0]
+
+    assert not_sbox.computeDDT() == [[2, 0], [0, 2]]
+    assert not_sbox.computeLAT() == [[2, 0], [0, -2]]
+
+
 def test_rot_generates_implementation_and_sat_model():
     left = var.Variable(2, ID="in0")
     out = var.Variable(2, ID="out")
