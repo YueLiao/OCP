@@ -259,7 +259,6 @@ class AgentCore:
             build_result = self._execute_skill(SkillRequest(
                 skill=SkillName.CIPHER_DEFINITION, params={}
             ))
-            self.session.add_result(build_result)
             return build_result
 
         return SkillResult(

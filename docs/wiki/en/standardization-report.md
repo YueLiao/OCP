@@ -146,6 +146,7 @@ document, and extend.
 - Consolidated AND/OR/XOR implementation generation behind a shared bitwise helper.
 - Reused the shared input-expression helper in n-ary XOR implementation generation.
 - Registered artifacts consistently for both direct API and chat-driven AgentCore skill execution.
+- Ensured extraction auto-build results are recorded once while still registering returned artifacts.
 
 ## Validation
 

@@ -72,3 +72,88 @@ def test_chat_skill_execution_registers_artifacts():
     assert agent.session.get_results()[0].summary == "generated"
     assert agent.session.get_context()["artifact_count"] == 1
     assert agent.session.get_artifacts()[0]["label"] == "generated_code"
+
+
+class FakeExtractionSkill(BaseSkill):
+    @property
+    def name(self):
+        return SkillName.CIPHER_EXTRACTION
+
+    @property
+    def description(self):
+        return "fake extraction skill"
+
+    @property
+    def param_schema(self):
+        return {}
+
+    def execute(self, request, session):
+        session.set_metadata(
+            "extraction_data",
+            {
+                "pipeline": "single",
+                "file_type": "text",
+                "file_name": "inline.txt",
+                "full_text": "tiny arx",
+            },
+        )
+        session.set_metadata("extraction_auto_build", True)
+        return SkillResult(success=True, skill=self.name, summary="extracted")
+
+
+class FakeDefinitionSkill(BaseSkill):
+    @property
+    def name(self):
+        return SkillName.CIPHER_DEFINITION
+
+    @property
+    def description(self):
+        return "fake definition skill"
+
+    @property
+    def param_schema(self):
+        return {}
+
+    def execute(self, request, session):
+        return SkillResult(
+            success=True,
+            skill=self.name,
+            data={"artifact_links": [{"label": "job_record", "path": "/tmp/auto-build.json"}]},
+            summary="built",
+        )
+
+
+class FakeExtractionProvider(FakeIntentProvider):
+    def parse_user_request(self, user_message, conversation_history, available_skills, session_context):
+        return UserIntent(requests=[SkillRequest(skill=SkillName.CIPHER_EXTRACTION)])
+
+    def call_llm(self, prompt, image_data=None):
+        return """{
+          "name": "TinyARX",
+          "cipher_type": "permutation",
+          "block_size": 32,
+          "word_bitsize": 16,
+          "nbr_words": 2,
+          "nbr_rounds": 2,
+          "round_structure": [
+            {"layer_type": "rotation", "params": {"direction": "r", "amount": 7, "word_index": 0}},
+            {"layer_type": "xor", "params": {"input_indices": [[0, 1]], "output_indices": [1]}}
+          ]
+        }"""
+
+
+def test_auto_build_extraction_result_is_recorded_once_with_artifacts():
+    registry = SkillRegistry()
+    registry.register(FakeExtractionSkill())
+    registry.register(FakeDefinitionSkill())
+    agent = OCPAgent(llm_provider=FakeExtractionProvider(), skill_registry=registry)
+
+    response = agent.chat("extract and build")
+
+    assert response == "done"
+    assert [result.skill for result in agent.session.get_results()] == [
+        SkillName.CIPHER_EXTRACTION,
+        SkillName.CIPHER_DEFINITION,
+    ]
+    assert agent.session.get_context()["artifact_count"] == 1
+    assert agent.session.get_artifacts()[0]["label"] == "job_record"

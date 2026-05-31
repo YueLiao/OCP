@@ -144,6 +144,7 @@
 - 将 AND/OR/XOR 的实现生成逻辑收敛到共享 bitwise helper。
 - 在 n-ary XOR 实现生成中复用共享输入表达式 helper。
 - 让 direct API 和 chat 驱动的 AgentCore skill 执行都一致登记 artifacts。
+- 确保 extraction auto-build 结果只记录一次，同时仍登记返回的 artifacts。
 
 ## 验证
 
