@@ -1,0 +1,48 @@
+{
+  "name": "Tiny ARX permutation",
+  "text": "TinyARX has 32-bit state as two 16-bit words. Each of 4 rounds rotates word 0 right by 7, adds word 1 into word 0 modulo 2^16, rotates word 1 left by 2, then xors word 0 into word 1.",
+  "facts": {
+    "name": "TinyARX",
+    "primitive_type": "permutation",
+    "state": {
+      "block_size": 32,
+      "word_bitsize": 16,
+      "nbr_words": 2
+    },
+    "rounds": {
+      "nbr_rounds": 4
+    },
+    "operations": [
+      {
+        "type": "rotation",
+        "params": {
+          "direction": "r",
+          "amount": 7,
+          "word_index": 0
+        }
+      },
+      {
+        "type": "modadd",
+        "params": {
+          "input_indices": [[0, 1]],
+          "output_indices": [0]
+        }
+      },
+      {
+        "type": "rotation",
+        "params": {
+          "direction": "l",
+          "amount": 2,
+          "word_index": 1
+        }
+      },
+      {
+        "type": "xor",
+        "params": {
+          "input_indices": [[0, 1]],
+          "output_indices": [1]
+        }
+      }
+    ]
+  }
+}

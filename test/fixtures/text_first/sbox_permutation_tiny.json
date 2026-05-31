@@ -1,0 +1,36 @@
+{
+  "name": "Tiny S-box permutation",
+  "text": "TinyBox is an 8-bit permutation with two 4-bit words and 2 rounds. Each round applies S to both words and swaps the two words.",
+  "facts": {
+    "name": "TinyBox",
+    "primitive_type": "permutation",
+    "state": {
+      "block_size": 8,
+      "word_bitsize": 4,
+      "nbr_words": 2
+    },
+    "rounds": {
+      "nbr_rounds": 2
+    },
+    "operations": [
+      {
+        "type": "sbox",
+        "params": {
+          "sbox_name": "S",
+          "index": [[0], [1]]
+        }
+      },
+      {
+        "type": "permutation",
+        "params": {
+          "table": [1, 0]
+        }
+      }
+    ],
+    "tables": {
+      "sbox_tables": {
+        "S": [14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7]
+      }
+    }
+  }
+}

@@ -65,6 +65,7 @@
 - 为 text-first job records 添加手动修订时间戳和 hash。
 - 将文本优先 Agentic 路线图扩展为可评审实现契约，覆盖 schema、网页流程、provider、安全确认和测试。
 - 为文本优先 Agentic 的 source span、手动编辑、golden examples、provider 边界、solver 元数据和 job records 添加剩余实施清单。
+- 添加 ARX、SPN 和 S-box/permutation 的 text-first golden fixtures，用于 draft 校验。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
 - 收拢 Boolean、modular、S-box 和 matrix operator 中重复的模型生成 helper。
 - 清理 S-box 带权 truth-table、matrix bit-model、显式 modular arithmetic 和未完成 operator 抽象。

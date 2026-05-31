@@ -1,0 +1,43 @@
+{
+  "name": "Tiny SPN permutation",
+  "text": "TinySPN has a 16-bit state split into four 4-bit nibbles. Each of 3 rounds applies the 4-bit S-box S to every nibble, permutes bit positions with table [0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15], and xors a round key into all nibbles.",
+  "facts": {
+    "name": "TinySPN",
+    "primitive_type": "permutation",
+    "state": {
+      "block_size": 16,
+      "word_bitsize": 4,
+      "nbr_words": 4
+    },
+    "rounds": {
+      "nbr_rounds": 3
+    },
+    "operations": [
+      {
+        "type": "sbox",
+        "params": {
+          "sbox_name": "S",
+          "index": [[0], [1], [2], [3]]
+        }
+      },
+      {
+        "type": "permutation",
+        "params": {
+          "table": [0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15]
+        }
+      },
+      {
+        "type": "add_round_key",
+        "params": {
+          "operator": "xor",
+          "mask": [1, 1, 1, 1]
+        }
+      }
+    ],
+    "tables": {
+      "sbox_tables": {
+        "S": [12, 5, 6, 11, 9, 0, 10, 13, 3, 14, 15, 8, 4, 7, 1, 2]
+      }
+    }
+  }
+}
