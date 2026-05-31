@@ -147,7 +147,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `170 passed, 106 skipped`.
+Latest default pytest status: `216 passed, 106 skipped, 1 warning`.
 
 ## Next Work
 
