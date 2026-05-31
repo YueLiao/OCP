@@ -62,6 +62,7 @@
 - 清理 S-box 带权 truth-table、matrix bit-model、显式 modular arithmetic 和未完成 operator 抽象。
 - 将 matrix truncated-model fallback 诊断接入 Python warnings，并使用运行时输出路径。
 - 收拢 primitive layer 的 Equal 约束、图遍历、输入/输出链接 helper，并优化 layer 输出查找。
+- 集中 Forro 的状态尺寸、默认 subround 数、keystream 元数据和 factory 变量创建逻辑。
 - 将 attack/solver 进度消息接入 verbose-aware logging，并把工具诊断改为 Python warnings。
 - 添加显式 solver 能力报告，用于检查可选 MILP/SAT 后端，并文档化当前 solver fallback。
 - 确保 PySAT 求解过程中即使抛出异常也会释放 solver 实例。

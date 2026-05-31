@@ -64,6 +64,7 @@ document, and extend.
 - Refined S-box weighted truth-table generation, matrix bit-model generation, explicit modular arithmetic, and unfinished operator abstractions.
 - Routed matrix truncated-model fallback diagnostics through Python warnings and runtime output paths.
 - Consolidated primitive layer Equal constraints, graph iteration, input/output link helpers, and faster layer output lookups.
+- Centralized Forro state dimensions, default subround counts, keystream metadata, and factory variable creation.
 - Routed attack/solver progress messages through verbose-aware logging and converted tool diagnostics to Python warnings.
 - Added explicit solver capability reporting for optional MILP/SAT backends and documented the current solver fallbacks.
 - Ensured PySAT solver instances are released even when solving raises an exception.

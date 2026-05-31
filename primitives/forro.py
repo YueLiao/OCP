@@ -5,6 +5,14 @@ from operators.boolean_operators import XOR
 import variables.variables as var
 
 
+FORRO_STATE_WORDS = 16
+FORRO_WORD_BITSIZE = 32
+FORRO_DEFAULT_SUBROUNDS = 14 * 4
+FORRO_KEYSTREAM_SUBROUNDS = FORRO_DEFAULT_SUBROUNDS + 1
+FORRO_SUBROUND_LAYERS = 12
+FORRO_KEYSTREAM_LAYERS = FORRO_SUBROUND_LAYERS + 1
+FORRO_KEYSTREAM_TEMP_START = FORRO_STATE_WORDS
+
 FORRO_SUBROUND_SELECTIONS = (
     (0, 4, 8, 12, 3),
     (1, 5, 9, 13, 0),
@@ -19,6 +27,13 @@ FORRO_SUBROUND_SELECTIONS = (
 
 def _forro_subround_selection(subround):
     return FORRO_SUBROUND_SELECTIONS[(subround - 1) % len(FORRO_SUBROUND_SELECTIONS)]
+
+
+def _forro_io_words():
+    return (
+        [var.Variable(FORRO_WORD_BITSIZE, ID=f"in{i}") for i in range(FORRO_STATE_WORDS)],
+        [var.Variable(FORRO_WORD_BITSIZE, ID=f"out{i}") for i in range(FORRO_STATE_WORDS)],
+    )
 
 
 def _add_forro_subround_layers(function, subround, first_layer, selection):
@@ -50,11 +65,12 @@ class Forro_permutation(Permutation):
         """
         
         if represent_mode==0:
-            if nbr_subrounds ==None: nbr_subrounds = 14*4
-            nbr_layers = 12 # 1 for each of the 12 operations in 1 subround round
-            nbr_words = 16 # Words in the state of Forro
+            if nbr_subrounds is None:
+                nbr_subrounds = FORRO_DEFAULT_SUBROUNDS
+            nbr_layers = FORRO_SUBROUND_LAYERS # 1 for each of the 12 operations in 1 subround round
+            nbr_words = FORRO_STATE_WORDS # Words in the state of Forro
             nbr_temp_words = 0
-            word_bitsize = 32
+            word_bitsize = FORRO_WORD_BITSIZE
             super().__init__(name, s_input, s_output, nbr_subrounds, [nbr_layers, nbr_words, nbr_temp_words, word_bitsize])
             S = self.functions["PERMUTATION"]
         
@@ -76,7 +92,7 @@ class Forro_permutation(Permutation):
     
 
 def FORRO_PERMUTATION(r=None, represent_mode=0, copy_operator=False): 
-    my_input, my_output = [var.Variable(32,ID="in"+str(i)) for i in range(16)], [var.Variable(32,ID="out"+str(i)) for i in range(16)]
+    my_input, my_output = _forro_io_words()
     my_permutation = Forro_permutation("Forro_PERM", my_input, my_output, nbr_subrounds=r, represent_mode=represent_mode)
     my_permutation.gen_test_vectors()
     my_permutation.post_initialization(copy_operator=copy_operator)
@@ -96,24 +112,26 @@ class Forro_keypermutation(Permutation):
         """
         
         if represent_mode==0:
-            if nbr_subrounds ==None: nbr_subrounds = 14*4+1 # the last round is used to add the initial state to obtain the final key stream
-            nbr_layers = 13 # 1 for each of the 12 operations in 1 subround round
-            nbr_words = 16 # Words in the state of forro
-            nbr_temp_words = 16 # To retain the initial input for adding with final state to obtain the key stream
-            word_bitsize = 32
+            if nbr_subrounds is None:
+                # The last round adds the initial state to obtain the final key stream.
+                nbr_subrounds = FORRO_KEYSTREAM_SUBROUNDS
+            nbr_layers = FORRO_KEYSTREAM_LAYERS # 1 for each of the 12 operations in 1 subround round
+            nbr_words = FORRO_STATE_WORDS # Words in the state of forro
+            nbr_temp_words = FORRO_STATE_WORDS # To retain the initial input for adding with final state to obtain the key stream
+            word_bitsize = FORRO_WORD_BITSIZE
             super().__init__(name, s_input, s_output, nbr_subrounds, [nbr_layers, nbr_words, nbr_temp_words, word_bitsize])
             S = self.functions["PERMUTATION"]
         
             for i in range(1,nbr_subrounds +1):  
                 # In the first round copy the initial word to temporary words
                 if i == 1:
-                    copy_state_to_temp_words(S, i, 0, temp_start=16)
+                    copy_state_to_temp_words(S, i, 0, temp_start=FORRO_KEYSTREAM_TEMP_START)
                 else:
                     S.AddIdentityLayer("Identity", i, 0)
 
 
-                if i == 14*4+1:
-                    add_feedforward_final_round(S, i, 1, nbr_layers, temp_start=16)
+                if i == FORRO_KEYSTREAM_SUBROUNDS:
+                    add_feedforward_final_round(S, i, 1, nbr_layers, temp_start=FORRO_KEYSTREAM_TEMP_START)
                 else:
                     _add_forro_subround_layers(S, i, 1, _forro_subround_selection(i))
 
@@ -131,11 +149,9 @@ class Forro_keypermutation(Permutation):
 
 
 def FORRO_KEYPERMUTATION(r=None, represent_mode=0, copy_operator=False): 
-    my_input, my_output = [var.Variable(32,ID="in"+str(i)) for i in range(16)], [var.Variable(32,ID="out"+str(i)) for i in range(16)]
+    my_input, my_output = _forro_io_words()
     my_permutation = Forro_keypermutation("Forro_KEYPERM", my_input, my_output, nbr_subrounds=r, represent_mode=represent_mode)
     my_permutation.gen_test_vectors()
     my_permutation.post_initialization(copy_operator=copy_operator)
     return my_permutation     
-
-
 
