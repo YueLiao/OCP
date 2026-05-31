@@ -94,6 +94,9 @@ def test_text_first_extract_draft_and_confirm_builds_cipher(monkeypatch, tmp_pat
     job_record = json.loads(open(job_path, encoding="utf-8").read())
     assert job_record["input"]["normalized_text"] == "x_0  <-  (x_0  ROTR  7)  MODADD  x_1"
     assert job_record["facts"]["name"] == "TinyARX"
+    assert job_record["metadata"]["prompt_version"] == "text-cipher-facts-v1"
+    assert len(job_record["metadata"]["normalized_text_sha256"]) == 64
+    assert len(job_record["metadata"]["prompt_sha256"]) == 64
     assert draft.is_valid
     assert not draft.requires_user_confirmation
     assert result.success
@@ -101,7 +104,10 @@ def test_text_first_extract_draft_and_confirm_builds_cipher(monkeypatch, tmp_pat
     assert result.data["artifact_links"][0]["path"] == job_path
     updated_record = json.loads(open(job_path, encoding="utf-8").read())
     assert updated_record["draft"]["spec"]["name"] == "TinyARX"
+    assert len(updated_record["metadata"]["draft_sha256"]) == 64
+    assert len(updated_record["metadata"]["confirmation_sha256"]) == 64
     assert updated_record["confirmation"]["confirmed"] is True
+    assert updated_record["confirmation"]["confirmed_at"].endswith("+00:00")
 
 
 def test_confirm_cipher_spec_rejects_invalid_draft():

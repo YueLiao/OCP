@@ -56,6 +56,7 @@
 - 从网页上传 endpoint 返回文件抽取 data 和 artifact links。
 - 避免上传临时文件已缺失时的清理错误掩盖网页上传响应。
 - 为 text-first 抽取、draft 和 confirmation 添加可复现 JSON job 记录与 artifact links。
+- 为 text-first job records 添加 prompt/input/response/draft/confirmation hash 和确认时间戳。
 - 将文本优先 Agentic 路线图扩展为可评审实现契约，覆盖 schema、网页流程、provider、安全确认和测试。
 - 为文本优先 Agentic 的 source span、手动编辑、golden examples、provider 边界、solver 元数据和 job records 添加剩余实施清单。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。

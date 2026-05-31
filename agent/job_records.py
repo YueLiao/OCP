@@ -2,6 +2,7 @@
 
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -25,6 +26,11 @@ def _json_safe(value):
 
 def _write_record(path, record):
     path.write_text(json.dumps(_json_safe(record), indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _content_hash(value):
+    payload = json.dumps(_json_safe(value), sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _read_record(path):
@@ -53,6 +59,13 @@ def create_text_job_record(cipher_input, prompt, raw_response, facts, errors, wa
         "created_at": created_at,
         "updated_at": created_at,
         "provider": _provider_metadata(provider),
+        "metadata": {
+            "prompt_version": "text-cipher-facts-v1",
+            "raw_text_sha256": _content_hash(cipher_input.raw_text),
+            "normalized_text_sha256": _content_hash(cipher_input.normalized_text),
+            "prompt_sha256": _content_hash(prompt),
+            "raw_response_sha256": _content_hash(raw_response),
+        },
         "input": {
             "raw_text": cipher_input.raw_text,
             "normalized_text": cipher_input.normalized_text,
@@ -85,6 +98,15 @@ def update_job_record(job, **updates):
     if not path.exists():
         return None
     record = _read_record(path)
+    metadata = record.setdefault("metadata", {})
+    if "draft" in updates:
+        metadata["draft_sha256"] = _content_hash(updates["draft"])
+    if "confirmation" in updates:
+        updates["confirmation"].setdefault(
+            "confirmed_at",
+            datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        )
+        metadata["confirmation_sha256"] = _content_hash(updates["confirmation"])
     record.update(updates)
     record["updated_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     _write_record(path, record)

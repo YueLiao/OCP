@@ -58,6 +58,7 @@ document, and extend.
 - Returned file-extraction data and artifact links from the web upload endpoint.
 - Prevented missing temporary upload files from masking web upload responses during cleanup.
 - Added replayable JSON job records and artifact links for text-first extraction, draft, and confirmation.
+- Added prompt/input/response/draft/confirmation hashes and confirmation timestamps to text-first job records.
 - Expanded the text-first Agentic roadmap into a reviewable implementation contract for schemas, web flow, providers, safety gates, and tests.
 - Added a concrete remaining-build checklist for text-first Agentic source spans, manual edits, golden examples, provider boundaries, solver metadata, and job records.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
