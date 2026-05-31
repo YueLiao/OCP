@@ -54,6 +54,7 @@ document, and extend.
 - Added a CLI `draft <cipher text>` review-and-confirm flow for text-first cipher drafts.
 - Added web text draft/confirm endpoints and a `Draft` UI action for review-before-build workflows.
 - Added a web/API path for users to submit manually edited `CipherSpec` drafts with deterministic validation before confirmation.
+- Added a persistent web CipherSpec draft editor with validate-before-build controls.
 - Aligned web provider API-key resolution with CLI environment-variable defaults.
 - Added explicit 400 responses for missing JSON bodies on web JSON endpoints.
 - Returned HTTP 400 for invalid web provider configuration errors.

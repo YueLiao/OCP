@@ -64,13 +64,19 @@
   .settings-panel h2 { font-size: 15px; margin-bottom: 16px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
   .form-group { margin-bottom: 14px; }
   .form-group label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 5px; }
-  .form-group select, .form-group input {
+  .form-group select, .form-group input, .form-group textarea {
     width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
     background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px;
     outline: none; transition: border 0.15s;
   }
-  .form-group select:focus, .form-group input:focus { border-color: var(--accent); }
+  .form-group textarea {
+    min-height: 220px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.45;
+  }
+  .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: var(--accent); }
   .connect-btn { width: 100%; padding: 10px; margin-top: 8px; font-size: 14px; font-weight: 600; }
+  .button-row { display: flex; gap: 8px; }
+  .button-row .btn { flex: 1; }
   .settings-section { margin-top: 22px; }
 
   /* Cipher info */
@@ -251,6 +257,19 @@
       <button class="btn connect-btn" onclick="checkSolvers()">Check Solvers</button>
     </div>
 
+    <div class="settings-section" id="draftPanel" style="display:none">
+      <h2>CipherSpec Draft</h2>
+      <div class="form-group">
+        <label>Editable JSON</label>
+        <textarea id="draftSpecEditor" spellcheck="false"></textarea>
+      </div>
+      <div class="button-row">
+        <button class="btn" onclick="validateDraftSpec()">Validate</button>
+        <button class="btn btn-primary" onclick="confirmCipherDraft()">Build</button>
+      </div>
+      <div class="side-list" id="draftIssueList"><div>No draft issues.</div></div>
+    </div>
+
     <div class="cipher-info" id="cipherInfo" style="display:none">
       <div><span class="label">Cipher: </span><span class="value" id="cipherName">-</span></div>
       <div><span class="label">Type: </span><span class="value" id="cipherType">-</span></div>
@@ -320,6 +339,7 @@ const defaults = {
   gemini: {model: 'gemini-2.5-flash', placeholder: 'AIza...', needsKey: true},
   ollama: {model: 'llama3', placeholder: '', needsKey: false, baseUrl: 'http://localhost:11434'},
 };
+let currentDraftSpec = null;
 
 function onProviderChange() {
   const p = document.getElementById('provider').value;
@@ -422,23 +442,90 @@ async function draftCipherText() {
       addMessage('error', data.error || 'Draft failed');
       return;
     }
-    const draftText = JSON.stringify(data.draft.spec, null, 2);
-    const issues = [
-      ...(data.draft.validation_errors || []).map(x => `Error: ${x}`),
-      ...(data.draft.warnings || []).map(x => `Warning: ${x}`),
-      ...(data.draft.assumptions || []).map(x => `Assumption: ${x}`),
-    ].join('\n');
-    addMessage('assistant', `CipherSpec draft:\n\`\`\`json\n${draftText}\n\`\`\`${issues ? '\n' + issues : ''}`);
-    if (!data.draft.is_valid) return;
-    if (!confirm('Build this cipher from the draft?')) return;
-    await confirmCipherDraft();
+    setDraftSpec(data.draft);
+    showArtifacts(data.artifact_links || []);
+    addMessage('assistant', 'CipherSpec draft is ready. Review or edit it in the sidebar, then validate and build.');
   } catch (e) {
     showTyping(false);
     addMessage('error', `Draft failed: ${e.message}`);
   }
 }
 
+function setDraftSpec(draft) {
+  currentDraftSpec = draft.spec || {};
+  document.getElementById('draftPanel').style.display = 'block';
+  document.getElementById('draftSpecEditor').value = JSON.stringify(currentDraftSpec, null, 2);
+  renderDraftIssues(draft);
+}
+
+function renderDraftIssues(draft) {
+  const list = document.getElementById('draftIssueList');
+  const issues = [
+    ...(draft.validation_errors || []).map(x => ({kind: 'Error', text: x})),
+    ...(draft.warnings || []).map(x => ({kind: 'Warning', text: x})),
+    ...(draft.assumptions || []).map(x => ({kind: 'Assumption', text: x})),
+    ...(draft.clarification_questions || []).map(x => ({kind: 'Question', text: x})),
+  ];
+  if (!issues.length) {
+    list.innerHTML = '<div>No draft issues.</div>';
+    return;
+  }
+  list.innerHTML = issues.map(item => `<div><strong>${item.kind}</strong><br>${renderText(item.text)}</div>`).join('');
+}
+
+function parseDraftEditor() {
+  const text = document.getElementById('draftSpecEditor').value.trim();
+  if (!text) throw new Error('Draft spec JSON is empty.');
+  return JSON.parse(text);
+}
+
+async function validateDraftSpec() {
+  showTyping(true);
+  try {
+    const spec = parseDraftEditor();
+    const res = await fetch('/api/text/draft/spec', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({spec}),
+    });
+    const data = await res.json();
+    showTyping(false);
+    if (data.draft) {
+      setDraftSpec(data.draft);
+      showArtifacts(data.artifact_links || []);
+    }
+    if (data.success) {
+      addMessage('assistant', 'Edited CipherSpec draft is valid.');
+    } else {
+      addMessage('error', data.error || 'Edited CipherSpec draft is invalid.');
+    }
+  } catch (e) {
+    showTyping(false);
+    addMessage('error', `Draft validation failed: ${e.message}`);
+  }
+}
+
 async function confirmCipherDraft() {
+  try {
+    if (document.getElementById('draftPanel').style.display !== 'none') {
+      const spec = parseDraftEditor();
+      const res = await fetch('/api/text/draft/spec', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({spec}),
+      });
+      const data = await res.json();
+      if (data.draft) setDraftSpec(data.draft);
+      if (!data.success) {
+        addMessage('error', data.error || 'Edited CipherSpec draft is invalid.');
+        return;
+      }
+    }
+  } catch (e) {
+    addMessage('error', `Draft validation failed: ${e.message}`);
+    return;
+  }
+  if (!confirm('Build this cipher from the validated draft?')) return;
   showTyping(true);
   try {
     const res = await fetch('/api/text/confirm', {method: 'POST'});
@@ -606,6 +693,9 @@ async function resetSession() {
   await fetch('/api/reset', {method: 'POST'});
   document.getElementById('messages').innerHTML = '';
   document.getElementById('cipherInfo').style.display = 'none';
+  currentDraftSpec = null;
+  document.getElementById('draftPanel').style.display = 'none';
+  document.getElementById('draftSpecEditor').value = '';
   renderArtifacts([]);
   renderTrace([]);
   addMessage('system', 'Session reset.');
