@@ -107,6 +107,12 @@ def update_job_record(job, **updates):
             datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         )
         metadata["confirmation_sha256"] = _content_hash(updates["confirmation"])
+    if "manual_revision" in updates:
+        updates["manual_revision"].setdefault(
+            "revised_at",
+            datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        )
+        metadata["manual_revision_sha256"] = _content_hash(updates["manual_revision"])
     record.update(updates)
     record["updated_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     _write_record(path, record)

@@ -1,4 +1,5 @@
 from io import BytesIO
+import json
 from types import SimpleNamespace
 
 import web.app as web_app
@@ -276,6 +277,10 @@ def test_text_draft_spec_endpoint_validates_manual_edits(monkeypatch, tmp_path):
     assert edit_data["success"] is True
     assert edit_data["draft"]["spec"]["name"] == "TinyARXEdited"
     assert edit_data["artifact_links"][0]["path"] == draft_data["artifact_links"][0]["path"]
+    job_record = json.loads(open(edit_data["artifact_links"][0]["path"], encoding="utf-8").read())
+    assert job_record["manual_revision"]["source"] == "user_spec_edit"
+    assert job_record["manual_revision"]["revised_at"].endswith("+00:00")
+    assert len(job_record["metadata"]["manual_revision_sha256"]) == 64
     assert invalid_response.status_code == 400
     assert invalid_data["success"] is False
     assert invalid_data["draft"]["validation_errors"]
