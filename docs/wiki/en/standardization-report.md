@@ -131,6 +131,7 @@ document, and extend.
 - Migrated Equal implementation and MILP equivalence coverage from legacy operator scripts into focused pytest coverage.
 - Split documentation into English and Chinese pages with language switch links.
 - Added SHACAL2 1024-bit Sigma/Sum constant regression coverage.
+- Centralized SHACAL2 Sigma/Sum constants and added explicit unsupported-keysize validation.
 
 ## Validation
 

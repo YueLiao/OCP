@@ -1,3 +1,5 @@
+import pytest
+
 import variables.variables as var
 from operators.AESround import AESround
 from operators.SHACAL2BooleanFunctions import (
@@ -143,6 +145,15 @@ def test_shacal2_1024_bit_sigma_and_sum_constants_are_stable():
         "x_2 = ROTR(x, 41, 64)",
         "y = x_0 ^ x_1 ^ x_2",
     ]
+
+
+@pytest.mark.parametrize("operator_class", [SHACAL2_Sigma0, SHACAL2_Sigma1, SHACAL2_Sum0, SHACAL2_Sum1])
+def test_shacal2_sigma_and_sum_reject_unsupported_keysize(operator_class):
+    x = [var.Variable(32, ID="x")]
+    y = [var.Variable(32, ID="y")]
+
+    with pytest.raises(ValueError, match="expected 512 or 1024"):
+        operator_class(x, y, keysize=256)
 
 
 def test_shacal2_maj_and_ch_composition_generates_expected_boolean_flow():

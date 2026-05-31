@@ -3,6 +3,33 @@ from operators.operators import Operator, Rot, Shift, RaiseExceptionVersionNotEx
 from operators.boolean_operators import NOT, AND, N_XOR, XOR
 
 
+_SIGMA_SUM_SPECS = {
+    "sigma0": {
+        512: ((7, 18), 3),
+        1024: ((1, 8), 7),
+    },
+    "sigma1": {
+        512: ((17, 19), 10),
+        1024: ((19, 61), 6),
+    },
+    "sum0": {
+        512: (2, 13, 22),
+        1024: (28, 34, 39),
+    },
+    "sum1": {
+        512: (6, 11, 25),
+        1024: (14, 18, 41),
+    },
+}
+
+
+def _get_sigma_sum_spec(name, keysize):
+    try:
+        return _SIGMA_SUM_SPECS[name][keysize]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported SHACAL2 keysize {keysize!r}; expected 512 or 1024") from exc
+
+
 def _generate_layered_header(layers, implementation_type):
     header_set = []
     code_list = []
@@ -68,12 +95,12 @@ class SHACAL2_Sigma0(Operator):
 
         self.vars.append(output_vars)
 
-        if keysize==512:
-            rotations = [[self.vars[0][0], self.vars[1][0], 'r', 7, "SIGMA0_ROT_1"], [self.vars[0][0], self.vars[1][1], 'r', 18, "SIGMA0_ROT_2"]]
-            shift = [self.vars[0][0], self.vars[1][2], 'r', 3, "SIGMA0_SHR_1"]
-        elif keysize==1024:
-            rotations = [[self.vars[0][0], self.vars[1][0], 'r', 1, "SIGMA0_ROT_1"], [self.vars[0][0], self.vars[1][1], 'r', 8, "SIGMA0_ROT_2"]]
-            shift = [self.vars[0][0], self.vars[1][2], 'r', 7, "SIGMA0_SHR_1"]
+        rotation_offsets, shift_offset = _get_sigma_sum_spec("sigma0", keysize)
+        rotations = [
+            [self.vars[0][0], self.vars[1][0], 'r', rotation_offsets[0], "SIGMA0_ROT_1"],
+            [self.vars[0][0], self.vars[1][1], 'r', rotation_offsets[1], "SIGMA0_ROT_2"],
+        ]
+        shift = [self.vars[0][0], self.vars[1][2], 'r', shift_offset, "SIGMA0_SHR_1"]
         
         self.layers.append([Rot([rotation[0]], [rotation[1]], rotation[2], rotation[3], rotation[4]) for rotation in rotations] + [Shift([shift[0]], [shift[1]], shift[2], shift[3], shift[4])])
         self.layers.append([N_XOR([self.vars[1][0], self.vars[1][1], self.vars[1][2]], [self.vars[2][0]], "SUM0_NXOR1")])
@@ -103,12 +130,12 @@ class SHACAL2_Sigma1(Operator):
 
         self.vars.append(output_vars)
 
-        if keysize==512:
-            rotations = [[self.vars[0][0], self.vars[1][0], 'r', 17, "SIGMA1_ROT_1"], [self.vars[0][0], self.vars[1][1], 'r', 19, "SIGMA1_ROT_2"]]
-            shift = [self.vars[0][0], self.vars[1][2], 'r', 10, "SIGMA1_SHR_1"]
-        elif keysize==1024:
-            rotations = [[self.vars[0][0], self.vars[1][0], 'r', 19, "SIGMA1_ROT_1"], [self.vars[0][0], self.vars[1][1], 'r', 61, "SIGMA1_ROT_2"]]
-            shift = [self.vars[0][0], self.vars[1][2], 'r', 6, "SIGMA1_SHR_1"]
+        rotation_offsets, shift_offset = _get_sigma_sum_spec("sigma1", keysize)
+        rotations = [
+            [self.vars[0][0], self.vars[1][0], 'r', rotation_offsets[0], "SIGMA1_ROT_1"],
+            [self.vars[0][0], self.vars[1][1], 'r', rotation_offsets[1], "SIGMA1_ROT_2"],
+        ]
+        shift = [self.vars[0][0], self.vars[1][2], 'r', shift_offset, "SIGMA1_SHR_1"]
         
         self.layers.append([Rot([rotation[0]], [rotation[1]], rotation[2], rotation[3], rotation[4]) for rotation in rotations] + [Shift([shift[0]], [shift[1]], shift[2], shift[3], shift[4])])
         self.layers.append([N_XOR([self.vars[1][0], self.vars[1][1], self.vars[1][2]], [self.vars[2][0]], "SUM0_NXOR1")])
@@ -139,10 +166,12 @@ class SHACAL2_Sum0(Operator):
 
         self.vars.append(output_vars)
 
-        if keysize==512:
-            rotations = [[self.vars[0][0], self.vars[1][0], 'r', 2, "SUM0_ROT_1"], [self.vars[0][0], self.vars[1][1], 'r', 13, "SUM0_ROT_2"], [self.vars[0][0], self.vars[1][2], 'r', 22, "SUM0_ROT_3"]]
-        elif keysize==1024:
-            rotations = [[self.vars[0][0], self.vars[1][0], 'r', 28, "SUM0_ROT_1"], [self.vars[0][0], self.vars[1][1], 'r', 34, "SUM0_ROT_2"], [self.vars[0][0], self.vars[1][2], 'r', 39, "SUM0_ROT_3"]]
+        rotation_offsets = _get_sigma_sum_spec("sum0", keysize)
+        rotations = [
+            [self.vars[0][0], self.vars[1][0], 'r', rotation_offsets[0], "SUM0_ROT_1"],
+            [self.vars[0][0], self.vars[1][1], 'r', rotation_offsets[1], "SUM0_ROT_2"],
+            [self.vars[0][0], self.vars[1][2], 'r', rotation_offsets[2], "SUM0_ROT_3"],
+        ]
         
         self.layers.append([Rot([rotation[0]], [rotation[1]], rotation[2], rotation[3], rotation[4]) for rotation in rotations])
         self.layers.append([N_XOR([self.vars[1][0], self.vars[1][1], self.vars[1][2]], [self.vars[2][0]], "SUM0_NXOR1")])
@@ -173,10 +202,12 @@ class SHACAL2_Sum1(Operator):
 
         self.vars.append(output_vars)
 
-        if keysize==512:
-            rotations = [[self.vars[0][0], self.vars[1][0], 'r', 6, "SUM1_ROT_1"], [self.vars[0][0], self.vars[1][1], 'r', 11, "SUM1_ROT_2"], [self.vars[0][0], self.vars[1][2], 'r', 25, "SUM1_ROT_3"]]
-        elif keysize==1024:
-            rotations = [[self.vars[0][0], self.vars[1][0], 'r', 14, "SUM1_ROT_1"], [self.vars[0][0], self.vars[1][1], 'r', 18, "SUM1_ROT_2"], [self.vars[0][0], self.vars[1][2], 'r', 41, "SUM1_ROT_3"]]
+        rotation_offsets = _get_sigma_sum_spec("sum1", keysize)
+        rotations = [
+            [self.vars[0][0], self.vars[1][0], 'r', rotation_offsets[0], "SUM1_ROT_1"],
+            [self.vars[0][0], self.vars[1][1], 'r', rotation_offsets[1], "SUM1_ROT_2"],
+            [self.vars[0][0], self.vars[1][2], 'r', rotation_offsets[2], "SUM1_ROT_3"],
+        ]
         
         self.layers.append([Rot([rotation[0]], [rotation[1]], rotation[2], rotation[3], rotation[4]) for rotation in rotations])
         self.layers.append([N_XOR([self.vars[1][0], self.vars[1][1], self.vars[1][2]], [self.vars[2][0]], "SUM0_NXOR1")])
