@@ -2,7 +2,7 @@ import variables.variables as var
 import pytest
 from operators.boolean_operators import AND, ConstantXOR, NOT, N_XOR, OR, XOR
 from operators.modular_operators import ConstantAdd, ModAdd, ModMul
-from operators.operators import Equal, Rot, Shift
+from operators.operators import CopyOperator, Equal, NoneOperator, Rot, Shift
 from operators.Sbox import PRESENT_Sbox, Sbox
 from operators.matrix import (
     Matrix,
@@ -230,6 +230,62 @@ def test_equal_generates_implementation_and_milp_equivalence_model():
         "in0_1 - out_1 = 0",
         "Binary\nin0_0 in0_1 out_0 out_1",
     ]
+
+
+def test_copy_operator_generates_implementation_and_models():
+    left = var.Variable(2, ID="in")
+    outputs = [var.Variable(2, ID=f"out{i}") for i in range(3)]
+    op = CopyOperator([left], outputs, ID="COPY")
+
+    assert op.generate_implementation("python", unroll=True) == ["out0 = in", "out1 = in", "out2 = in"]
+    assert op.generate_implementation("c", unroll=True) == ["out0 = in;", "out1 = in;", "out2 = in;"]
+    assert op.generate_implementation("verilog", unroll=True) == [
+        "assign out0 = in;",
+        "assign out1 = in;",
+        "assign out2 = in;",
+    ]
+
+    op.model_version = "CopyOperator_XORDIFF"
+    assert op.generate_model("sat")[:6] == [
+        "out0_0 -in_0",
+        "-out0_0 in_0",
+        "out1_0 -in_0",
+        "-out1_0 in_0",
+        "out2_0 -in_0",
+        "-out2_0 in_0",
+    ]
+    assert op.generate_model("milp") == [
+        "out0_0 - in_0 = 0",
+        "out1_0 - in_0 = 0",
+        "out2_0 - in_0 = 0",
+        "out0_1 - in_1 = 0",
+        "out1_1 - in_1 = 0",
+        "out2_1 - in_1 = 0",
+        "Binary\nin_0 in_1 out0_0 out0_1 out1_0 out1_1 out2_0 out2_1",
+    ]
+
+    op.model_version = "CopyOperator_TRUNCATEDDIFF"
+    assert op.generate_model("sat") == [
+        "in -out0",
+        "-in out0",
+        "in -out1",
+        "-in out1",
+        "in -out2",
+        "-in out2",
+    ]
+    assert op.generate_model("milp") == [
+        "out0 - in = 0",
+        "out1 - in = 0",
+        "out2 - in = 0",
+        "Binary\nin out0 out1 out2",
+    ]
+
+
+def test_none_operator_is_empty_placeholder():
+    op = NoneOperator([], [], ID="NONE")
+
+    assert op.generate_implementation("python", unroll=True) == []
+    assert op.generate_model("sat") == []
 
 
 def test_unary_equivalence_operators_share_stable_models():
