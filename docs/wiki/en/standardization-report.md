@@ -143,6 +143,7 @@ document, and extend.
 - Required explicit confirmation for the web text-first draft build endpoint.
 - Avoided mutating caller-owned `CipherSpecDraft` objects during direct API confirmation.
 - Fixed Matrix private bit-model helpers so wrong-version calls raise explicit errors instead of returning `None`.
+- Consolidated AND/OR/XOR implementation generation behind a shared bitwise helper.
 
 ## Validation
 

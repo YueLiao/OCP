@@ -18,6 +18,19 @@ def _binary_bit_vars(operator):
     )
 
 
+def _binary_bitwise_implementation(operator, symbol, implementation_type, unroll):
+    lhs = operator.get_var_ID('out', 0, unroll)
+    left = operator.get_var_ID('in', 0, unroll)
+    right = operator.get_var_ID('in', 1, unroll)
+    if implementation_type == 'python':
+        return [f"{lhs} = {left} {symbol} {right}"]
+    if implementation_type == 'c':
+        return [f"{lhs} = {left} {symbol} {right};"]
+    if implementation_type == 'verilog':
+        return [f"assign {lhs} = {left} {symbol} {right};"]
+    raise Exception(str(operator.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+
+
 def _generate_and_or_active_weight_model(operator, model_type):
     model_list = []
     var_in1, var_in2, var_out = _binary_bit_vars(operator)
@@ -61,13 +74,7 @@ class AND(BinaryOperator):  # Operator for the bitwise AND operation: compute th
         super().__init__(input_vars, output_vars, ID = ID)
 
     def generate_implementation(self, implementation_type='python', unroll=False):
-        if implementation_type == 'python':
-            return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' & ' + self.get_var_ID('in', 1, unroll)]
-        elif implementation_type == 'c':
-            return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' & ' + self.get_var_ID('in', 1, unroll) + ';']
-        elif implementation_type == 'verilog':
-            return ["assign " + self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' & ' + self.get_var_ID('in', 1, unroll) + ';']
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        return _binary_bitwise_implementation(self, '&', implementation_type, unroll)
 
     def generate_model(self, model_type='sat'):
         return _generate_and_or_active_weight_model(self, model_type)
@@ -78,13 +85,7 @@ class OR(BinaryOperator):  # Operator for the bitwise OR operation: compute the 
         super().__init__(input_vars, output_vars, ID = ID)
 
     def generate_implementation(self, implementation_type='python', unroll=False):
-        if implementation_type == 'python':
-            return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' | ' + self.get_var_ID('in', 1, unroll)]
-        elif implementation_type == 'c':
-           return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' | ' + self.get_var_ID('in', 1, unroll) + ';']
-        elif implementation_type == 'verilog':
-           return ["assign " + self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' | ' + self.get_var_ID('in', 1, unroll) + ';']
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        return _binary_bitwise_implementation(self, '|', implementation_type, unroll)
 
     def generate_model(self, model_type='sat'):
         return _generate_and_or_active_weight_model(self, model_type)
@@ -95,13 +96,7 @@ class XOR(BinaryOperator):  # Operator for the bitwise XOR operation: compute th
         super().__init__(input_vars, output_vars, ID = ID)
 
     def generate_implementation(self, implementation_type='python', unroll=False):
-        if implementation_type == 'python':
-            return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' ^ ' + self.get_var_ID('in', 1, unroll)]
-        elif implementation_type == 'c':
-            return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' ^ ' + self.get_var_ID('in', 1, unroll) + ';']
-        elif implementation_type == 'verilog':
-            return ["assign " + self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' ^ ' + self.get_var_ID('in', 1, unroll) + ';']
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        return _binary_bitwise_implementation(self, '^', implementation_type, unroll)
 
     def generate_model(self, model_type='sat'):
         model_list = []

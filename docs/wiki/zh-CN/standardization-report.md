@@ -141,6 +141,7 @@
 - 为 Web text-first draft 构建接口添加显式确认要求。
 - 避免 direct API 确认流程原地修改调用者传入的 `CipherSpecDraft` 对象。
 - 修正 Matrix 私有 bit-model helper，使错误 version 调用显式报错，而不是返回 `None`。
+- 将 AND/OR/XOR 的实现生成逻辑收敛到共享 bitwise helper。
 
 ## 验证
 
