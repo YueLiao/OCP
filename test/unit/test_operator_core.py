@@ -1,10 +1,11 @@
 import variables.variables as var
 import pytest
-from operators.boolean_operators import AND, ConstantXOR, NOT, N_XOR, OR, XOR
+from operators.boolean_operators import AND, ANDXOR, ConstantXOR, NOT, N_XOR, OR, XOR
 from operators.modular_operators import ConstantAdd, ModAdd, ModMul
 from operators.operators import CopyOperator, Equal, NoneOperator, Rot, Shift
 from operators.Sbox import AES_Sbox, PRESENT_Sbox, Sbox
 from operators.matrix import (
+    GF2Linear_Trans,
     Matrix,
     gf2_inv,
     gf2_multiply,
@@ -150,6 +151,51 @@ def test_and_or_share_stable_active_weight_models():
         assert f"{operator_cls.__name__}_p_0 - in0_0 >= 0" in milp_model
         assert f"{operator_cls.__name__}_p_1 - out_1 = 0" in milp_model
         assert op.weight == [f"{operator_cls.__name__}_p_0 + {operator_cls.__name__}_p_1"]
+
+
+def test_andxor_generates_implementation_and_milp_versions():
+    inputs = [var.Variable(2, ID=name) for name in ("a", "b", "c")]
+    out = var.Variable(2, ID="out")
+    op = ANDXOR(inputs, [out], ID="AX")
+
+    assert op.generate_implementation("python", unroll=True) == ["out = (a & b) ^ c"]
+    assert op.generate_implementation("c", unroll=True) == ["out = (a & b) ^ c;"]
+    assert op.generate_implementation("verilog", unroll=True) == ["assign out = (a & b) ^ c;"]
+
+    expected_prefixes = {
+        "ANDXOR_XORDIFF": [
+            "AX_p_0 - a_0 >= 0",
+            "AX_p_0 - b_0 >= 0",
+            "AX_p_0 - a_0 - b_0 <= 0",
+            "a_0 + b_0 + c_0 - out_0 >= 0",
+        ],
+        "ANDXOR_XORDIFF_1": [
+            "AX_p_0 = 0 -> a_0 = 0",
+            "AX_p_0 = 0 -> b_0 = 0",
+            "AX_p_0 = 1 -> a_0 + b_0 >= 1",
+            "a_0 + b_0 + c_0 - out_0 >= 0",
+        ],
+        "ANDXOR_XORDIFF_2": [
+            "AX_p_0 = 0 -> a_0 = 0",
+            "AX_p_0 = 0 -> b_0 = 0",
+            "AX_p_0 = 0 -> c_0 - out_0 = 0",
+            "AX_p_0 = 1 -> a_0 + b_0 >= 1",
+        ],
+        "ANDXOR_XORDIFF_3": [
+            "AX_p_0 = 0 -> a_0 = 0",
+            "AX_p_0 = 0 -> b_0 = 0",
+            "AX_p_0 = 0 -> c_0 - out_0 = 0",
+            "AX_p_0 - a_0 - b_0 <= 0",
+        ],
+    }
+
+    for model_version, prefix in expected_prefixes.items():
+        op.model_version = model_version
+        model = op.generate_model("milp")
+
+        assert model[:4] == prefix
+        assert model[-1] == "Binary\na_0 a_1 b_0 b_1 c_0 c_1 out_0 out_1 AX_p_0 AX_p_1"
+        assert op.weight == ["AX_p_0 + AX_p_1"]
 
 
 def test_bitwise_or_as_sbox_has_stable_ddt_and_lat():
@@ -690,6 +736,46 @@ def test_polynomial_matrix_headers_are_stable():
     ]
     assert op.generate_implementation_header_unique("python")[0] == "#Galois Field Multiplication Macro"
     assert op.generate_implementation_header_unique("c")[0] == "//Galois Field Multiplication Macro"
+
+
+def test_gf2_linear_trans_code_generation_and_models_are_stable():
+    op = GF2Linear_Trans(
+        [var.Variable(3, ID="x")],
+        [var.Variable(3, ID="y")],
+        [[1, 1, 0], [0, 1, 1], [1, 0, 1]],
+        ID="L",
+        constants=[1, 0, 1],
+    )
+
+    assert op.generate_implementation("python", unroll=True) == [
+        "y = ((((x >> 2) & 1) ^ ((x >> 1) & 1) ^ 1) << 2) | ((((x >> 1) & 1) ^ ((x >> 0) & 1)) << 1) | ((((x >> 2) & 1) ^ ((x >> 0) & 1) ^ 1) << 0)",
+    ]
+    assert op.generate_implementation("c", unroll=True) == [
+        "y = (((x >> 2) & 1) ^ ((x >> 1) & 1) ^ 1) << 2 | (((x >> 1) & 1) ^ ((x >> 0) & 1)) << 1 | (((x >> 2) & 1) ^ ((x >> 0) & 1) ^ 1) << 0;",
+    ]
+
+    op.model_version = "GF2Linear_Trans_XORDIFF"
+    assert op.generate_model("sat")[:4] == [
+        "x_0 x_1 -y_0",
+        "x_0 -x_1 y_0",
+        "-x_0 x_1 y_0",
+        "-x_0 -x_1 -y_0",
+    ]
+    assert op.generate_model("milp")[:5] == [
+        "x_0 + x_1 - y_0 >= 0",
+        "x_1 + y_0 - x_0 >= 0",
+        "x_0 + y_0 - x_1 >= 0",
+        "x_0 + x_1 + y_0 <= 2",
+        "Binary\nx_0 x_1 y_0",
+    ]
+
+    op.model_version = "GF2Linear_Trans_LINEAR"
+    assert op.generate_model("sat")[:4] == [
+        "y_0 y_2 -x_0",
+        "y_0 -y_2 x_0",
+        "-y_0 y_2 x_0",
+        "-y_0 -y_2 -x_0",
+    ]
 
 
 def test_matrix_bit_models_share_stable_constraint_generation():
