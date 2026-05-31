@@ -54,23 +54,17 @@ def write_milp_model(constraints, obj_fun=None, filename="milp.lp"):
 
 def create_numerical_cnf(cnf):
     """Convert symbolic CNF clauses to DIMACS-style integer clauses."""
-    family_of_variables = ' '.join(cnf).replace('-', '')
-    variables = sorted(set(family_of_variables.split()))
+    variables = sorted({literal.lstrip("-") for clause in cnf for literal in clause.split()})
     variable2number = {variable: i + 1 for (i, variable) in enumerate(variables)}
 
     numerical_cnf = []
     for clause in cnf:
         literals = clause.split()
-        numerical_literals = []
-        lits_are_neg = (literal[0] == '-' for literal in literals)
-        numerical_literals.extend(
-            tuple(
-                f'{"-" * lit_is_neg}{variable2number[literal[lit_is_neg:]]}'
-                for lit_is_neg, literal in zip(lits_are_neg, literals)
-            )
+        numerical_literals = (
+            f'{"-" if literal.startswith("-") else ""}{variable2number[literal.lstrip("-")]}'
+            for literal in literals
         )
-        numerical_clause = ' '.join(numerical_literals)
-        numerical_cnf.append(numerical_clause)
+        numerical_cnf.append(' '.join(numerical_literals))
     return len(variables), variable2number, numerical_cnf
 
 

@@ -88,6 +88,7 @@
 - 集中 SAT optimal-search strategy 到 `SUM_*` 约束类型的映射。
 - 让 decimal SAT objective 过滤跳过缺少 `obj_fun_value` 的异常解记录。
 - 将 SAT CNF 和 MILP LP 模型序列化 helper 拆到 `tools.model_io`。
+- 将 symbolic CNF 变量抽取改为逐 literal 收集，避免先拼接完整模型字符串。
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。
 - 将模板实例化里的逐变量多次正则替换改为单次 token 替换，减少约束模板展开开销。
 - 为模型生成添加 opt-in identity elision，用于保守跳过内部 Equal 链。

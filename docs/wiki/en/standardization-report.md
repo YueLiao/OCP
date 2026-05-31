@@ -90,6 +90,7 @@ document, and extend.
 - Centralized SAT optimal-search strategy to `SUM_*` constraint-type mapping.
 - Made decimal SAT objective filtering skip malformed solutions that lack `obj_fun_value`.
 - Split SAT CNF and MILP LP model serialization helpers into `tools.model_io`.
+- Reduced symbolic CNF variable extraction overhead by collecting variables per literal instead of joining the full model first.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
 - Replaced repeated per-variable template regex passes with single-pass token substitution during constraint template instantiation.
 - Added opt-in identity elision for conservative internal Equal chains in model generation.
