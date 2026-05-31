@@ -68,6 +68,7 @@ document, and extend.
 - Expanded the text-first Agentic roadmap into a reviewable implementation contract for schemas, web flow, providers, safety gates, and tests.
 - Added a concrete remaining-build checklist for text-first Agentic source spans, manual edits, golden examples, provider boundaries, solver metadata, and job records.
 - Added golden text-first fixtures for ARX, SPN, and S-box/permutation draft validation.
+- Migrated additional XOR and bitwise-OR-as-S-box behavior into stable operator unit tests.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
 - Consolidated repeated operator model helpers across Boolean, modular, S-box, and matrix operators.
 - Refined S-box weighted truth-table generation, matrix bit-model generation, explicit modular arithmetic, and unfinished operator abstractions.

@@ -3,7 +3,7 @@ import pytest
 from operators.boolean_operators import AND, ConstantXOR, NOT, OR, XOR
 from operators.modular_operators import ConstantAdd, ModAdd, ModMul
 from operators.operators import Equal, Rot
-from operators.Sbox import PRESENT_Sbox
+from operators.Sbox import PRESENT_Sbox, Sbox
 from operators.matrix import (
     Matrix,
     generate_binary_matrix_2,
@@ -21,12 +21,33 @@ def test_xor_generates_implementation_and_sat_xordiff_model():
     op = XOR([left, right], [out], ID="XOR")
 
     assert op.generate_implementation("python", unroll=True) == ["out = in0 ^ in1"]
+    assert op.generate_implementation("c", unroll=True) == ["out = in0 ^ in1;"]
+    assert op.generate_implementation("verilog", unroll=True) == ["assign out = in0 ^ in1;"]
 
     op.model_version = "XOR_XORDIFF"
     model = op.generate_model("sat")
 
     assert "in0_0 in1_0 -out_0" in model
     assert "-in0_1 -in1_1 -out_1" in model
+
+
+def test_xor_additional_differential_versions_have_stable_dummy_variables():
+    left = var.Variable(2, ID="in0")
+    right = var.Variable(2, ID="in1")
+    out = var.Variable(2, ID="out")
+    op = XOR([left, right], [out], ID="XOR")
+
+    op.model_version = "XOR_XORDIFF_1"
+    version_1 = op.generate_model("milp")
+    assert "XOR_d_0" in "\n".join(version_1)
+    assert "Binary\nin0_0 in1_0 out_0 XOR_d_0" in version_1
+    assert "Binary\nin0_1 in1_1 out_1 XOR_d_1" in version_1
+
+    op.model_version = "XOR_XORDIFF_2"
+    version_2 = op.generate_model("milp")
+    assert "XOR_d_1" in "\n".join(version_2)
+    assert "in0_0 + in1_0 + out_0 - 2 XOR_d_0 = 0" in version_2
+    assert "Binary\nin0_1 in1_1 out_1 XOR_d_1" in version_2
 
 
 def test_operator_display_can_be_captured_without_printing(capsys):
@@ -81,6 +102,20 @@ def test_and_or_share_stable_active_weight_models():
         assert f"{operator_cls.__name__}_p_0 - in0_0 >= 0" in milp_model
         assert f"{operator_cls.__name__}_p_1 - out_1 = 0" in milp_model
         assert op.weight == [f"{operator_cls.__name__}_p_0 + {operator_cls.__name__}_p_1"]
+
+
+def test_bitwise_or_as_sbox_has_stable_ddt_and_lat():
+    op = Sbox(
+        [var.Variable(2, ID="in")],
+        [var.Variable(1, ID="out")],
+        input_bitsize=2,
+        output_bitsize=1,
+        ID="or_sbox",
+    )
+    op.table = [0, 1, 1, 1]
+
+    assert op.computeDDT() == [[4, 0], [2, 2], [2, 2], [2, 2]]
+    assert op.computeLAT() == [[4, -2], [0, 2], [0, 2], [0, 2]]
 
 
 def test_modular_implementation_generation_is_stable():
