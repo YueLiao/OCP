@@ -53,6 +53,7 @@
 - 为网页 JSON endpoints 缺失 JSON body 的情况添加显式 400 响应。
 - 对网页 provider 配置错误返回 HTTP 400。
 - 网页 API 响应不再暴露 provider 初始化、chat 和 upload 处理时的底层异常细节。
+- 为已确认的网页 analysis 响应添加 solver 能力元数据。
 - 从网页上传 endpoint 返回文件抽取 data 和 artifact links。
 - 避免上传临时文件已缺失时的清理错误掩盖网页上传响应。
 - 为 text-first 抽取、draft 和 confirmation 添加可复现 JSON job 记录与 artifact links。

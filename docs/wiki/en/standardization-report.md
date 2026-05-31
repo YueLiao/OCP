@@ -55,6 +55,7 @@ document, and extend.
 - Added explicit 400 responses for missing JSON bodies on web JSON endpoints.
 - Returned HTTP 400 for invalid web provider configuration errors.
 - Hid low-level provider setup, chat, and upload processing exception details from web API responses.
+- Added solver capability metadata to confirmed web analysis responses.
 - Returned file-extraction data and artifact links from the web upload endpoint.
 - Prevented missing temporary upload files from masking web upload responses during cleanup.
 - Added replayable JSON job records and artifact links for text-first extraction, draft, and confirmation.

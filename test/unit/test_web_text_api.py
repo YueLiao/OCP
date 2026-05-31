@@ -295,6 +295,38 @@ def test_workflow_endpoints_return_standard_skill_payloads(monkeypatch, tmp_path
     assert solver_data["capabilities"]["default"]["milp"] == "GUROBI"
 
 
+def test_analysis_response_includes_solver_capabilities(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
+    web_app.agent = OCPAgent()
+    web_app.agent.instantiate_cipher("speck", "blockcipher", version=[32, 64], rounds=1)
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+
+    def fake_differential_analysis(**params):
+        return SkillResult(
+            success=True,
+            skill=SkillName.DIFFERENTIAL_ANALYSIS,
+            data={"params": params},
+            summary="analysis skipped",
+        )
+
+    monkeypatch.setattr(web_app.agent, "differential_analysis", fake_differential_analysis)
+    client = web_app.app.test_client()
+
+    response = client.post(
+        "/api/analyze",
+        json={
+            "analysis_type": "differential",
+            "objective_target": "EXISTENCE",
+            "confirmed": True,
+        },
+    )
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["solver_capabilities"]["default"]["milp"] == "GUROBI"
+    assert "PySAT" in data["solver_capabilities"]["sat"]
+
+
 def test_workflow_preflight_blocks_without_cipher():
     web_app.agent = OCPAgent()
     web_app.config = {"provider": "fake", "model": "fake", "connected": True}

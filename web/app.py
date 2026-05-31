@@ -268,7 +268,7 @@ def run_analysis():
         result = agent.differential_analysis(**params)
     else:
         result = agent.linear_analysis(**params)
-    return _skill_response(result)
+    return _skill_response(result, extra={"solver_capabilities": agent.solver_capabilities()})
 
 
 @app.route("/api/code", methods=["POST"])
