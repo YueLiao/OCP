@@ -229,6 +229,39 @@ def confirm_text_cipher():
     return _skill_response(result)
 
 
+@app.route("/api/text/draft/spec", methods=["POST"])
+def revise_text_cipher_draft():
+    """Validate and store a manually edited text-first CipherSpec draft."""
+    global agent
+    blocked = _require_agent()
+    if blocked:
+        return blocked
+
+    data, error = _require_json()
+    if error:
+        return error
+    spec = data.get("spec")
+    if not isinstance(spec, dict):
+        return _error_response("spec must be a JSON object.", 400, "invalid_spec")
+
+    try:
+        draft = agent.revise_cipher_spec_draft(spec)
+    except ValueError as exc:
+        return _error_response(str(exc), 400, "invalid_spec")
+
+    job = agent.session.get_metadata("pending_text_job")
+    status = 200 if draft.is_valid else 400
+    return jsonify(
+        {
+            "success": draft.is_valid,
+            "draft": _draft_payload(draft),
+            "job": job,
+            "artifact_links": (job or {}).get("artifact_links", []),
+            "context": agent.session.get_context(),
+        }
+    ), status
+
+
 @app.route("/api/analyze", methods=["POST"])
 def run_analysis():
     """Run a confirmed differential or linear analysis workflow."""

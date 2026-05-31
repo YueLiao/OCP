@@ -311,6 +311,24 @@ class OCPAgent:
             self.session.set_metadata("pending_text_job", job)
         return draft
 
+    def revise_cipher_spec_draft(self, spec: Dict[str, Any]) -> CipherSpecDraft:
+        """Replace the pending text-first draft with a manually edited CipherSpec payload."""
+
+        if not isinstance(spec, dict):
+            raise ValueError("Edited CipherSpec draft must be a JSON object.")
+        draft = CipherSpecDraft(spec=spec)
+        draft.validate_spec()
+        self.session.set_metadata("pending_cipher_spec_draft", draft)
+        self.session.set_metadata("pending_cipher_spec", draft.spec)
+        job = update_job_record(
+            self.session.get_metadata("pending_text_job"),
+            draft=draft,
+            manual_revision={"source": "user_spec_edit"},
+        )
+        if job:
+            self.session.set_metadata("pending_text_job", job)
+        return draft
+
     def confirm_cipher_spec(self, draft: Optional[Union[CipherSpecDraft, Dict[str, Any]]] = None) -> SkillResult:
         """Confirm and build a reviewed text-first CipherSpec draft."""
 

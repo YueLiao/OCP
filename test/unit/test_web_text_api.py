@@ -256,6 +256,31 @@ def test_text_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):
     assert confirm_data["artifact_links"][0]["path"] == draft_data["artifact_links"][0]["path"]
 
 
+def test_text_draft_spec_endpoint_validates_manual_edits(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
+    web_app.agent = OCPAgent(llm_provider=FakeFactsProvider())
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    draft_response = client.post("/api/text/draft", json={"text": "tiny arx text"})
+    draft_data = draft_response.get_json()
+    spec = draft_data["draft"]["spec"]
+    spec["name"] = "TinyARXEdited"
+
+    edit_response = client.post("/api/text/draft/spec", json={"spec": spec})
+    edit_data = edit_response.get_json()
+    invalid_response = client.post("/api/text/draft/spec", json={"spec": {"name": "Broken"}})
+    invalid_data = invalid_response.get_json()
+
+    assert edit_response.status_code == 200
+    assert edit_data["success"] is True
+    assert edit_data["draft"]["spec"]["name"] == "TinyARXEdited"
+    assert edit_data["artifact_links"][0]["path"] == draft_data["artifact_links"][0]["path"]
+    assert invalid_response.status_code == 400
+    assert invalid_data["success"] is False
+    assert invalid_data["draft"]["validation_errors"]
+
+
 def test_workflow_endpoints_return_standard_skill_payloads(monkeypatch, tmp_path):
     monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
     web_app.agent = OCPAgent()

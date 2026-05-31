@@ -181,8 +181,8 @@ Provider factory 应支持：
   `CipherFacts` 引用中。
 - 在网页 API 中添加手动 facts 编辑路径，让用户在生成 `CipherSpecDraft`
   前修正抽取结果。
-- 在网页 API 中添加手动 `CipherSpec` JSON patch 路径，并在确认前做确定性
-  schema 校验。
+- 在网页端提供持久 draft/spec 编辑面板后，将当前手动 `CipherSpec` JSON
+  编辑路径扩展为字段级 patch 支持。
 - 添加三个 golden text examples：一个 ARX primitive、一个 SPN primitive、
   一个 S-box/permutation primitive。
 - 添加 provider smoke tests，确保 DeepSeek 和通用 OpenAI-compatible provider

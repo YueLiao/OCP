@@ -196,8 +196,8 @@ The next implementation pass should focus on these concrete gaps:
   through `CipherFacts` citations.
 - Add a manual facts editor path in the web API so users can correct extracted
   facts before `CipherSpecDraft` generation.
-- Add a manual `CipherSpec` JSON patch path in the web API with deterministic
-  schema validation before confirmation.
+- Extend the manual `CipherSpec` JSON edit path into field-level patch support
+  once the web UI exposes persistent draft/spec editing panes.
 - Add golden text examples for one ARX primitive, one SPN primitive, and one
   S-box/permutation primitive.
 - Add provider smoke tests that assert DeepSeek and generic OpenAI-compatible

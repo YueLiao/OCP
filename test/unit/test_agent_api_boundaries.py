@@ -128,6 +128,16 @@ def test_confirm_cipher_spec_rejects_invalid_draft():
     assert "validation errors" in result.error
 
 
+def test_revise_cipher_spec_draft_validates_manual_spec_edits():
+    agent = OCPAgent()
+
+    draft = agent.revise_cipher_spec_draft({"name": "Broken", "round_structure": []})
+
+    assert not draft.is_valid
+    assert "round_structure" in "; ".join(draft.validation_errors)
+    assert agent.session.get_metadata("pending_cipher_spec_draft") is draft
+
+
 def test_agent_exposes_solver_capabilities():
     capabilities = OCPAgent().solver_capabilities()
 

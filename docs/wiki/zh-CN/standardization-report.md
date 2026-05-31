@@ -49,6 +49,7 @@
 - 添加文本优先 facts 抽取、draft 创建和显式确认构建的 `OCPAgent` 直接 API。
 - 添加 CLI `draft <cipher text>` 文本优先草稿审阅和确认流程。
 - 添加网页 text draft/confirm endpoint 和 `Draft` UI 动作，用于先审阅再构建。
+- 添加网页/API 路径，允许用户提交手动编辑后的 `CipherSpec` draft，并在确认前做确定性校验。
 - 将网页 provider API key 解析与 CLI 的环境变量默认行为对齐。
 - 为网页 JSON endpoints 缺失 JSON body 的情况添加显式 400 响应。
 - 对网页 provider 配置错误返回 HTTP 400。
