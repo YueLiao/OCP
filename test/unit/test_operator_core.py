@@ -1,6 +1,6 @@
 import variables.variables as var
 import pytest
-from operators.boolean_operators import AND, ConstantXOR, NOT, OR, XOR
+from operators.boolean_operators import AND, ConstantXOR, NOT, N_XOR, OR, XOR
 from operators.modular_operators import ConstantAdd, ModAdd, ModMul
 from operators.operators import Equal, Rot
 from operators.Sbox import PRESENT_Sbox, Sbox
@@ -48,6 +48,51 @@ def test_xor_additional_differential_versions_have_stable_dummy_variables():
     assert "XOR_d_1" in "\n".join(version_2)
     assert "in0_0 + in1_0 + out_0 - 2 XOR_d_0 = 0" in version_2
     assert "Binary\nin0_1 in1_1 out_1 XOR_d_1" in version_2
+
+
+def test_nxor_generates_implementation_and_linear_models():
+    inputs = [var.Variable(2, ID=f"in{i}") for i in range(3)]
+    out = var.Variable(2, ID="out")
+    op = N_XOR(inputs, [out], ID="2N_XOR")
+
+    assert op.generate_implementation("python", unroll=True) == ["out = in0 ^ in1 ^ in2"]
+    assert op.generate_implementation("c", unroll=True) == ["out = in0 ^ in1 ^ in2;"]
+    assert op.generate_implementation("verilog", unroll=True) == ["assign out = in0 ^ in1 ^ in2;"]
+
+    op.model_version = "N_XOR_LINEAR"
+    assert op.generate_model("sat")[:6] == [
+        "out_0 -in0_0",
+        "-out_0 in0_0",
+        "out_0 -in1_0",
+        "-out_0 in1_0",
+        "out_0 -in2_0",
+        "-out_0 in2_0",
+    ]
+    assert op.generate_model("milp") == [
+        "out_0 - in0_0 = 0",
+        "out_0 - in1_0 = 0",
+        "out_0 - in2_0 = 0",
+        "out_1 - in0_1 = 0",
+        "out_1 - in1_1 = 0",
+        "out_1 - in2_1 = 0",
+        "Binary\nin0_0 in0_1 in1_0 in1_1 in2_0 in2_1 out_0 out_1",
+    ]
+
+    op.model_version = "N_XOR_TRUNCATEDLINEAR"
+    assert op.generate_model("sat") == [
+        "out -in0",
+        "-out in0",
+        "out -in1",
+        "-out in1",
+        "out -in2",
+        "-out in2",
+    ]
+    assert op.generate_model("milp") == [
+        "out - in0 = 0",
+        "out - in1 = 0",
+        "out - in2 = 0",
+        "Binary\nin0 in1 in2 out",
+    ]
 
 
 def test_operator_display_can_be_captured_without_printing(capsys):
