@@ -14,6 +14,7 @@ from primitives.chacha import CHACHA_KEYPERMUTATION, CHACHA_PERMUTATION
 from primitives.forro import (
     FORRO_KEYPERMUTATION,
     FORRO_PERMUTATION,
+    FORRO_KEYSTREAM_TEMP_START,
     _forro_subround_selection,
 )
 from primitives.salsa import SALSA_KEYPERMUTATION, SALSA_PERMUTATION
@@ -76,6 +77,30 @@ def test_forro_subround_helper_preserves_round_schedule_and_structure():
     assert [
         len(key_permutation.constraints[1][i]) for i in range(key_permutation.nbr_layers)
     ] == [32] * 13
+
+    assert permutation.constraints[1][0][12].__class__.__name__ == "ModAdd"
+    assert permutation.constraints[1][0][12].ID == "Add1_1_1_12"
+    assert [var.ID for var in permutation.constraints[1][0][12].input_vars] == [
+        "v_1_0_12",
+        "v_1_0_3",
+    ]
+    assert [var.ID for var in permutation.constraints[1][0][12].output_vars] == ["v_1_1_12"]
+
+    rot1 = next(cons for cons in permutation.constraints[1][3] if cons.__class__.__name__ == "Rot")
+    assert (rot1.ID, rot1.direction, rot1.amount) == ("Rot1_1_4_4", "l", 10)
+    assert [var.ID for var in rot1.input_vars] == ["v_1_3_4"]
+    assert [var.ID for var in rot1.output_vars] == ["v_1_4_4"]
+
+    assert [constraint.__class__.__name__ for constraint in key_permutation.constraints[1][0][:16]] == [
+        "Equal",
+    ] * 16
+    assert [constraint.__class__.__name__ for constraint in key_permutation.constraints[1][0][16:]] == [
+        "NoneOperator",
+    ] * 16
+    assert key_permutation.constraints[1][0][16].input_vars[0].ID == "v_1_0_0"
+    assert key_permutation.constraints[1][0][16].output_vars[0].ID == (
+        f"v_1_1_{FORRO_KEYSTREAM_TEMP_START}"
+    )
 
 
 def test_chacha_arx_helper_preserves_round_schedule_and_structure():
