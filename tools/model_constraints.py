@@ -1,3 +1,11 @@
+"""Backward-compatible facade for OCP model constraint helpers.
+
+Runtime code should prefer the focused modules such as
+``model_configuration``, ``predefined_constraints``, ``search_constraints``,
+``bit_constraints``, and ``model_templates``. This module keeps the historical
+import paths available for external users and compatibility tests.
+"""
+
 from tools import bit_constraints
 from tools import model_configuration
 from tools import model_templates

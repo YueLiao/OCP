@@ -1,8 +1,10 @@
 import os
 
 import tools.model_objective as model_objective
-from tools.predefined_constraints import gen_predefined_constraints
-from tools.search_constraints import gen_matsui_constraints_sat
+from tools.objective_targets import (
+    gen_sat_constraints_from_objective_target as _gen_sat_constraints_from_objective_target,
+    parse_objective_target,
+)
 from tools.search_reporting import log, log_search_summary
 import solving.solving as solving
 
@@ -13,20 +15,6 @@ import solving.solving as solving
 # 2. Generate standard CNF-format models.
 # 3. Call the SAT solver (MiniSat, Glucose, etc.) to solve the model.
 # **************************************************************************** #
-
-
-# ------------------------- Modeling and Solving SAT --------------------------
-def parse_objective_target(objective_target):
-    if objective_target == "OPTIMAL" or objective_target == "EXISTENCE":
-        return objective_target, None
-    for keyword in ["AT MOST", "EXACTLY", "AT LEAST"]:
-        if objective_target.startswith(keyword):
-            try:
-                value = float(objective_target.split()[-1])
-                return keyword, value
-            except ValueError:
-                raise ValueError(f"Invalid format: '{objective_target}'. Expected '{keyword} X'.")
-    raise ValueError(f"Unsupported objective_target: {objective_target}")
 
 
 def modeling_solving_sat(objective_target, constraints, objective_function, config_model, config_solver):
@@ -286,50 +274,15 @@ def modeling_solving_at_least(constraints, objective_function, config_model, con
     return solutions
 
 
-# ------------------ Core SAT Model Construction and Solving -----------------
-# Generate SAT constraints induced by an objective target, i.e., a cardinality constraint over objective-related Boolean variables.
 def gen_sat_constraints_from_objective_target(objective_function, config_model, cons_type, obj_val, obj_val_decimal=None):
-    if cons_type == "SUM_AT_MOST":
-        encoding = config_model.get("atmost_encoding_sat", "SEQUENTIAL")
-    elif cons_type == "SUM_EXACTLY":
-        encoding = config_model.get("exact_encoding_sat", 1)
-    elif cons_type == "SUM_AT_LEAST":
-        encoding = config_model.get("atleast_encoding_sat", 1)
-    else:
-        return []
-
-    constraints = []
-    if obj_val_decimal is not None: # Add constraints for decimal objective function values
-        obj_fun_vars, obj_fun_vars_decimal = model_objective.gen_obj_fun_variables(objective_function, obj_fun_decimal=True)
-        assert len(obj_val_decimal) == len(obj_fun_vars_decimal), f"Length mismatch between objective function decimal variables and obj_val_decimal."
-        for i in range(len(obj_fun_vars_decimal)):
-            hw_list = [obj for row in obj_fun_vars_decimal[i] for obj in row]
-            constraints += gen_predefined_constraints("sat", cons_type, hw_list, obj_val_decimal[i], encoding=encoding)
-    else:
-        obj_fun_vars = model_objective.gen_obj_fun_variables(objective_function, obj_fun_decimal=False)
-
-    if "matsui_constraint" in config_model and obj_val > 0: # Add Matsui constraints
-        log("[INFO] Applying Matsui constraints for SAT modeling.", config_model)
-        assert cons_type == "SUM_AT_MOST", "Matsui constraints only support 'AT MOST' objective target."
-        Round = config_model.get("matsui_constraint").get("Round")
-        best_obj = config_model.get("matsui_constraint").get("best_obj")
-        GroupConstraintChoice = config_model["matsui_constraint"].get("GroupConstraintChoice", 1)
-        GroupNumForChoice = config_model["matsui_constraint"].get("GroupNumForChoice", 1)
-        if Round is None or best_obj is None:
-            raise ValueError("[WARNING] Please provide 'Round' and 'best_obj' for Matsui strategy.")
-        if obj_val >= best_obj[-1]:
-            constraints += gen_matsui_constraints_sat(Round, best_obj, obj_val, obj_fun_vars, GroupConstraintChoice, GroupNumForChoice)
-        else:
-            log(
-                f"[WARNING] Skipping Matsui constraints since obj_val = {obj_val} < best_obj[-1] = {best_obj[-1]}.",
-                config_model,
-            )
-            hw_list = [obj for row in obj_fun_vars for obj in row]
-            constraints += gen_predefined_constraints("sat", cons_type, hw_list, obj_val, encoding=encoding)
-    else: # Add constraints for integer objective function values
-        hw_list = [obj for row in obj_fun_vars for obj in row]
-        constraints += gen_predefined_constraints("sat", cons_type, hw_list, obj_val, encoding=encoding)
-    return constraints
+    return _gen_sat_constraints_from_objective_target(
+        objective_function,
+        config_model,
+        cons_type,
+        obj_val,
+        obj_val_decimal=obj_val_decimal,
+        log=log,
+    )
 
 # Core function for modeling and solving SAT.
 def modeling_solving(constraints, objective_function, config_model, config_solver):

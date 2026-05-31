@@ -2,7 +2,7 @@ import os
 import copy
 
 import tools.model_objective as model_objective
-from tools.predefined_constraints import gen_predefined_constraints
+from tools.objective_targets import gen_milp_constraints_from_objective_target
 from tools.search_constraints import gen_matsui_constraints_milp
 from tools.search_reporting import log_search_summary
 import solving.solving as solving
@@ -14,31 +14,6 @@ import solving.solving as solving
 # 2. Generate standard LP-format models.
 # 3. Call the MILP solver (Gurobi, SCIP, etc.) to solve the model.
 # **************************************************************************** #
-
-
-# ----------------- Constraint Generation from Objective Target ----------------
-def gen_milp_constraints_from_objective_target(objective_target): # Generate constraints based on the objective target. In MILP models, the variable 'obj' is used to represent the objective function.
-    if objective_target.startswith("AT MOST"):
-        try:
-            max_val = float(objective_target.split()[-1])
-        except ValueError:
-            raise ValueError(f"Invalid format: '{objective_target}'. Expected 'AT MOST X'.")
-        constraints = gen_predefined_constraints("milp", "AT_MOST", ["obj"], max_val) # Generate the constraint for the objective function value <= atmost_val
-    elif objective_target.startswith("EXACTLY"):
-        try:
-            exact_val = float(objective_target.split()[-1])
-        except ValueError:
-            raise ValueError(f"Invalid format: '{objective_target}'. Expected 'EXACTLY X'.")
-        constraints = gen_predefined_constraints("milp", "EXACTLY", ["obj"], exact_val) # Generate the constraint for the objective function value = exact_val.
-    elif objective_target.startswith("AT LEAST"):
-        try:
-            atleast_value = float(objective_target.split()[-1])
-        except ValueError:
-            raise ValueError(f"Invalid format: '{objective_target}'. Expected 'AT LEAST X'.")
-        constraints = gen_predefined_constraints("milp", "AT_LEAST", ["obj"], atleast_value) # Generate the constraint for the objective function value >= atleast_value.
-    else:
-        constraints = []
-    return constraints
 
 
 # -------------------------- MILP Model Writing ---------------------------
