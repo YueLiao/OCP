@@ -1,7 +1,12 @@
 from pathlib import Path
 
+import pytest
+
 from tools.milp_search import write_milp_model
-from tools.objective_targets import parse_optimal_sat_search_strategy
+from tools.objective_targets import (
+    decimal_objective_combinations,
+    parse_optimal_sat_search_strategy,
+)
 from tools.sat_search import create_numerical_cnf, parse_objective_target, write_sat_model
 from tools.search_reporting import is_verbose, log_search_summary
 
@@ -20,6 +25,11 @@ def test_parse_optimal_sat_search_strategy():
     assert plan.step == -1
     assert plan.end_value == -1
     assert plan.mode == "DECREASING"
+
+
+def test_decimal_objective_combinations_requires_sbox_table():
+    with pytest.raises(ValueError, match="Missing Sbox or table"):
+        decimal_objective_combinations({}, 0, 1)
 
 
 def test_create_numerical_cnf_assigns_stable_sorted_variable_ids():

@@ -102,6 +102,20 @@ def gen_milp_constraints_from_objective_target(objective_target):
     return []
 
 
+def decimal_objective_combinations(config_model, min_int_obj_value, max_obj_value):
+    """Return decimal objective combinations for the configured S-box table."""
+    Sbox = config_model.get("decimal_objective_function", {}).get("Sbox")
+    table = config_model.get("decimal_objective_function", {}).get("table")
+    if not Sbox or not table:
+        raise ValueError("Missing Sbox or table information for decimal objective function search.")
+    return model_objective.generate_obj_decimal_coms(
+        Sbox,
+        table,
+        min_int_obj_value,
+        max_obj_value,
+    )
+
+
 def _sat_objective_encoding(config_model, cons_type):
     if cons_type == "SUM_AT_MOST":
         return config_model.get("atmost_encoding_sat", "SEQUENTIAL")

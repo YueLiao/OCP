@@ -83,6 +83,7 @@
 - 将 attack/search/profiler 内部 import 改为直接依赖新的 model-configuration、predefined-constraint、search-constraint 和 state 模块。
 - 将 objective-target 解析和 SAT/MILP objective 约束构造拆到 `tools.objective_targets`。
 - 将 optimal SAT search-strategy 解析拆到 `tools.objective_targets`。
+- 将 SAT decimal-objective combination 查找集中到 `tools.objective_targets`。
 - 将 SAT CNF 和 MILP LP 模型序列化 helper 拆到 `tools.model_io`。
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。
 - 将模板实例化里的逐变量多次正则替换改为单次 token 替换，减少约束模板展开开销。

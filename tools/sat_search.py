@@ -1,6 +1,7 @@
-import tools.model_objective as model_objective
+from tools.model_objective import cal_round_obj_fun_values_from_solution
 from tools.model_io import create_numerical_cnf, write_sat_model
 from tools.objective_targets import (
+    decimal_objective_combinations,
     gen_sat_constraints_from_objective_target as _gen_sat_constraints_from_objective_target,
     parse_objective_target,
     parse_optimal_sat_search_strategy,
@@ -120,11 +121,7 @@ def modeling_solving_optimal_decimalobj(constraints, objective_function, config_
     if max_obj_val == int_obj_val:
         return solutions
 
-    Sbox = config_model.get("decimal_objective_function", {}).get("Sbox")
-    table = config_model.get("decimal_objective_function", {}).get("table")
-    if not Sbox or not table:
-        raise ValueError("Missing Sbox or table information for decimal objective function search.")
-    obj_decimal_list = model_objective.generate_obj_decimal_coms(Sbox, table, int_obj_val, max_obj_val)
+    obj_decimal_list = decimal_objective_combinations(config_model, int_obj_val, max_obj_val)
     for (true_obj, obj_integer, obj_decimal) in obj_decimal_list:
         if true_obj >= max_obj_val:
             continue
@@ -169,13 +166,9 @@ def modeling_solving_at_most(constraints, objective_function, config_model, conf
             if true_obj <= at_most_value:
                 return [sol]
         # If no solution meets the true objective value <= atmost_value, further search
-        Sbox = config_model.get("decimal_objective_function", {}).get("Sbox")
-        table = config_model.get("decimal_objective_function", {}).get("table")
-        if not Sbox or not table:
-            raise ValueError("Missing Sbox or table information for decimal objective function search.")
         int_obj_val = int(at_most_value)
         while solutions:
-            obj_decimal_list = model_objective.generate_obj_decimal_coms(Sbox, table, int_obj_val, at_most_value)
+            obj_decimal_list = decimal_objective_combinations(config_model, int_obj_val, at_most_value)
             for (true_obj, obj_integer, obj_decimal) in reversed(obj_decimal_list):
                 if obj_integer > int_obj_val:
                     continue
@@ -208,11 +201,7 @@ def modeling_solving_exactly(constraints, objective_function, config_model, conf
         return modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
 
     EPS = 0.001  # Tolerance for floating-point comparison
-    Sbox = config_model.get("decimal_objective_function", {}).get("Sbox")
-    table = config_model.get("decimal_objective_function", {}).get("table")
-    if not Sbox or not table:
-        raise ValueError("Missing Sbox or table information for decimal objective function search.")
-    obj_decimal_list = model_objective.generate_obj_decimal_coms(Sbox, table, -1, exactly_value)
+    obj_decimal_list = decimal_objective_combinations(config_model, -1, exactly_value)
     for (true_obj, obj_integer, obj_decimal) in reversed(obj_decimal_list):
         if abs(true_obj - exactly_value) < EPS: # Allow a small tolerance for floating-point comparison
             log(
@@ -269,7 +258,7 @@ def modeling_solving(constraints, objective_function, config_model, config_solve
 
     if isinstance(solutions, list) and len(solutions) > 0:
         for sol in solutions:
-            round_values = model_objective.cal_round_obj_fun_values_from_solution(objective_function, sol)
+            round_values = cal_round_obj_fun_values_from_solution(objective_function, sol)
             sol["rounds_obj_fun_values"] = round_values
             sol["obj_fun_value"] = sum(round_values)
     return solutions
