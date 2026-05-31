@@ -93,6 +93,8 @@ def test_text_first_extract_draft_and_confirm_builds_cipher(monkeypatch, tmp_pat
     job_path = extraction.data["job"]["path"]
     job_record = json.loads(open(job_path, encoding="utf-8").read())
     assert job_record["input"]["normalized_text"] == "x_0  <-  (x_0  ROTR  7)  MODADD  x_1"
+    assert job_record["input"]["source_line_spans"][0]["line_start"] == 1
+    assert job_record["input"]["source_line_spans"][0]["text"] == "x_0  <-  (x_0  ROTR  7)  MODADD  x_1"
     assert job_record["facts"]["name"] == "TinyARX"
     assert job_record["metadata"]["prompt_version"] == "text-cipher-facts-v1"
     assert len(job_record["metadata"]["normalized_text_sha256"]) == 64

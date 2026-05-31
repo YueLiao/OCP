@@ -64,6 +64,13 @@ class CipherInput:
 
         return normalize_cipher_text(self.raw_text)
 
+    @property
+    def source_line_spans(self) -> List[Dict[str, Any]]:
+        """Return line/column spans for normalized non-empty input lines."""
+
+        _, spans = normalize_cipher_text_with_spans(self.raw_text)
+        return spans
+
     def validate(self) -> List[str]:
         """Return validation errors for user-provided text metadata."""
 
@@ -142,24 +149,48 @@ class CipherSpecDraft:
         return errors
 
 
-def normalize_cipher_text(text: str) -> str:
-    """Normalize plain/Markdown/LaTeX cipher text for downstream parsing."""
-
-    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+def _replace_latex_tokens(text: str) -> str:
     for latex_token, replacement in _LATEX_TOKEN_REPLACEMENTS.items():
-        normalized = normalized.replace(latex_token, replacement)
+        text = text.replace(latex_token, replacement)
+    return text
+
+
+def normalize_cipher_text_with_spans(text: str) -> Tuple[str, List[Dict[str, Any]]]:
+    """Normalize cipher text and return source spans for normalized non-empty lines."""
+
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
 
     lines = []
+    spans = []
     previous_blank = False
-    for line in normalized.split("\n"):
-        clean_line = line.rstrip()
+    for line_number, line in enumerate(text.split("\n"), start=1):
+        clean_line = _replace_latex_tokens(line).rstrip()
         is_blank = clean_line.strip() == ""
         if is_blank and previous_blank:
             continue
         lines.append(clean_line)
+        if not is_blank:
+            column_start = len(line) - len(line.lstrip()) + 1
+            column_end = len(line.rstrip())
+            spans.append(
+                {
+                    "line_start": line_number,
+                    "line_end": line_number,
+                    "column_start": column_start,
+                    "column_end": column_end,
+                    "text": clean_line,
+                }
+            )
         previous_blank = is_blank
 
-    return "\n".join(lines).strip()
+    return "\n".join(lines).strip(), spans
+
+
+def normalize_cipher_text(text: str) -> str:
+    """Normalize plain/Markdown/LaTeX cipher text for downstream parsing."""
+
+    normalized, _ = normalize_cipher_text_with_spans(text)
+    return normalized
 
 
 def parse_cipher_facts_response(raw: str) -> Optional[CipherFacts]:

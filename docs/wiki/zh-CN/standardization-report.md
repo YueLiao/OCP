@@ -45,6 +45,7 @@
 - 将 trail solution-bit 的异常处理收窄到数值转换失败。
 - 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
 - 添加文本优先密码输入 dataclass、Markdown/LaTeX 规整、确定性 facts 校验、prompt/parse 边界和 draft-to-spec 转换 helper。
+- 为规整后的 text-first cipher 输入行添加行/列 source span，并持久化到 job records。
 - 在 `AgentCore` 抽取流程中复用共享 LLM JSON response parser。
 - 添加文本优先 facts 抽取、draft 创建和显式确认构建的 `OCPAgent` 直接 API。
 - 添加 CLI `draft <cipher text>` 文本优先草稿审阅和确认流程。

@@ -69,6 +69,7 @@ def create_text_job_record(cipher_input, prompt, raw_response, facts, errors, wa
         "input": {
             "raw_text": cipher_input.raw_text,
             "normalized_text": cipher_input.normalized_text,
+            "source_line_spans": cipher_input.source_line_spans,
             "source_type": cipher_input.source_type,
             "format_hint": cipher_input.format_hint,
             "source_name": cipher_input.source_name,

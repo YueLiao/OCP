@@ -4,6 +4,7 @@ from agent.skills.cipher_text_input import (
     CipherSpecDraft,
     build_cipher_spec_draft,
     normalize_cipher_text,
+    normalize_cipher_text_with_spans,
     parse_cipher_facts_response,
     validate_cipher_facts,
 )
@@ -17,10 +18,43 @@ def test_normalize_cipher_text_preserves_lines_and_rewrites_latex_tokens():
     assert normalized == "x  <-  a  XOR  b\n\n y  <-  x  MODADD  k"
 
 
+def test_normalize_cipher_text_returns_line_spans_for_non_empty_lines():
+    raw = "  x \\leftarrow a\r\n\r\n\r\n y \\gets x "
+
+    normalized, spans = normalize_cipher_text_with_spans(raw)
+
+    assert normalized == "x  <-  a\n\n y  <-  x"
+    assert spans == [
+        {
+            "line_start": 1,
+            "line_end": 1,
+            "column_start": 3,
+            "column_end": 16,
+            "text": "  x  <-  a",
+        },
+        {
+            "line_start": 4,
+            "line_end": 4,
+            "column_start": 2,
+            "column_end": 10,
+            "text": " y  <-  x",
+        },
+    ]
+
+
 def test_cipher_input_exposes_normalized_text():
     cipher_input = CipherInput(raw_text="A \\rightarrow B", format_hint="latex")
 
     assert cipher_input.normalized_text == "A  ->  B"
+    assert cipher_input.source_line_spans == [
+        {
+            "line_start": 1,
+            "line_end": 1,
+            "column_start": 1,
+            "column_end": 15,
+            "text": "A  ->  B",
+        }
+    ]
 
 
 def test_cipher_spec_draft_validity_tracks_validation_errors():
