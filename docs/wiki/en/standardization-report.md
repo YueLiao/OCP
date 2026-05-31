@@ -80,6 +80,7 @@ document, and extend.
 - Added stable composite-operator tests for AES round structure, headers, and implementation generation.
 - Added stable composite-operator tests for SHACAL2 Sigma, Sum, Maj, and Ch code generation.
 - Consolidated repeated SHACAL2 composite-operator header, implementation, and model generation helpers.
+- Fixed SHACAL2 composite model generation to call child operator model interfaces without unsupported arguments.
 - Expanded Forro subround regression coverage for operation placement, rotation parameters, and key-stream temp-word wiring.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
 - Consolidated repeated operator model helpers across Boolean, modular, S-box, and matrix operators.

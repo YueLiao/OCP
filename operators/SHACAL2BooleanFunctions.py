@@ -45,7 +45,7 @@ def _generate_layered_model(owner, model_type, unroll):
         for layer in owner.layers:
             for cons in layer:
                 cons.model_version = owner.model_version.replace(owner.__class__.__name__, cons.__class__.__name__)
-                model_list += cons.generate_model(model_type, unroll=unroll)
+                model_list += cons.generate_model(model_type)
         return model_list
     elif model_type == 'cp':
         RaiseExceptionVersionNotExisting(str(owner.__class__.__name__), owner.model_version, model_type)

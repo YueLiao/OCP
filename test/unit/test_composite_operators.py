@@ -146,3 +146,36 @@ def test_shacal2_maj_and_ch_composition_generates_expected_boolean_flow():
         "b_1_1 = a_0_0 & c;",
         "y = a_1_0 ^ b_1_1;",
     ]
+
+
+def test_shacal2_composite_model_generation_routes_to_child_operator_interfaces():
+    x = [var.Variable(32, ID="x")]
+    y = [var.Variable(32, ID="y")]
+    sigma0 = SHACAL2_Sigma0(x, y, ID="SIG0")
+    sigma0.model_version = "SHACAL2_Sigma0_XORDIFF"
+
+    sigma_model = sigma0.generate_model("sat")
+
+    assert len(sigma_model) == 448
+    assert sigma_model[:4] == [
+        "-x_0 x_0_7",
+        "x_0 -x_0_7",
+        "-x_1 x_0_8",
+        "x_1 -x_0_8",
+    ]
+    assert sigma_model[-1] == "y_31 -x_0_31 -x_1_31 -x_2_31"
+
+    inputs = [var.Variable(32, ID=name) for name in ("a", "b", "c")]
+    maj = SHACAL2_Maj(inputs, y, ID="MAJ")
+    maj.model_version = "SHACAL2_Maj_XORDIFF"
+
+    maj_model = maj.generate_model("milp")
+
+    assert len(maj_model) == 547
+    assert maj_model[:4] == [
+        "a_0 + b_0 - a_0_0 >= 0",
+        "a_0 + b_0 - Maj_AND_1_p_0 >= 0",
+        "- a_0 + Maj_AND_1_p_0 >= 0",
+        "- b_0 + Maj_AND_1_p_0 >= 0",
+    ]
+    assert maj_model[-1] == "Integer\nMaj_NXOR1_d_31"
