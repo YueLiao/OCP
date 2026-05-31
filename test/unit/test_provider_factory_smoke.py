@@ -21,6 +21,21 @@ def test_deepseek_provider_uses_openai_compatible_defaults(monkeypatch):
     assert provider.client.base_url == "https://api.deepseek.com"
 
 
+def test_deepseek_provider_allows_openai_compatible_overrides(monkeypatch):
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAIClient))
+
+    provider = create_llm_provider(
+        "deepseek",
+        api_key="test-key",
+        model="deepseek-reasoner",
+        base_url="https://example.invalid/v1",
+    )
+
+    assert isinstance(provider, DeepSeekProvider)
+    assert provider.model == "deepseek-reasoner"
+    assert provider.client.base_url == "https://example.invalid/v1"
+
+
 def test_openai_compatible_provider_requires_base_url(monkeypatch):
     monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAIClient))
 
@@ -34,3 +49,14 @@ def test_openai_compatible_provider_requires_base_url(monkeypatch):
     assert isinstance(provider, OpenAICompatibleProvider)
     assert provider.model == "local-model"
     assert provider.client.base_url == "http://localhost:8000/v1"
+
+
+def test_openai_compatible_provider_fails_without_base_url(monkeypatch):
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAIClient))
+
+    try:
+        create_llm_provider("openai-compatible", api_key="test-key")
+    except ValueError as exc:
+        assert "base_url" in str(exc)
+    else:
+        raise AssertionError("OpenAI-compatible provider should require base_url.")

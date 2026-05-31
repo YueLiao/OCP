@@ -44,6 +44,7 @@
 - 添加 primitive 支持状态页面，记录 SHACAL2 部分覆盖和 Trivium 原型状态。
 - 将 trail solution-bit 的异常处理收窄到数值转换失败。
 - 添加 DeepSeek 与通用 OpenAI-compatible provider 支持。
+- 为 DeepSeek OpenAI-compatible 覆盖参数和通用 base URL 缺失场景添加 provider smoke 覆盖。
 - 添加文本优先密码输入 dataclass、Markdown/LaTeX 规整、确定性 facts 校验、prompt/parse 边界和 draft-to-spec 转换 helper。
 - 为规整后的 text-first cipher 输入行添加行/列 source span，并持久化到 job records。
 - 在 `AgentCore` 抽取流程中复用共享 LLM JSON response parser。

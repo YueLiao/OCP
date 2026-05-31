@@ -46,6 +46,7 @@ document, and extend.
 - Added a primitive support status page for partial SHACAL2 and prototype Trivium coverage.
 - Narrowed trail solution-bit error handling to numeric conversion failures.
 - Added DeepSeek and generic OpenAI-compatible provider support.
+- Added provider smoke coverage for DeepSeek OpenAI-compatible overrides and missing generic base URLs.
 - Added text-first cipher input dataclasses, Markdown/LaTeX normalization, deterministic fact validation, prompt/parse boundaries, and draft-to-spec conversion helpers.
 - Added line/column source spans for normalized text-first cipher input lines and persisted them in job records.
 - Reused the shared LLM JSON response parser inside `AgentCore` extraction flows.
