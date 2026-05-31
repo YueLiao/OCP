@@ -596,11 +596,14 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
         return model_list
 
     def generate_implementation(self, implementation_type='python', unroll=False):
+        input_args = ", ".join(self.get_var_ID('in', i, unroll) for i in range(len(self.input_vars)))
+        output_args = ", ".join(self.get_var_ID('out', i, unroll) for i in range(len(self.output_vars)))
         if implementation_type == 'python':
-            return ['(' + ''.join([self.get_var_ID('out', i, unroll) + ", " for i in range(len(self.output_vars))])[:-2] + ") = " + self.name + "(" + ''.join([self.get_var_ID('in', i, unroll) + ", " for i in range(len(self.input_vars))])[:-2] + ")"]
+            return [f"({output_args}) = {self.name}({input_args})"]
         elif implementation_type == 'c':
-            return [self.name + "(" + ''.join([self.get_var_ID('in', i, unroll) + ", " for i in range(len(self.input_vars))])[:-2] + ", " + ''.join([self.get_var_ID('out', i, unroll) + ", " for i in range(len(self.output_vars))])[:-2] + ");"]
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + implementation_type + "'")
+            return [f"{self.name}({input_args}, {output_args});"]
+        else:
+            raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 
     def get_header_ID(self):
         return [self.__class__.__name__, self.model_version, self.input_vars[0].bitsize, self.mat, self.polynomial]

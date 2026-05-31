@@ -138,6 +138,7 @@ document, and extend.
 - Made cached PMR matrix representations immutable while preserving mutable public return values.
 - Returned stable JSON errors for unexpected text-draft web API failures without leaking provider details.
 - Made text-first `OCPAgent.extract_cipher_facts()` return a failed `SkillResult` for provider call failures.
+- Clarified Matrix implementation generation errors and simplified argument rendering without changing generated code.
 
 ## Validation
 

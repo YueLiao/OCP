@@ -722,6 +722,8 @@ def test_matrix_implementation_headers_and_zero_star_patterns_are_stable():
 
     assert op.generate_implementation("python", unroll=True) == ["(out0, out1) = tiny_matrix(in0, in1)"]
     assert op.generate_implementation("c", unroll=True) == ["tiny_matrix(in0, in1, out0, out1);"]
+    with pytest.raises(Exception, match="unknown implementation type"):
+        op.generate_implementation("rust")
     assert op.generate_implementation_header("python") == [
         "#Matrix Macro ",
         "def tiny_matrix(x0, x1):",

@@ -136,6 +136,7 @@
 - 将缓存的 PMR 矩阵表示改为不可变结构，同时保持公开返回值仍为可变 list。
 - 为 text-draft Web API 的非预期失败返回稳定 JSON 错误，避免泄露 provider 细节。
 - 让 text-first `OCPAgent.extract_cipher_facts()` 在 provider 调用失败时返回失败的 `SkillResult`。
+- 修正 Matrix 实现生成的错误类型提示，并简化参数字符串构建，合法生成代码保持不变。
 
 ## 验证
 
