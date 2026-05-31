@@ -232,6 +232,11 @@ def confirm_text_cipher():
     if blocked:
         return blocked
 
+    data = _json_payload() or {}
+    blocked = _require_confirmation(data, "confirm_cipher_spec")
+    if blocked:
+        return blocked
+
     result = agent.confirm_cipher_spec()
     return _skill_response(result)
 

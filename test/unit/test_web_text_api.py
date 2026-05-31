@@ -262,7 +262,9 @@ def test_text_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):
 
     draft_response = client.post("/api/text/draft", json={"text": "tiny arx text"})
     draft_data = draft_response.get_json()
-    confirm_response = client.post("/api/text/confirm")
+    blocked_confirm_response = client.post("/api/text/confirm")
+    confirm_response = client.post("/api/text/confirm", json={"confirmed": True})
+    blocked_confirm_data = blocked_confirm_response.get_json()
     confirm_data = confirm_response.get_json()
 
     assert draft_response.status_code == 200
@@ -270,10 +272,26 @@ def test_text_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):
     assert draft_data["draft"]["is_valid"] is True
     assert draft_data["draft"]["spec"]["name"] == "TinyARX"
     assert draft_data["artifact_links"][0]["label"] == "job_record"
+    assert blocked_confirm_response.status_code == 409
+    assert blocked_confirm_data["error_code"] == "confirmation_required"
     assert confirm_response.status_code == 200
     assert confirm_data["success"] is True
     assert confirm_data["data"]["cipher_name"] == "TinyARX_PERM"
     assert confirm_data["artifact_links"][0]["path"] == draft_data["artifact_links"][0]["path"]
+
+
+def test_text_confirm_requires_pending_draft_and_confirmation():
+    web_app.agent = OCPAgent()
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    unconfirmed_response = client.post("/api/text/confirm")
+    confirmed_response = client.post("/api/text/confirm", json={"confirmed": True})
+
+    assert unconfirmed_response.status_code == 409
+    assert unconfirmed_response.get_json()["error_code"] == "confirmation_required"
+    assert confirmed_response.status_code == 400
+    assert "No pending CipherSpecDraft" in confirmed_response.get_json()["error"]
 
 
 def test_text_draft_spec_endpoint_validates_manual_edits(monkeypatch, tmp_path):

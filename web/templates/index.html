@@ -528,7 +528,11 @@ async function confirmCipherDraft() {
   if (!confirm('Build this cipher from the validated draft?')) return;
   showTyping(true);
   try {
-    const res = await fetch('/api/text/confirm', {method: 'POST'});
+    const res = await fetch('/api/text/confirm', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({confirmed: true}),
+    });
     const data = await res.json();
     showTyping(false);
     if (data.success) {

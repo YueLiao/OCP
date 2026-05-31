@@ -94,6 +94,8 @@ PDF/图片上传仍是实验性辅助，应进入同一套审阅流程。
 - `POST /api/upload`
 
 页面在 cipher 可用后提供差分分析、线性分析、代码生成和可视化按钮。
+`/api/text/confirm` 需要 JSON 中显式传入 `confirmed: true`，才会把 draft 构建为 OCP
+primitive。
 
 可以使用 `GET /api/solvers` 或 `OCPAgent().solver_capabilities()` 在运行求解器分析前检查
 可用后端。

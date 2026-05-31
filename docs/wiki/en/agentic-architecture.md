@@ -99,6 +99,8 @@ The web UI exposes:
 
 The page includes direct action buttons for differential analysis, linear
 analysis, code generation, and visualization after a cipher is available.
+`/api/text/confirm` requires an explicit `confirmed: true` JSON field before
+building a draft into an OCP primitive.
 
 Use `GET /api/solvers` or `OCPAgent().solver_capabilities()` to inspect
 available solver backends before launching solver-backed analysis.
