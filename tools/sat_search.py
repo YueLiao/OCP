@@ -199,10 +199,10 @@ def modeling_solving_at_most(constraints, objective_function, config_model, conf
     decimal_objective_function = config_model.get("decimal_objective_function", False)
     if decimal_objective_function and isinstance(solutions, list) and len(solutions) > 0: # For ciphers with S-boxes having decimal weights, further filter and search for one solution with true objective value <= max_val
         for sol in solutions:
-            try:
-                true_obj = sol.get("obj_fun_value")
-            except KeyError:
+            true_obj = sol.get("obj_fun_value")
+            if true_obj is None:
                 log("[WARNING] Solution does not contain 'obj_fun_value'. Skipping.", config_model, config_solver)
+                continue
             if true_obj <= at_most_value:
                 return [sol]
         # If no solution meets the true objective value <= atmost_value, further search
@@ -305,6 +305,9 @@ def modeling_solving_at_least(constraints, objective_function, config_model, con
         if solutions:
             for sol in solutions:
                 true_obj = sol.get("obj_fun_value")
+                if true_obj is None:
+                    log("[WARNING] Solution does not contain 'obj_fun_value'. Skipping.", config_model, config_solver)
+                    continue
                 if true_obj >= at_least_value:
                     return [sol]
         log("[INFO] No solution found. Need to search further.", config_model, config_solver) # TO DO

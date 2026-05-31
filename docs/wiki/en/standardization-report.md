@@ -87,6 +87,7 @@ document, and extend.
 - Split optimal SAT search-strategy parsing into `tools.objective_targets`.
 - Centralized SAT decimal-objective combination lookup in `tools.objective_targets`.
 - Consolidated repeated SAT objective-constraint solve calls behind a private helper.
+- Made decimal SAT objective filtering skip malformed solutions that lack `obj_fun_value`.
 - Split SAT CNF and MILP LP model serialization helpers into `tools.model_io`.
 - Cached parsed constraint templates by file modification time to reduce repeated S-box template loading.
 - Replaced repeated per-variable template regex passes with single-pass token substitution during constraint template instantiation.
@@ -108,7 +109,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `169 passed, 106 skipped`.
+Latest default pytest status: `170 passed, 106 skipped`.
 
 ## Next Work
 

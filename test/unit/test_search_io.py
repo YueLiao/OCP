@@ -7,6 +7,7 @@ from tools.objective_targets import (
     decimal_objective_combinations,
     parse_optimal_sat_search_strategy,
 )
+import tools.sat_search as sat_search
 from tools.sat_search import create_numerical_cnf, parse_objective_target, write_sat_model
 from tools.search_reporting import is_verbose, log_search_summary
 
@@ -30,6 +31,24 @@ def test_parse_optimal_sat_search_strategy():
 def test_decimal_objective_combinations_requires_sbox_table():
     with pytest.raises(ValueError, match="Missing Sbox or table"):
         decimal_objective_combinations({}, 0, 1)
+
+
+def test_at_most_decimal_search_skips_solutions_without_objective(monkeypatch):
+    solution_batches = iter([[{}], []])
+
+    monkeypatch.setattr(sat_search, "gen_sat_constraints_from_objective_target", lambda *args, **kwargs: [])
+    monkeypatch.setattr(sat_search, "modeling_solving", lambda *args, **kwargs: next(solution_batches))
+    monkeypatch.setattr(sat_search, "decimal_objective_combinations", lambda *args, **kwargs: [])
+
+    solutions = sat_search.modeling_solving_at_most(
+        [],
+        [],
+        {"decimal_objective_function": True, "verbose": False},
+        {},
+        1,
+    )
+
+    assert solutions == []
 
 
 def test_create_numerical_cnf_assigns_stable_sorted_variable_ids():
