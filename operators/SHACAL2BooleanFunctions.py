@@ -31,14 +31,14 @@ def _get_sigma_sum_spec(name, keysize):
 
 
 def _generate_layered_header(layers, implementation_type):
-    header_set = []
+    seen_class_names = set()
     code_list = []
     for layer in layers:
         for cons in layer:
             class_name = cons.__class__.__name__
-            if [class_name] in header_set:
+            if class_name in seen_class_names:
                 continue
-            header_set.append([class_name])
+            seen_class_names.add(class_name)
             header = cons.generate_implementation_header(implementation_type)
             if header is not None:
                 code_list += header
