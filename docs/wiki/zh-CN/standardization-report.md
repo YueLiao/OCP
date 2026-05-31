@@ -75,6 +75,7 @@
 - 将轻量 S-box 代码生成、branch number 和 weight helper 行为迁移到稳定 operator 单测。
 - 将 Matrix 代码生成、GF(2^m) 算术和 zero-star pattern 行为迁移到稳定 operator 单测。
 - 将 ANDXOR 和 GF2Linear_Trans 行为迁移到稳定 operator 单测。
+- 为 AES round 的结构、header 和实现生成添加稳定 composite operator 单测。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
 - 收拢 Boolean、modular、S-box 和 matrix operator 中重复的模型生成 helper。
 - 清理 S-box 带权 truth-table、matrix bit-model、显式 modular arithmetic 和未完成 operator 抽象。
