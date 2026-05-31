@@ -139,6 +139,7 @@ document, and extend.
 - Returned stable JSON errors for unexpected text-draft web API failures without leaking provider details.
 - Made text-first `OCPAgent.extract_cipher_facts()` return a failed `SkillResult` for provider call failures.
 - Clarified Matrix implementation generation errors and simplified argument rendering without changing generated code.
+- Consolidated bitwise S-box input packing and output unpacking helpers for Python/C implementation generation.
 
 ## Validation
 

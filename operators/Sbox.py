@@ -237,36 +237,51 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
     def _template_io_vars(var_in, var_out):
         return [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
 
+    def _packed_input_expression(self, unroll, terminator=""):
+        x_bits = len(self.input_vars)
+        return (
+            "x = "
+            + " | ".join(
+                f'({self.get_var_ID("in", i, unroll=unroll)} << {x_bits - 1 - i})'
+                for i in range(x_bits)
+            )
+            + terminator
+        )
+
+    def _python_bitwise_assignment(self, unroll):
+        y_bits = len(self.output_vars)
+        y_vars = ", ".join(self.get_var_ID("out", i, unroll=unroll) for i in range(y_bits))
+        y_values = ", ".join(f"(y >> {y_bits - 1 - i}) & 1" for i in range(y_bits))
+        return f"{y_vars} = {y_values}"
+
+    def _c_bitwise_assignments(self, unroll):
+        y_bits = len(self.output_vars)
+        return [
+            f'{self.get_var_ID("out", i, unroll=unroll)} = (y >> {y_bits - 1 - i}) & 1;'
+            for i in range(y_bits)
+        ]
+
     # ---------------- Implementation Code Generation ---------------- #
     def generate_implementation(self, implementation_type='python', unroll=False):
         if implementation_type == 'python':
             if len(self.input_vars) == 1 and len(self.output_vars) == 1:
                 return [self.get_var_ID('out', 0, unroll) + ' = ' + str(self.__class__.__name__) + '[' + self.get_var_ID('in', 0, unroll) + ']']
             elif len(self.input_vars) > 1 and len(self.output_vars) >= 1:
-                x_bits = len(self.input_vars)
-                y_bits = len(self.output_vars)
-                x_expr = 'x = ' + ' | '.join(f'({self.get_var_ID("in", i, unroll=unroll)} << {x_bits - 1 - i})'for i in range(x_bits))
-                model_list = [x_expr]
-                model_list.append(f'y = {self.__class__.__name__}[x]')
-                y_vars = ', '.join(f'{self.get_var_ID("out", i, unroll=unroll)}' for i in range(y_bits))
-                y_values = ', '.join(f'(y >> {y_bits - 1 - i}) & 1' for i in range(y_bits))
-                model_list.append(f'{y_vars} = {y_values}')
-                return model_list
+                return [
+                    self._packed_input_expression(unroll),
+                    f'y = {self.__class__.__name__}[x]',
+                    self._python_bitwise_assignment(unroll),
+                ]
             else: raise Exception(str(self.__class__.__name__) + ": unsupported number of input/output variables for 'python' implementation")
         elif implementation_type == 'c':
             if len(self.input_vars) == 1 and len(self.output_vars) == 1:
                 return [self.get_var_ID('out', 0, unroll) + ' = ' + str(self.__class__.__name__) + '[' + self.get_var_ID('in', 0, unroll) + '];']
             elif len(self.input_vars) > 1 and len(self.output_vars) >= 1:
-                x_bits = len(self.input_vars)
-                y_bits = len(self.output_vars)
-                x_expr = 'x = ' + ' | '.join(f'({self.get_var_ID("in", i, unroll=unroll)} << {x_bits - 1 - i})'for i in range(x_bits))+ ";"
-                model_list = [x_expr]
-                model_list.append(f'y = {str(self.__class__.__name__)}[x];')
-                for i in range(y_bits):
-                    y_vars = self.get_var_ID("out", i, unroll=unroll)
-                    y_value = f'(y >> {y_bits - 1 - i}) & 1'
-                    model_list.append(f'{y_vars} = {y_value};')
-                return model_list
+                return [
+                    self._packed_input_expression(unroll, terminator=";"),
+                    f'y = {str(self.__class__.__name__)}[x];',
+                    *self._c_bitwise_assignments(unroll),
+                ]
             else: raise Exception(str(self.__class__.__name__) + ": unsupported number of input/output variables for 'c' implementation")
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 
