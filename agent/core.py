@@ -67,14 +67,14 @@ class AgentCore:
         for req in intent.requests:
             result = self._execute_skill(req)
             results.append(result)
-            self.session.add_result(result)
+            self._record_result(result)
 
             # After extraction, automatically call LLM to parse content into CipherSpec
             if req.skill == SkillName.CIPHER_EXTRACTION and result.success:
                 extraction_result = self._process_extraction(result)
                 if extraction_result:
                     results.append(extraction_result)
-                    self.session.add_result(extraction_result)
+                    self._record_result(extraction_result)
 
         # Generate response
         response = self.llm.generate_response(
@@ -98,9 +98,7 @@ class AgentCore:
         """
         self.session.add_trace("skill_start", {"skill": request.skill.value, "params": request.params})
         result = self._execute_skill(request)
-        self.session.add_result(result)
-        artifacts = artifacts_from_result_data(result.data, source_skill=request.skill.value)
-        self.session.add_artifacts(artifacts)
+        artifacts = self._record_result(result)
         self.session.add_trace(
             "skill_finish",
             {
@@ -112,6 +110,13 @@ class AgentCore:
             },
         )
         return result
+
+    def _record_result(self, result: SkillResult):
+        """Store a skill result and register any artifacts it returned."""
+        self.session.add_result(result)
+        artifacts = artifacts_from_result_data(result.data, source_skill=result.skill.value)
+        self.session.add_artifacts(artifacts)
+        return artifacts
 
     def _execute_skill(self, request: SkillRequest) -> SkillResult:
         """Look up and execute a single skill request."""

@@ -145,6 +145,7 @@ document, and extend.
 - Fixed Matrix private bit-model helpers so wrong-version calls raise explicit errors instead of returning `None`.
 - Consolidated AND/OR/XOR implementation generation behind a shared bitwise helper.
 - Reused the shared input-expression helper in n-ary XOR implementation generation.
+- Registered artifacts consistently for both direct API and chat-driven AgentCore skill execution.
 
 ## Validation
 
