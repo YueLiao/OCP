@@ -198,7 +198,7 @@ def _generate_pmr_for_mds_cached(mds_tuple, mod_poly, degree):
                 start_index = j * degree
                 end_index = start_index + degree
                 pmr_new[base_index][start_index:end_index] = pmr[i][j][row_offset]
-    return pmr_new
+    return tuple(tuple(row) for row in pmr_new)
 
 
 def generate_pmr_for_mds(mds, mod_poly, degree): # Generate the Primitive Matrix Representation (PMR) for a given MDS matrix.

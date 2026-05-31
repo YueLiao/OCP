@@ -135,6 +135,7 @@ document, and extend.
 - Centralized Forro reference test vectors and covered factory attachment.
 - Reduced SHACAL2 layered header duplicate checks from list scans to set membership.
 - Fixed bitwise S-box implementation generation to unpack non-square outputs using the output width.
+- Made cached PMR matrix representations immutable while preserving mutable public return values.
 
 ## Validation
 

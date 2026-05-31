@@ -133,6 +133,7 @@
 - 集中 Forro 参考测试向量，并覆盖 factory 挂载行为。
 - 将 SHACAL2 layered header 的重复检查从列表扫描改为 set 查询。
 - 修正 bitwise S-box 实现生成逻辑，使非方形输出按 output width 解包。
+- 将缓存的 PMR 矩阵表示改为不可变结构，同时保持公开返回值仍为可变 list。
 
 ## 验证
 

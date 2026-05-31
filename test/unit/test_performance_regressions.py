@@ -8,6 +8,7 @@ from operators.matrix import (
     find_primitive_element_gf2m,
     generate_binary_matrix_2,
     generate_binary_matrix_3,
+    generate_pmr_for_mds,
 )
 from primitives.arx import chacha_quarter_rounds, salsa_quarter_rounds
 from primitives.chacha import CHACHA_KEYPERMUTATION, CHACHA_PERMUTATION
@@ -62,6 +63,15 @@ def test_matrix_helpers_cache_and_return_mutable_copies():
     assert _generate_binary_matrix_2_cached.cache_info().hits >= 1
     assert _generate_binary_matrix_3_cached.cache_info().hits >= 1
     assert find_primitive_element_gf2m.cache_info().hits == 1
+
+
+def test_pmr_generation_cache_returns_mutable_copies():
+    mds = [[2, 3], [1, 1]]
+
+    pmr = generate_pmr_for_mds(mds, "0x1b", 8)
+    pmr[0][0] = 99
+
+    assert generate_pmr_for_mds(mds, "0x1b", 8)[0][0] != 99
 
 
 def test_forro_subround_helper_preserves_round_schedule_and_structure():
