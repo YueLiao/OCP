@@ -101,6 +101,7 @@
 - 将 PDF/image 抽取重新标注为 experimental import helper，并关闭网页上传自动构建。
 - 为 experimental file extraction 添加显式页码范围校验。
 - 明确旧式 operator 文件是人工实验脚本。
+- 将 Equal implementation 和 MILP equivalence 覆盖从旧式 operator 脚本迁入聚焦的 pytest 用例。
 - 将文档拆为英文和中文页面，并在顶部提供语言切换链接。
 
 ## 验证

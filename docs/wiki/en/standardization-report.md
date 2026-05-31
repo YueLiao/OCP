@@ -103,6 +103,7 @@ document, and extend.
 - Reclassified PDF/image extraction as an experimental import helper and disabled web upload auto-build.
 - Added explicit page-range validation for experimental file extraction.
 - Clarified legacy operator scripts as manual experiments.
+- Migrated Equal implementation and MILP equivalence coverage from legacy operator scripts into focused pytest coverage.
 - Split documentation into English and Chinese pages with language switch links.
 
 ## Validation

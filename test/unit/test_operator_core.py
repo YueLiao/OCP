@@ -136,6 +136,22 @@ def test_equal_generates_sat_equivalence_model():
         op.get_var_model("bad", 0)
 
 
+def test_equal_generates_implementation_and_milp_equivalence_model():
+    left = var.Variable(2, ID="in0")
+    out = var.Variable(2, ID="out")
+    op = Equal([left], [out], ID="EQ")
+
+    assert op.generate_implementation("python", unroll=True) == ["out = in0"]
+    assert op.generate_implementation("c", unroll=True) == ["out = in0;"]
+
+    op.model_version = "Equal_XORDIFF"
+    assert op.generate_model("milp") == [
+        "in0_0 - out_0 = 0",
+        "in0_1 - out_1 = 0",
+        "Binary\nin0_0 in0_1 out_0 out_1",
+    ]
+
+
 def test_unary_equivalence_operators_share_stable_models():
     left = var.Variable(2, ID="in0")
     out = var.Variable(2, ID="out")
