@@ -195,26 +195,33 @@ def draft_text_cipher():
     if not text.strip():
         return _error_response("Empty cipher text.", 400, "empty_cipher_text")
 
-    result = agent.extract_cipher_facts(
-        text,
-        source_type=data.get("source_type", "direct_text"),
-        format_hint=data.get("format_hint", "mixed"),
-        source_name=data.get("source_name"),
-        language_hint=data.get("language_hint", "unknown"),
-    )
-    if not result.success:
-        return _skill_response(result, error_status=400)
+    try:
+        result = agent.extract_cipher_facts(
+            text,
+            source_type=data.get("source_type", "direct_text"),
+            format_hint=data.get("format_hint", "mixed"),
+            source_name=data.get("source_name"),
+            language_hint=data.get("language_hint", "unknown"),
+        )
+        if not result.success:
+            return _skill_response(result, error_status=400)
 
-    draft = agent.draft_cipher_spec()
-    job = agent.session.get_metadata("pending_text_job")
-    return _skill_response(
-        result,
-        extra={
-            "draft": _draft_payload(draft),
-            "job": job,
-            "artifact_links": (job or {}).get("artifact_links", []),
-        },
-    )
+        draft = agent.draft_cipher_spec()
+        job = agent.session.get_metadata("pending_text_job")
+        return _skill_response(
+            result,
+            extra={
+                "draft": _draft_payload(draft),
+                "job": job,
+                "artifact_links": (job or {}).get("artifact_links", []),
+            },
+        )
+    except Exception:
+        return _error_response(
+            "Text draft processing failed. Check provider settings and server logs.",
+            500,
+            "text_draft_failed",
+        )
 
 
 @app.route("/api/text/confirm", methods=["POST"])

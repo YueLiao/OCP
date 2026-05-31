@@ -152,6 +152,25 @@ def test_chat_hides_unexpected_processing_details():
     assert "provider secret detail" not in data["error"]
 
 
+def test_text_draft_hides_unexpected_processing_details():
+    class FailingTextAgent:
+        session = SimpleNamespace(get_context=lambda: {"has_cipher": False})
+
+        def extract_cipher_facts(self, *args, **kwargs):
+            raise RuntimeError("provider secret detail")
+
+    web_app.agent = FailingTextAgent()
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    response = client.post("/api/text/draft", json={"text": "tiny arx text"})
+    data = response.get_json()
+
+    assert response.status_code == 500
+    assert data["error_code"] == "text_draft_failed"
+    assert "provider secret detail" not in data["error"]
+
+
 def test_upload_response_includes_data_and_artifact_links():
     class FakeUploadAgent:
         session = SimpleNamespace(get_context=lambda: {"has_cipher": False})
