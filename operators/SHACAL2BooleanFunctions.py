@@ -2,6 +2,57 @@ import copy
 from operators.operators import Operator, Rot, Shift, RaiseExceptionVersionNotExisting
 from operators.boolean_operators import NOT, AND, N_XOR, XOR
 
+
+def _generate_layered_header(layers, implementation_type):
+    header_set = []
+    code_list = []
+    for layer in layers:
+        for cons in layer:
+            class_name = cons.__class__.__name__
+            if [class_name] in header_set:
+                continue
+            header_set.append([class_name])
+            header = cons.generate_implementation_header(implementation_type)
+            if header is not None:
+                code_list += header
+            if class_name == 'Rot':
+                code_list += cons.generate_implementation_header_unique(implementation_type)
+    return code_list
+
+
+def _generate_layered_implementation(owner, implementation_type, unroll):
+    if implementation_type not in ['python', 'c']:
+        raise Exception(str(owner.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+
+    code_list = []
+    if implementation_type == 'c':
+        var_ids = [
+            var.ID if unroll else var.remove_round_from_ID()
+            for i in range(1, len(owner.vars) - 1)
+            for var in owner.vars[i]
+        ]
+        code_list.append("uint8_t " + ", ".join(var_ids) + ";")
+
+    for layer in owner.layers:
+        for cons in layer:
+            code_list += cons.generate_implementation(implementation_type, unroll=unroll)
+    return code_list
+
+
+def _generate_layered_model(owner, model_type, unroll):
+    if model_type in ['sat', 'milp']:
+        model_list = []
+        for layer in owner.layers:
+            for cons in layer:
+                cons.model_version = owner.model_version.replace(owner.__class__.__name__, cons.__class__.__name__)
+                model_list += cons.generate_model(model_type, unroll=unroll)
+        return model_list
+    elif model_type == 'cp':
+        RaiseExceptionVersionNotExisting(str(owner.__class__.__name__), owner.model_version, model_type)
+    else:
+        raise Exception(str(owner.__class__.__name__) + ": unknown model type '" + model_type + "'")
+
+
 class SHACAL2_Sigma0(Operator):
     def __init__(self, input_vars, output_vars, keysize=512, ID = None):
         super().__init__(input_vars, output_vars, ID = ID)
@@ -28,43 +79,13 @@ class SHACAL2_Sigma0(Operator):
         self.layers.append([N_XOR([self.vars[1][0], self.vars[1][1], self.vars[1][2]], [self.vars[2][0]], "SUM0_NXOR1")])
 
     def generate_implementation_header(self, implementation_type='python'):
-        header_set = []
-        code_list = []
-        for i in range(len(self.layers)):
-            for j in range(len(self.layers[i])):
-                cons = self.layers[i][j]
-                if [cons.__class__.__name__] not in header_set:
-                    header_set.append([cons.__class__.__name__]) 
-                    if cons.generate_implementation_header(implementation_type) != None: 
-                        code_list += cons.generate_implementation_header(implementation_type)
-                    if cons.__class__.__name__ == 'Rot': 
-                        code_list += cons.generate_implementation_header_unique(implementation_type)
-        return code_list 
+        return _generate_layered_header(self.layers, implementation_type)
     
     def generate_implementation(self, implementation_type='python', unroll=False):
-        if implementation_type == 'python' or implementation_type == 'c': 
-            code_list = []
-            if implementation_type == 'c':
-                var_ids = [var.ID if unroll else var.remove_round_from_ID() for i in range(1, len(self.vars)-1) for var in self.vars[i]]
-                claim_var_c = "uint8_t " + ", ".join(var_ids) + ";"
-                code_list += [claim_var_c]
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    code_list += self.layers[i][j].generate_implementation(implementation_type, unroll=unroll)
-            return code_list
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        return _generate_layered_implementation(self, implementation_type, unroll)
         
     def generate_model(self, model_type='sat', unroll=True):
-        if model_type == 'sat' or model_type == 'milp': 
-            model_list = []
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    cons = self.layers[i][j]
-                    cons.model_version = self.model_version.replace(self.__class__.__name__, cons.__class__.__name__)
-                    model_list += cons.generate_model(model_type, unroll=unroll)
-            return model_list
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        return _generate_layered_model(self, model_type, unroll)
 
 
 class SHACAL2_Sigma1(Operator):
@@ -93,43 +114,13 @@ class SHACAL2_Sigma1(Operator):
         self.layers.append([N_XOR([self.vars[1][0], self.vars[1][1], self.vars[1][2]], [self.vars[2][0]], "SUM0_NXOR1")])
 
     def generate_implementation_header(self, implementation_type='python'):
-        header_set = []
-        code_list = []
-        for i in range(len(self.layers)):
-            for j in range(len(self.layers[i])):
-                cons = self.layers[i][j]
-                if [cons.__class__.__name__] not in header_set:
-                    header_set.append([cons.__class__.__name__]) 
-                    if cons.generate_implementation_header(implementation_type) != None: 
-                        code_list += cons.generate_implementation_header(implementation_type)
-                    if cons.__class__.__name__ == 'Rot':
-                        code_list += cons.generate_implementation_header_unique(implementation_type)
-        return code_list 
+        return _generate_layered_header(self.layers, implementation_type)
     
     def generate_implementation(self, implementation_type='python', unroll=False):
-        if implementation_type == 'python' or implementation_type == 'c': 
-            code_list = []
-            if implementation_type == 'c':
-                var_ids = [var.ID if unroll else var.remove_round_from_ID() for i in range(1, len(self.vars)-1) for var in self.vars[i]]
-                claim_var_c = "uint8_t " + ", ".join(var_ids) + ";"
-                code_list += [claim_var_c]
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    code_list += self.layers[i][j].generate_implementation(implementation_type, unroll=unroll)
-            return code_list
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        return _generate_layered_implementation(self, implementation_type, unroll)
         
     def generate_model(self, model_type='sat', unroll=True):
-        if model_type == 'sat' or model_type == 'milp': 
-            model_list = []
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    cons = self.layers[i][j]
-                    cons.model_version = self.model_version.replace(self.__class__.__name__, cons.__class__.__name__)
-                    model_list += cons.generate_model(model_type, unroll=unroll)
-            return model_list
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        return _generate_layered_model(self, model_type, unroll)
 
 
 
@@ -158,43 +149,13 @@ class SHACAL2_Sum0(Operator):
 
         
     def generate_implementation_header(self, implementation_type='python'):
-        header_set = []
-        code_list = []
-        for i in range(len(self.layers)):
-            for j in range(len(self.layers[i])):
-                cons = self.layers[i][j]
-                if [cons.__class__.__name__] not in header_set:
-                    header_set.append([cons.__class__.__name__]) 
-                    if cons.generate_implementation_header(implementation_type) != None: 
-                        code_list += cons.generate_implementation_header(implementation_type)
-                    if cons.__class__.__name__ == 'Rot': 
-                        code_list += cons.generate_implementation_header_unique(implementation_type)
-        return code_list 
+        return _generate_layered_header(self.layers, implementation_type)
     
     def generate_implementation(self, implementation_type='python', unroll=False):
-        if implementation_type == 'python' or implementation_type == 'c': 
-            code_list = []
-            if implementation_type == 'c':
-                var_ids = [var.ID if unroll else var.remove_round_from_ID() for i in range(1, len(self.vars)-1) for var in self.vars[i]]
-                claim_var_c = "uint8_t " + ", ".join(var_ids) + ";"
-                code_list += [claim_var_c]
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    code_list += self.layers[i][j].generate_implementation(implementation_type, unroll=unroll)
-            return code_list
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        return _generate_layered_implementation(self, implementation_type, unroll)
         
     def generate_model(self, model_type='sat', unroll=True):
-        if model_type == 'sat' or model_type == 'milp': 
-            model_list = []
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    cons = self.layers[i][j]
-                    cons.model_version = self.model_version.replace(self.__class__.__name__, cons.__class__.__name__)
-                    model_list += cons.generate_model(model_type, unroll=unroll)
-            return model_list
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        return _generate_layered_model(self, model_type, unroll)
 
 
 class SHACAL2_Sum1(Operator):
@@ -222,43 +183,13 @@ class SHACAL2_Sum1(Operator):
 
         
     def generate_implementation_header(self, implementation_type='python'):
-        header_set = []
-        code_list = []
-        for i in range(len(self.layers)):
-            for j in range(len(self.layers[i])):
-                cons = self.layers[i][j]
-                if [cons.__class__.__name__] not in header_set:
-                    header_set.append([cons.__class__.__name__]) 
-                    if cons.generate_implementation_header(implementation_type) != None: 
-                        code_list += cons.generate_implementation_header(implementation_type)
-                    if cons.__class__.__name__ == 'Rot': 
-                        code_list += cons.generate_implementation_header_unique(implementation_type)
-        return code_list 
+        return _generate_layered_header(self.layers, implementation_type)
     
     def generate_implementation(self, implementation_type='python', unroll=False):
-        if implementation_type == 'python' or implementation_type == 'c': 
-            code_list = []
-            if implementation_type == 'c':
-                var_ids = [var.ID if unroll else var.remove_round_from_ID() for i in range(1, len(self.vars)-1) for var in self.vars[i]]
-                claim_var_c = "uint8_t " + ", ".join(var_ids) + ";"
-                code_list += [claim_var_c]
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    code_list += self.layers[i][j].generate_implementation(implementation_type, unroll=unroll)
-            return code_list
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        return _generate_layered_implementation(self, implementation_type, unroll)
         
     def generate_model(self, model_type='sat', unroll=True):
-        if model_type == 'sat' or model_type == 'milp': 
-            model_list = []
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    cons = self.layers[i][j]
-                    cons.model_version = self.model_version.replace(self.__class__.__name__, cons.__class__.__name__)
-                    model_list += cons.generate_model(model_type, unroll=unroll)
-            return model_list
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        return _generate_layered_model(self, model_type, unroll)
 
 
 
@@ -285,41 +216,13 @@ class SHACAL2_Maj(Operator):
         
         
     def generate_implementation_header(self, implementation_type='python'):
-        header_set = []
-        code_list = []
-        for i in range(len(self.layers)):
-            for j in range(len(self.layers[i])):
-                cons = self.layers[i][j]
-                if [cons.__class__.__name__] not in header_set:
-                    header_set.append([cons.__class__.__name__]) 
-                    if cons.generate_implementation_header(implementation_type) != None: 
-                        code_list += cons.generate_implementation_header(implementation_type)
-        return code_list 
+        return _generate_layered_header(self.layers, implementation_type)
     
     def generate_implementation(self, implementation_type='python', unroll=False):
-        if implementation_type == 'python' or implementation_type == 'c': 
-            code_list = []
-            if implementation_type == 'c':
-                var_ids = [var.ID if unroll else var.remove_round_from_ID() for i in range(1, len(self.vars)-1) for var in self.vars[i]]
-                claim_var_c = "uint8_t " + ", ".join(var_ids) + ";"
-                code_list += [claim_var_c]
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    code_list += self.layers[i][j].generate_implementation(implementation_type, unroll=unroll)
-            return code_list
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        return _generate_layered_implementation(self, implementation_type, unroll)
         
     def generate_model(self, model_type='sat', unroll=True):
-        if model_type == 'sat' or model_type == 'milp': 
-            model_list = []
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    cons = self.layers[i][j]
-                    cons.model_version = self.model_version.replace(self.__class__.__name__, cons.__class__.__name__)
-                    model_list += cons.generate_model(model_type, unroll=unroll)
-            return model_list
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        return _generate_layered_model(self, model_type, unroll)
 
 
 class SHACAL2_Ch(Operator):
@@ -353,38 +256,10 @@ class SHACAL2_Ch(Operator):
 
         
     def generate_implementation_header(self, implementation_type='python'):
-        header_set = []
-        code_list = []
-        for i in range(len(self.layers)):
-            for j in range(len(self.layers[i])):
-                cons = self.layers[i][j]
-                if [cons.__class__.__name__] not in header_set:
-                    header_set.append([cons.__class__.__name__]) 
-                    if cons.generate_implementation_header(implementation_type) != None: 
-                        code_list += cons.generate_implementation_header(implementation_type)
-        return code_list 
+        return _generate_layered_header(self.layers, implementation_type)
     
     def generate_implementation(self, implementation_type='python', unroll=False):
-        if implementation_type == 'python' or implementation_type == 'c': 
-            code_list = []
-            if implementation_type == 'c':
-                var_ids = [var.ID if unroll else var.remove_round_from_ID() for i in range(1, len(self.vars)-1) for var in self.vars[i]]
-                claim_var_c = "uint8_t " + ", ".join(var_ids) + ";"
-                code_list += [claim_var_c]
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    code_list += self.layers[i][j].generate_implementation(implementation_type, unroll=unroll)
-            return code_list
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        return _generate_layered_implementation(self, implementation_type, unroll)
         
     def generate_model(self, model_type='sat', unroll=True):
-        if model_type == 'sat' or model_type == 'milp': 
-            model_list = []
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    cons = self.layers[i][j]
-                    cons.model_version = self.model_version.replace(self.__class__.__name__, cons.__class__.__name__)
-                    model_list += cons.generate_model(model_type, unroll=unroll)
-            return model_list
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        return _generate_layered_model(self, model_type, unroll)
