@@ -357,9 +357,16 @@ class OCPAgent:
                 + "; ".join(draft.validation_errors),
             )
 
-        draft.requires_user_confirmation = False
-        self.session.set_metadata("confirmed_cipher_spec", draft.spec)
-        result = self.define_custom_cipher(draft.spec)
+        confirmed_draft = CipherSpecDraft(
+            spec=draft.spec,
+            validation_errors=list(draft.validation_errors),
+            warnings=list(draft.warnings),
+            assumptions=list(draft.assumptions),
+            clarification_questions=list(draft.clarification_questions),
+            requires_user_confirmation=False,
+        )
+        self.session.set_metadata("confirmed_cipher_spec", confirmed_draft.spec)
+        result = self.define_custom_cipher(confirmed_draft.spec)
         job = update_job_record(
             self.session.get_metadata("pending_text_job"),
             confirmation={

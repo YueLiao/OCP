@@ -115,7 +115,7 @@ def test_text_first_extract_draft_and_confirm_builds_cipher(monkeypatch, tmp_pat
     assert len(job_record["metadata"]["normalized_text_sha256"]) == 64
     assert len(job_record["metadata"]["prompt_sha256"]) == 64
     assert draft.is_valid
-    assert not draft.requires_user_confirmation
+    assert draft.requires_user_confirmation is True
     assert result.success
     assert result.data["cipher_name"] == "TinyARX_PERM"
     assert result.data["artifact_links"][0]["path"] == job_path
@@ -143,6 +143,28 @@ def test_confirm_cipher_spec_rejects_invalid_draft():
 
     assert not result.success
     assert "validation errors" in result.error
+
+
+def test_confirm_cipher_spec_does_not_mutate_supplied_draft():
+    agent = OCPAgent()
+    draft = agent.draft_cipher_spec(
+        {
+            "name": "TinyARX",
+            "primitive_type": "permutation",
+            "state": {"block_size": 32, "word_bitsize": 16, "nbr_words": 2},
+            "rounds": {"nbr_rounds": 2},
+            "operations": [
+                {"type": "rotation", "params": {"direction": "r", "amount": 7, "word_index": 0}},
+                {"type": "xor", "params": {"input_indices": [[0, 1]], "output_indices": [1]}},
+            ],
+        }
+    )
+
+    result = agent.confirm_cipher_spec(draft)
+
+    assert result.success
+    assert draft.requires_user_confirmation is True
+    assert agent.session.get_metadata("confirmed_cipher_spec")["name"] == "TinyARX"
 
 
 def test_revise_cipher_spec_draft_validates_manual_spec_edits():

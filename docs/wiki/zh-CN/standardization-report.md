@@ -139,6 +139,7 @@
 - 修正 Matrix 实现生成的错误类型提示，并简化参数字符串构建，合法生成代码保持不变。
 - 集中 bitwise S-box 在 Python/C 实现生成中的输入打包和输出解包 helper。
 - 为 Web text-first draft 构建接口添加显式确认要求。
+- 避免 direct API 确认流程原地修改调用者传入的 `CipherSpecDraft` 对象。
 
 ## 验证
 

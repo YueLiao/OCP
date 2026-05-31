@@ -141,6 +141,7 @@ document, and extend.
 - Clarified Matrix implementation generation errors and simplified argument rendering without changing generated code.
 - Consolidated bitwise S-box input packing and output unpacking helpers for Python/C implementation generation.
 - Required explicit confirmation for the web text-first draft build endpoint.
+- Avoided mutating caller-owned `CipherSpecDraft` objects during direct API confirmation.
 
 ## Validation
 
