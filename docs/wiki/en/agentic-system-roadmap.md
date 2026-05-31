@@ -188,6 +188,27 @@ The confirmation view should show:
    Initial JSON job records for text-first extraction/draft/confirmation are in place.
 8. Relegate PDF/image extraction to an experimental import helper.
 
+## Remaining Build Checklist
+
+The next implementation pass should focus on these concrete gaps:
+
+- Add line/column source spans to `CipherInput` normalization and carry them
+  through `CipherFacts` citations.
+- Add a manual facts editor path in the web API so users can correct extracted
+  facts before `CipherSpecDraft` generation.
+- Add a manual `CipherSpec` JSON patch path in the web API with deterministic
+  schema validation before confirmation.
+- Add golden text examples for one ARX primitive, one SPN primitive, and one
+  S-box/permutation primitive.
+- Add provider smoke tests that assert DeepSeek and generic OpenAI-compatible
+  providers never require provider-specific logic outside the provider layer.
+- Add solver capability metadata to web analysis responses before users confirm
+  solver-backed jobs.
+- Record provider name, model, prompt version, normalized text hash, draft hash,
+  and confirmation timestamp in every text-first job record.
+- Split web UI actions into persistent panes for input, facts, draft/spec,
+  execution, and artifacts once the API supports manual edits.
+
 ## Open Questions
 
 - Should `CipherFacts` store source spans as byte offsets, line/column ranges,

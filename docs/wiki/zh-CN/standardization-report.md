@@ -57,6 +57,7 @@
 - 避免上传临时文件已缺失时的清理错误掩盖网页上传响应。
 - 为 text-first 抽取、draft 和 confirmation 添加可复现 JSON job 记录与 artifact links。
 - 将文本优先 Agentic 路线图扩展为可评审实现契约，覆盖 schema、网页流程、provider、安全确认和测试。
+- 为文本优先 Agentic 的 source span、手动编辑、golden examples、provider 边界、solver 元数据和 job records 添加剩余实施清单。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
 - 收拢 Boolean、modular、S-box 和 matrix operator 中重复的模型生成 helper。
 - 清理 S-box 带权 truth-table、matrix bit-model、显式 modular arithmetic 和未完成 operator 抽象。

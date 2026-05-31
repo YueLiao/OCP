@@ -173,6 +173,26 @@ Provider factory 应支持：
    初始 text-first 抽取、draft 和 confirmation JSON job 记录已就位。
 8. 将 PDF/image 抽取降级为 experimental import helper。
 
+## 剩余实施清单
+
+下一轮实现应优先补齐这些具体缺口：
+
+- 为 `CipherInput` 规整结果添加行/列来源位置，并把它们贯穿到
+  `CipherFacts` 引用中。
+- 在网页 API 中添加手动 facts 编辑路径，让用户在生成 `CipherSpecDraft`
+  前修正抽取结果。
+- 在网页 API 中添加手动 `CipherSpec` JSON patch 路径，并在确认前做确定性
+  schema 校验。
+- 添加三个 golden text examples：一个 ARX primitive、一个 SPN primitive、
+  一个 S-box/permutation primitive。
+- 添加 provider smoke tests，确保 DeepSeek 和通用 OpenAI-compatible provider
+  不需要在 provider 层之外写厂商特化逻辑。
+- 在用户确认 solver-backed job 前，在网页 analysis 响应中展示 solver 能力元数据。
+- 每条 text-first job record 都记录 provider 名称、model、prompt version、
+  normalized text hash、draft hash 和确认时间戳。
+- 当 API 支持手动编辑后，将网页 UI 拆成持久面板：输入、facts、draft/spec、
+  执行和 artifacts。
+
 ## 待确认问题
 
 - `CipherFacts` 的来源位置应使用 byte offset、行列范围，还是两者都存？

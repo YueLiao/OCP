@@ -59,6 +59,7 @@ document, and extend.
 - Prevented missing temporary upload files from masking web upload responses during cleanup.
 - Added replayable JSON job records and artifact links for text-first extraction, draft, and confirmation.
 - Expanded the text-first Agentic roadmap into a reviewable implementation contract for schemas, web flow, providers, safety gates, and tests.
+- Added a concrete remaining-build checklist for text-first Agentic source spans, manual edits, golden examples, provider boundaries, solver metadata, and job records.
 - Optimized S-box and GF(2) matrix helpers, and fixed PMR block assembly.
 - Consolidated repeated operator model helpers across Boolean, modular, S-box, and matrix operators.
 - Refined S-box weighted truth-table generation, matrix bit-model generation, explicit modular arithmetic, and unfinished operator abstractions.
