@@ -31,6 +31,10 @@ def _binary_bitwise_implementation(operator, symbol, implementation_type, unroll
     raise Exception(str(operator.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 
 
+def _input_expression(operator, symbol, unroll):
+    return f" {symbol} ".join(operator.get_var_ID('in', i, unroll) for i in range(len(operator.input_vars)))
+
+
 def _generate_and_or_active_weight_model(operator, model_type):
     model_list = []
     var_in1, var_in2, var_out = _binary_bit_vars(operator)
@@ -156,20 +160,12 @@ class N_XOR(Operator): # Operator of the n-xor: a_0 xor a_1 xor ... xor a_n = b
         super().__init__(input_vars, output_vars, ID = ID)
 
     def generate_implementation(self, implementation_type='python', unroll=False):
+        expression = _input_expression(self, '^', unroll)
         if implementation_type == 'python':
-            expression = ' ^ '.join(self.get_var_ID('in', i, unroll) for i in range(len(self.input_vars)))
             return [self.get_var_ID('out', 0, unroll) + ' = ' + expression]
         elif implementation_type == 'c':
-            expression_parts = []
-            for i in range(len(self.input_vars)):
-                expression_parts.append(self.get_var_ID('in', i, unroll))
-            expression = ' ^ '.join(expression_parts)
             return [self.get_var_ID('out', 0, unroll) + ' = ' + expression + ';']
         elif implementation_type == 'verilog':
-            expression_parts = []
-            for i in range(len(self.input_vars)):
-                expression_parts.append(self.get_var_ID('in', i, unroll))
-            expression = ' ^ '.join(expression_parts)
             return ["assign " + self.get_var_ID('out', 0, unroll) + ' = ' + expression + ';']
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 

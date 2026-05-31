@@ -142,6 +142,7 @@
 - 避免 direct API 确认流程原地修改调用者传入的 `CipherSpecDraft` 对象。
 - 修正 Matrix 私有 bit-model helper，使错误 version 调用显式报错，而不是返回 `None`。
 - 将 AND/OR/XOR 的实现生成逻辑收敛到共享 bitwise helper。
+- 在 n-ary XOR 实现生成中复用共享输入表达式 helper。
 
 ## 验证
 
