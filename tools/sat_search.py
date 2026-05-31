@@ -3,6 +3,7 @@ from tools.model_io import create_numerical_cnf, write_sat_model
 from tools.objective_targets import (
     gen_sat_constraints_from_objective_target as _gen_sat_constraints_from_objective_target,
     parse_objective_target,
+    parse_optimal_sat_search_strategy,
 )
 from tools.search_reporting import log, log_search_summary
 import solving.solving as solving
@@ -53,50 +54,27 @@ def modeling_solving_optimal(constraints, objective_function, config_model, conf
 def modeling_solving_optimal_intobj(constraints, objective_function, config_model, config_solver):
     log("[INFO] Search for the optimal solutions.", config_model, config_solver)
 
-    optimal_search_strategy_sat = config_model.get("optimal_search_strategy_sat", "INCREASING FROM AT MOST 0") # Strategy for searching optimal SAT solutions. Options: "INCREASING FROM AT MOST X", "INCREASING FROM EXACTLY X", "DECREASING FROM AT MOST X", "DECREASING FROM EXACTLY X".
-    try:
-        obj_val = int(optimal_search_strategy_sat.split()[-1])
-    except ValueError:
-        raise ValueError(f"Invalid format: '{optimal_search_strategy_sat}'. Expected 'INCREASING FROM AT MOST X', 'INCREASING FROM EXACTLY X', 'DECREASING FROM AT MOST X', or 'DECREASING FROM EXACTLY X'.")
+    optimal_search_strategy_sat = config_model.get("optimal_search_strategy_sat", "INCREASING FROM AT MOST 0")
+    search_plan = parse_optimal_sat_search_strategy(optimal_search_strategy_sat)
+    obj_val = search_plan.start_value
+    step = search_plan.step
+    end_obj_value = search_plan.end_value
+    found_feasible = search_plan.found_feasible
     solutions = None
-
-    if optimal_search_strategy_sat.startswith("INCREASING FROM AT MOST"):
-        strategy = "AT MOST"
-        step = 1
-        end_obj_value = 10000
-    elif optimal_search_strategy_sat.startswith("INCREASING FROM EXACTLY"):
-        strategy = "EXACTLY"
-        step = 1
-        end_obj_value = 10000
-    elif optimal_search_strategy_sat.startswith("DECREASING FROM AT MOST"):
-        strategy = "AT MOST"
-        step = -1
-        end_obj_value = -1
-    elif optimal_search_strategy_sat.startswith("DECREASING FROM EXACTLY"):
-        strategy = "EXACTLY"
-        step = -1
-        end_obj_value = -1
-    elif optimal_search_strategy_sat.startswith("ADAPTIVE FROM AT MOST"): # TO DO: Verify adaptive strategy
-        strategy = "AT MOST"
-        step = 1
-        end_obj_value = 10000
-        found_feasible = None
-    else:
-        raise ValueError(f"Invalid optimal_search_strategy_sat: {optimal_search_strategy_sat}.")
 
     while obj_val != end_obj_value:
         log(f"[INFO] Current SAT objective value: {obj_val}", config_model, config_solver)
-        if strategy == "AT MOST":
+        if search_plan.constraint_strategy == "AT MOST":
             obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_MOST", obj_val, obj_val_decimal=None)
-        elif strategy == "EXACTLY":
+        elif search_plan.constraint_strategy == "EXACTLY":
             obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_EXACTLY", obj_val, obj_val_decimal=None)
         current_solutions = modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
         if isinstance(current_solutions, list) and len(current_solutions) > 0:
             for sol in current_solutions:
                 sol["integer_obj_fun_value"] = obj_val
-        if optimal_search_strategy_sat.startswith("INCREASING FROM") and current_solutions:
+        if search_plan.mode == "INCREASING" and current_solutions:
             return current_solutions
-        elif optimal_search_strategy_sat.startswith("DECREASING FROM") and not current_solutions:
+        elif search_plan.mode == "DECREASING" and not current_solutions:
             if solutions is None:
                 log(
                     f"[INFO] No feasible solution found. Please set the strategy {optimal_search_strategy_sat} with an appropriate starting value.",
@@ -105,7 +83,7 @@ def modeling_solving_optimal_intobj(constraints, objective_function, config_mode
                 )
                 return []
             return solutions
-        elif optimal_search_strategy_sat.startswith("ADAPTIVE FROM"):
+        elif search_plan.mode == "ADAPTIVE":
             if current_solutions and found_feasible is None:
                 found_feasible = True
                 step = -1

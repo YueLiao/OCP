@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from tools.milp_search import write_milp_model
+from tools.objective_targets import parse_optimal_sat_search_strategy
 from tools.sat_search import create_numerical_cnf, parse_objective_target, write_sat_model
 from tools.search_reporting import is_verbose, log_search_summary
 
@@ -9,6 +10,16 @@ def test_parse_objective_target():
     assert parse_objective_target("OPTIMAL") == ("OPTIMAL", None)
     assert parse_objective_target("AT MOST 3") == ("AT MOST", 3.0)
     assert parse_objective_target("EXACTLY 2.5") == ("EXACTLY", 2.5)
+
+
+def test_parse_optimal_sat_search_strategy():
+    plan = parse_optimal_sat_search_strategy("DECREASING FROM EXACTLY 7")
+
+    assert plan.constraint_strategy == "EXACTLY"
+    assert plan.start_value == 7
+    assert plan.step == -1
+    assert plan.end_value == -1
+    assert plan.mode == "DECREASING"
 
 
 def test_create_numerical_cnf_assigns_stable_sorted_variable_ids():

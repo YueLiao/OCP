@@ -1,8 +1,21 @@
 """Objective-target parsing and objective constraint builders."""
 
+from dataclasses import dataclass
+
 import tools.model_objective as model_objective
 from tools.predefined_constraints import gen_predefined_constraints
 from tools.search_constraints import gen_matsui_constraints_sat
+
+
+@dataclass(frozen=True)
+class OptimalSatSearchPlan:
+    strategy_text: str
+    constraint_strategy: str
+    start_value: int
+    step: int
+    end_value: int
+    mode: str
+    found_feasible: bool | None = None
 
 
 def parse_objective_target(objective_target):
@@ -16,6 +29,65 @@ def parse_objective_target(objective_target):
             except ValueError:
                 raise ValueError(f"Invalid format: '{objective_target}'. Expected '{keyword} X'.")
     raise ValueError(f"Unsupported objective_target: {objective_target}")
+
+
+def parse_optimal_sat_search_strategy(strategy_text):
+    """Parse the integer-objective SAT optimal-search strategy string."""
+    try:
+        start_value = int(strategy_text.split()[-1])
+    except ValueError:
+        raise ValueError(
+            f"Invalid format: '{strategy_text}'. Expected 'INCREASING FROM AT MOST X', "
+            "'INCREASING FROM EXACTLY X', 'DECREASING FROM AT MOST X', "
+            "or 'DECREASING FROM EXACTLY X'."
+        )
+
+    if strategy_text.startswith("INCREASING FROM AT MOST"):
+        return OptimalSatSearchPlan(
+            strategy_text,
+            "AT MOST",
+            start_value,
+            1,
+            10000,
+            "INCREASING",
+        )
+    if strategy_text.startswith("INCREASING FROM EXACTLY"):
+        return OptimalSatSearchPlan(
+            strategy_text,
+            "EXACTLY",
+            start_value,
+            1,
+            10000,
+            "INCREASING",
+        )
+    if strategy_text.startswith("DECREASING FROM AT MOST"):
+        return OptimalSatSearchPlan(
+            strategy_text,
+            "AT MOST",
+            start_value,
+            -1,
+            -1,
+            "DECREASING",
+        )
+    if strategy_text.startswith("DECREASING FROM EXACTLY"):
+        return OptimalSatSearchPlan(
+            strategy_text,
+            "EXACTLY",
+            start_value,
+            -1,
+            -1,
+            "DECREASING",
+        )
+    if strategy_text.startswith("ADAPTIVE FROM AT MOST"):
+        return OptimalSatSearchPlan(
+            strategy_text,
+            "AT MOST",
+            start_value,
+            1,
+            10000,
+            "ADAPTIVE",
+        )
+    raise ValueError(f"Invalid optimal_search_strategy_sat: {strategy_text}.")
 
 
 def gen_milp_constraints_from_objective_target(objective_target):
