@@ -79,6 +79,7 @@
 - 为 SHACAL2 Sigma、Sum、Maj 和 Ch 的代码生成添加稳定 composite operator 单测。
 - 收拢 SHACAL2 composite operator 中重复的 header、implementation 和 model 生成 helper。
 - 修复 SHACAL2 composite model generation，避免向子 operator 传入不支持的参数。
+- 收拢 AES round layer 遍历逻辑，并显式化 Matrix branch-number 路由条件。
 - 扩展 Forro subround 回归覆盖，检查操作位置、rotation 参数和 key-stream temp-word 连线。
 - 优化 S-box 和 GF(2) 矩阵 helper，并修复 PMR 分块拼接。
 - 收拢 Boolean、modular、S-box 和 matrix operator 中重复的模型生成 helper。

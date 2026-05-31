@@ -5,6 +5,12 @@ from operators.boolean_operators import XOR
 from variables.variables import Variable
 
 
+def _iter_layer_constraints(layers):
+    for layer in layers:
+        for constraint in layer:
+            yield constraint
+
+
 class AESround(Operator): # Operator for the AES round
     def __init__(self, input_vars, output_vars, subkey=None, ID = None):
         if len(input_vars) != 16: raise Exception(str(self.__class__.__name__) + ": your input does not contain exactly 16 element")
@@ -47,13 +53,12 @@ class AESround(Operator): # Operator for the AES round
     def generate_implementation_header(self, implementation_type='python'):
         header_set = []
         code_list = []
-        for i in range(len(self.layers)):
-            for j in range(len(self.layers[i])):
-                cons = self.layers[i][j]
-                if [cons.__class__.__name__] not in header_set:
-                    header_set.append([cons.__class__.__name__])
-                    if cons.generate_implementation_header(implementation_type) != None:
-                        code_list += cons.generate_implementation_header(implementation_type)
+        for cons in _iter_layer_constraints(self.layers):
+            if [cons.__class__.__name__] not in header_set:
+                header_set.append([cons.__class__.__name__])
+                header = cons.generate_implementation_header(implementation_type)
+                if header is not None:
+                    code_list += header
         return code_list
 
     def generate_implementation(self, implementation_type='python', unroll=False):
@@ -63,9 +68,8 @@ class AESround(Operator): # Operator for the AES round
                 var_ids = [var.ID if unroll else var.remove_round_from_ID() for i in range(1, len(self.vars)-1) for var in self.vars[i]]
                 claim_var_c = "uint8_t " + ", ".join(var_ids) + ";"
                 code_list += [claim_var_c]
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    code_list += self.layers[i][j].generate_implementation(implementation_type, unroll=unroll)
+            for cons in _iter_layer_constraints(self.layers):
+                code_list += cons.generate_implementation(implementation_type, unroll=unroll)
             return code_list
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 
@@ -73,18 +77,17 @@ class AESround(Operator): # Operator for the AES round
         model_list = []
         self.weight = []
         if model_type == 'sat' or model_type == 'milp':
-            for i in range(len(self.layers)):
-                for j in range(len(self.layers[i])):
-                    cons = self.layers[i][j]
-                    cons.model_version = self.model_version.replace(self.__class__.__name__, cons.__class__.__name__)
-                    if "Sbox" in cons.__class__.__name__ and cons.model_version == cons.__class__.__name__+"_TRUNCATEDDIFF":
-                        cons.model_version += "_A"
-                    if cons.__class__.__name__ == "Matrix" and ["TRUNCATEDDIFF" in self.model_version or "TRUNCATEDLINEAR" in self.model_version]:
-                        model_list += cons.generate_model(model_type, branch_num=5)
-                    else:
-                        model_list += cons.generate_model(model_type)
-                    if hasattr(cons, 'weight'):
-                        self.weight += cons.weight
+            use_branch_number_model = "TRUNCATEDDIFF" in self.model_version or "TRUNCATEDLINEAR" in self.model_version
+            for cons in _iter_layer_constraints(self.layers):
+                cons.model_version = self.model_version.replace(self.__class__.__name__, cons.__class__.__name__)
+                if "Sbox" in cons.__class__.__name__ and cons.model_version == cons.__class__.__name__+"_TRUNCATEDDIFF":
+                    cons.model_version += "_A"
+                if cons.__class__.__name__ == "Matrix" and use_branch_number_model:
+                    model_list += cons.generate_model(model_type, branch_num=5)
+                else:
+                    model_list += cons.generate_model(model_type)
+                if hasattr(cons, 'weight'):
+                    self.weight += cons.weight
             return model_list
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
