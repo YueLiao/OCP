@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+import tools.milp_search as milp_search
 from tools.milp_search import write_milp_model
 from tools.objective_targets import (
     decimal_objective_combinations,
@@ -82,6 +83,32 @@ def test_write_milp_model_collects_variable_declarations(tmp_path):
     assert "2 x + 3 y - obj = 0" in content
     assert "Binary\nx y\n" in content
     assert "Integer\nz\n" in content
+
+
+def test_milp_model_constraint_building_does_not_mutate_input():
+    constraints = ["x >= 0"]
+
+    model_constraints = milp_search._build_milp_model_constraints(
+        "AT MOST 1",
+        constraints,
+        [["x"]],
+        {},
+    )
+
+    assert constraints == ["x >= 0"]
+    assert model_constraints is not constraints
+    assert model_constraints[0] == "x >= 0"
+    assert any("obj" in constraint for constraint in model_constraints[1:])
+
+
+def test_milp_matsui_config_requires_round_aligned_best_objective():
+    with pytest.raises(ValueError, match="Round.*best_obj"):
+        milp_search._build_milp_model_constraints(
+            "OPTIMAL",
+            [],
+            [["x"]],
+            {"matsui_constraint": {"Round": 3, "best_obj": [1]}},
+        )
 
 
 def test_search_reporting_can_be_silenced(capsys):

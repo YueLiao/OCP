@@ -82,6 +82,7 @@
 - 将 operator 内部 import 改为直接依赖新的 bit-constraint 和 model-template 模块，而不是兼容 facade。
 - 将 attack/search/profiler 内部 import 改为直接依赖新的 model-configuration、predefined-constraint、search-constraint 和 state 模块。
 - 将 objective-target 解析和 SAT/MILP objective 约束构造拆到 `tools.objective_targets`。
+- 将 MILP search 的模型约束构造、objective 选择和解 objective 后处理拆成更聚焦的 helper。
 - 将 optimal SAT search-strategy 解析拆到 `tools.objective_targets`。
 - 将 SAT decimal-objective combination 查找集中到 `tools.objective_targets`。
 - 将重复的 SAT objective-constraint 求解调用收拢到私有 helper。

@@ -1,5 +1,3 @@
-import copy
-
 import tools.model_objective as model_objective
 from tools.model_io import write_milp_model
 from tools.objective_targets import gen_milp_constraints_from_objective_target
@@ -18,32 +16,48 @@ import solving.solving as solving
 
 # -------------------------- MILP Model Writing ---------------------------
 # ------------------------ Modeling and Solving Interface ----------------------
-def modeling_solving_milp(objective_target, constraints, objective_function, config_model, config_solver): # Construct and solve the MILP model.
-    # Step 1. Generate model constraints
-    model_cons = copy.deepcopy(constraints) or []
-    model_cons += gen_milp_constraints_from_objective_target(objective_target)
+def _milp_objective_function(objective_target, objective_function):
+    if objective_target == "EXISTENCE":
+        return None
+    return objective_function[:]
 
-    # Step 2: Add Matsui acceleration constraints ---
-    if "matsui_constraint" in config_model:  # Arguments for Matsui branch-and-bound constraints. Example: config_model["matsui_constraint"] = {"Round": 2, "best_obj": [1], "matsui_milp_cons_type": "ALL"}.
-        Round = config_model.get("matsui_constraint").get("Round")
-        best_obj = config_model.get("matsui_constraint").get("best_obj")
-        cons_type = config_model["matsui_constraint"].get("matsui_milp_cons_type", "ALL")
-        if Round is None or best_obj is None or len(best_obj) != (Round-1):
-            raise ValueError("Must provide correct 'Round' and 'best_obj' for Matsui strategy.")
-        model_cons += gen_matsui_constraints_milp(Round, best_obj, objective_function, cons_type)
+
+def _build_milp_model_constraints(objective_target, constraints, objective_function, config_model):
+    model_cons = list(constraints or [])
+    model_cons.extend(gen_milp_constraints_from_objective_target(objective_target))
+
+    matsui_config = config_model.get("matsui_constraint")
+    if matsui_config is None:
+        return model_cons
+
+    Round = matsui_config.get("Round")
+    best_obj = matsui_config.get("best_obj")
+    cons_type = matsui_config.get("matsui_milp_cons_type", "ALL")
+    if Round is None or best_obj is None or len(best_obj) != (Round - 1):
+        raise ValueError("Must provide correct 'Round' and 'best_obj' for Matsui strategy.")
+    model_cons.extend(gen_matsui_constraints_milp(Round, best_obj, objective_function, cons_type))
+    return model_cons
+
+
+def _attach_milp_solution_objectives(solutions, objective_function):
+    for sol in solutions:
+        round_values = model_objective.cal_round_obj_fun_values_from_solution(objective_function, sol)
+        sol["rounds_obj_fun_values"] = round_values
+        if "obj_fun_value" not in sol or sol["obj_fun_value"] == 0:
+            sol["obj_fun_value"] = sum(round_values)
+
+
+def modeling_solving_milp(objective_target, constraints, objective_function, config_model, config_solver): # Construct and solve the MILP model.
+    # Step 1. Generate model constraints.
+    model_cons = _build_milp_model_constraints(objective_target, constraints, objective_function, config_model)
 
     # Step 3. Generate the standard MILP model.
-    if objective_target == "EXISTENCE":
-        obj_fun = None  # For existence checking, no objective function is needed.
-    else:
-        obj_fun = objective_function[:]
+    obj_fun = _milp_objective_function(objective_target, objective_function)
     write_milp_model(model_cons, obj_fun, config_model.get("filename"))
 
     # Step 4. Solve the MILP model.
     solutions = solving.solve_milp(config_model.get("filename"), config_solver)
-    for sol in solutions:
-        sol["rounds_obj_fun_values"] = model_objective.cal_round_obj_fun_values_from_solution(objective_function, sol)
-        if "obj_fun_value" not in sol or sol["obj_fun_value"] == 0: sol["obj_fun_value"] = sum(sol["rounds_obj_fun_values"])
+    _attach_milp_solution_objectives(solutions, objective_function)
 
     # Step 5. Print modeling and solving information.
     log_search_summary(

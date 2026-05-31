@@ -84,6 +84,7 @@ document, and extend.
 - Routed internal operator imports to the new bit-constraint and model-template modules instead of the compatibility facade.
 - Routed attack/search/profiler imports to the new model-configuration, predefined-constraint, search-constraint, and state modules.
 - Split objective-target parsing and SAT/MILP objective constraint builders into `tools.objective_targets`.
+- Split MILP search model-constraint construction, objective selection, and solution objective post-processing into focused helpers.
 - Split optimal SAT search-strategy parsing into `tools.objective_targets`.
 - Centralized SAT decimal-objective combination lookup in `tools.objective_targets`.
 - Consolidated repeated SAT objective-constraint solve calls behind a private helper.
