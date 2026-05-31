@@ -84,6 +84,7 @@
 - 将 objective-target 解析和 SAT/MILP objective 约束构造拆到 `tools.objective_targets`。
 - 将 optimal SAT search-strategy 解析拆到 `tools.objective_targets`。
 - 将 SAT decimal-objective combination 查找集中到 `tools.objective_targets`。
+- 将重复的 SAT objective-constraint 求解调用收拢到私有 helper。
 - 将 SAT CNF 和 MILP LP 模型序列化 helper 拆到 `tools.model_io`。
 - 按文件修改时间缓存已解析约束模板，减少重复 S-box 模板加载。
 - 将模板实例化里的逐变量多次正则替换改为单次 token 替换，减少约束模板展开开销。
@@ -105,7 +106,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`167 passed, 106 skipped`。
+最新默认 pytest 状态：`169 passed, 106 skipped`。
 
 ## 后续工作
 

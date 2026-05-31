@@ -18,6 +18,25 @@ import solving.solving as solving
 # **************************************************************************** #
 
 
+def _solve_with_objective_target(
+    constraints,
+    objective_function,
+    config_model,
+    config_solver,
+    cons_type,
+    obj_val,
+    obj_val_decimal=None,
+):
+    obj_constraints = gen_sat_constraints_from_objective_target(
+        objective_function,
+        config_model,
+        cons_type,
+        obj_val,
+        obj_val_decimal=obj_val_decimal,
+    )
+    return modeling_solving(constraints + obj_constraints, objective_function, config_model, config_solver)
+
+
 def modeling_solving_sat(objective_target, constraints, objective_function, config_model, config_solver):
     strategy, value = parse_objective_target(objective_target)
 
@@ -66,10 +85,17 @@ def modeling_solving_optimal_intobj(constraints, objective_function, config_mode
     while obj_val != end_obj_value:
         log(f"[INFO] Current SAT objective value: {obj_val}", config_model, config_solver)
         if search_plan.constraint_strategy == "AT MOST":
-            obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_MOST", obj_val, obj_val_decimal=None)
+            cons_type = "SUM_AT_MOST"
         elif search_plan.constraint_strategy == "EXACTLY":
-            obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_EXACTLY", obj_val, obj_val_decimal=None)
-        current_solutions = modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
+            cons_type = "SUM_EXACTLY"
+        current_solutions = _solve_with_objective_target(
+            constraints,
+            objective_function,
+            config_model,
+            config_solver,
+            cons_type,
+            obj_val,
+        )
         if isinstance(current_solutions, list) and len(current_solutions) > 0:
             for sol in current_solutions:
                 sol["integer_obj_fun_value"] = obj_val
@@ -131,10 +157,18 @@ def modeling_solving_optimal_decimalobj(constraints, objective_function, config_
             config_solver,
         )
         if "AT MOST" in optimal_search_strategy_sat:
-            obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_MOST", obj_integer, obj_val_decimal=obj_decimal)
+            cons_type = "SUM_AT_MOST"
         elif "EXACTLY" in optimal_search_strategy_sat:
-            obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_EXACTLY", obj_integer, obj_val_decimal=obj_decimal)
-        decimal_solutions = modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
+            cons_type = "SUM_EXACTLY"
+        decimal_solutions = _solve_with_objective_target(
+            constraints,
+            objective_function,
+            config_model,
+            config_solver,
+            cons_type,
+            obj_integer,
+            obj_val_decimal=obj_decimal,
+        )
         if isinstance(decimal_solutions, list) and len(decimal_solutions) > 0:
             for sol in decimal_solutions:
                 max_obj_val = min(max_obj_val, sol["obj_fun_value"])
@@ -153,8 +187,14 @@ def modeling_solving_at_most(constraints, objective_function, config_model, conf
     )
 
     # Search for solutions with integer objective function values <= int(at_most_value)
-    obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_MOST", int(at_most_value), obj_val_decimal=None)
-    solutions = modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
+    solutions = _solve_with_objective_target(
+        constraints,
+        objective_function,
+        config_model,
+        config_solver,
+        "SUM_AT_MOST",
+        int(at_most_value),
+    )
 
     decimal_objective_function = config_model.get("decimal_objective_function", False)
     if decimal_objective_function and isinstance(solutions, list) and len(solutions) > 0: # For ciphers with S-boxes having decimal weights, further filter and search for one solution with true objective value <= max_val
@@ -177,13 +217,26 @@ def modeling_solving_at_most(constraints, objective_function, config_model, conf
                     config_model,
                     config_solver,
                 )
-                obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_MOST", int_obj_val, obj_val_decimal=obj_decimal)
-                decimal_solutions = modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
+                decimal_solutions = _solve_with_objective_target(
+                    constraints,
+                    objective_function,
+                    config_model,
+                    config_solver,
+                    "SUM_AT_MOST",
+                    int_obj_val,
+                    obj_val_decimal=obj_decimal,
+                )
                 if isinstance(decimal_solutions, list) and len(decimal_solutions) > 0: # Support searching only a subset of solutions in the multiple-solution setting. TO DO.
                     return decimal_solutions
             int_obj_val -= 1
-            obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_MOST", int_obj_val, obj_val_decimal=None)
-            solutions = modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
+            solutions = _solve_with_objective_target(
+                constraints,
+                objective_function,
+                config_model,
+                config_solver,
+                "SUM_AT_MOST",
+                int_obj_val,
+            )
     return solutions
 
 
@@ -197,8 +250,14 @@ def modeling_solving_exactly(constraints, objective_function, config_model, conf
 
     decimal_objective_function = config_model.get("decimal_objective_function", False)
     if not decimal_objective_function:
-        obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_EXACTLY", int(exactly_value), obj_val_decimal=None)
-        return modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
+        return _solve_with_objective_target(
+            constraints,
+            objective_function,
+            config_model,
+            config_solver,
+            "SUM_EXACTLY",
+            int(exactly_value),
+        )
 
     EPS = 0.001  # Tolerance for floating-point comparison
     obj_decimal_list = decimal_objective_combinations(config_model, -1, exactly_value)
@@ -209,8 +268,15 @@ def modeling_solving_exactly(constraints, objective_function, config_model, conf
                 config_model,
                 config_solver,
             )
-            obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_EXACTLY", obj_integer, obj_val_decimal=obj_decimal)
-            solutions = modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
+            solutions = _solve_with_objective_target(
+                constraints,
+                objective_function,
+                config_model,
+                config_solver,
+                "SUM_EXACTLY",
+                obj_integer,
+                obj_val_decimal=obj_decimal,
+            )
             if isinstance(solutions, list) and len(solutions) > 0:
                 return solutions
     return []
@@ -225,8 +291,14 @@ def modeling_solving_at_least(constraints, objective_function, config_model, con
     )
 
     # Search for solutions with integer objective function values >= int(at_least_value)
-    obj_constraints = gen_sat_constraints_from_objective_target(objective_function, config_model, "SUM_AT_LEAST", int(at_least_value), obj_val_decimal=None)
-    solutions = modeling_solving(constraints+obj_constraints, objective_function, config_model, config_solver)
+    solutions = _solve_with_objective_target(
+        constraints,
+        objective_function,
+        config_model,
+        config_solver,
+        "SUM_AT_LEAST",
+        int(at_least_value),
+    )
 
     decimal_objective_function = config_model.get("decimal_objective_function", False)
     if decimal_objective_function:
