@@ -33,6 +33,11 @@ class FakeFactsProvider(LLMProvider):
         }"""
 
 
+class FailingFactsProvider(FakeFactsProvider):
+    def call_llm(self, prompt, image_data=None):
+        raise RuntimeError("provider unavailable")
+
+
 def test_custom_cipher_definition_validates_missing_round_structure():
     agent = OCPAgent()
     spec = CipherSpec(name="Incomplete", round_structure=[])
@@ -74,6 +79,16 @@ def test_text_first_extraction_requires_llm_provider():
 
     assert not result.success
     assert "No LLM provider configured" in result.error
+
+
+def test_text_first_extraction_returns_skill_result_for_provider_failures():
+    agent = OCPAgent(llm_provider=FailingFactsProvider())
+
+    result = agent.extract_cipher_facts("x <- y")
+
+    assert not result.success
+    assert "LLM provider call failed" in result.error
+    assert "provider unavailable" in result.error
 
 
 def test_text_first_extract_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):

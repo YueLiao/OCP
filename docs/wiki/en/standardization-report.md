@@ -137,6 +137,7 @@ document, and extend.
 - Fixed bitwise S-box implementation generation to unpack non-square outputs using the output width.
 - Made cached PMR matrix representations immutable while preserving mutable public return values.
 - Returned stable JSON errors for unexpected text-draft web API failures without leaking provider details.
+- Made text-first `OCPAgent.extract_cipher_facts()` return a failed `SkillResult` for provider call failures.
 
 ## Validation
 

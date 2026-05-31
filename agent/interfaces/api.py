@@ -255,6 +255,12 @@ class OCPAgent:
             raw_response = self._core.llm.call_llm(prompt)
         except NotImplementedError as exc:
             return SkillResult(success=False, skill=SkillName.CIPHER_EXTRACTION, error=str(exc))
+        except Exception as exc:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_EXTRACTION,
+                error=f"LLM provider call failed during text-first fact extraction: {exc}",
+            )
 
         facts = parse_cipher_facts_response(raw_response)
         if facts is None:
