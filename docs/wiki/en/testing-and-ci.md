@@ -44,6 +44,18 @@ python -m pytest
 CI intentionally avoids optional solver dependencies. Solver-backed tests should
 be added as a separate workflow after backend setup is stable.
 
+## Source Distribution
+
+The source distribution is expected to include:
+
+- Root README and license files.
+- `requirements*.txt` dependency sets.
+- Wiki-ready Markdown documentation under `docs/`.
+- Tracked S-box and matrix modeling templates under `files/*_modeling/`.
+
+`MANIFEST.in` records this explicitly so release archives contain the runtime
+templates needed by source-tree workflows.
+
 ## Solver Capability Checks
 
 Optional solver backends can be checked without importing native solver modules:

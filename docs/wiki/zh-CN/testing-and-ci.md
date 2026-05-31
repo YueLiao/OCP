@@ -41,6 +41,18 @@ python -m pytest
 
 CI 有意不安装可选求解器依赖。求解器测试应在后端安装方式稳定后，作为独立 workflow 添加。
 
+## 源码分发包
+
+源码分发包应包含：
+
+- 根目录 README 和 license 文件。
+- `requirements*.txt` 依赖集合。
+- `docs/` 下适合迁移到 wiki 的 Markdown 文档。
+- `files/*_modeling/` 下已跟踪的 S-box 和 matrix 建模模板。
+
+`MANIFEST.in` 会显式记录这些文件，确保 release archive 包含 source-tree
+工作流需要的运行时模板。
+
 ## 求解器能力检查
 
 可选求解器后端可以在不 import 原生求解器模块的情况下检查：

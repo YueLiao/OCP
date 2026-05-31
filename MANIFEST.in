@@ -1,0 +1,9 @@
+include LICENSE
+include README.md
+include README.zh-CN.md
+include requirements.txt
+include requirements-agent.txt
+include requirements-solvers.txt
+recursive-include docs *.md *.png
+recursive-include files/matrix_modeling *.txt
+recursive-include files/sbox_modeling *.txt

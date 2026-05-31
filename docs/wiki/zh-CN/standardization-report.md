@@ -66,6 +66,7 @@
 - 集中 Forro 的状态尺寸、默认 subround 数、keystream 元数据和 factory 变量创建逻辑。
 - 将 attack/solver 进度消息接入 verbose-aware logging，并把工具诊断改为 Python warnings。
 - 添加显式 solver 能力报告，用于检查可选 MILP/SAT 后端，并文档化当前 solver fallback。
+- 添加显式源码分发 manifest，覆盖文档、依赖文件和已跟踪的建模模板。
 - 确保 PySAT 求解过程中即使抛出异常也会释放 solver 实例。
 - 将运行时资源监控的异常处理收窄到 psutil/OS 失败。
 - 收窄 SCIP solver 失败处理，让意外程序错误继续暴露。

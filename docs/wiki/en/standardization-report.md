@@ -68,6 +68,7 @@ document, and extend.
 - Centralized Forro state dimensions, default subround counts, keystream metadata, and factory variable creation.
 - Routed attack/solver progress messages through verbose-aware logging and converted tool diagnostics to Python warnings.
 - Added explicit solver capability reporting for optional MILP/SAT backends and documented the current solver fallbacks.
+- Added an explicit source-distribution manifest for documentation, requirement files, and tracked modeling templates.
 - Ensured PySAT solver instances are released even when solving raises an exception.
 - Narrowed runtime resource monitor exception handling to psutil/OS failures.
 - Narrowed SCIP solver failure handling so unexpected programming errors propagate.
