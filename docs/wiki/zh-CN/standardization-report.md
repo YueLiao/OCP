@@ -132,6 +132,7 @@
 - 集中 SHACAL2 Sigma/Sum 常量，并为不支持的 keysize 添加显式校验。
 - 集中 Forro 参考测试向量，并覆盖 factory 挂载行为。
 - 将 SHACAL2 layered header 的重复检查从列表扫描改为 set 查询。
+- 修正 bitwise S-box 实现生成逻辑，使非方形输出按 output width 解包。
 
 ## 验证
 

@@ -212,6 +212,33 @@ def test_bitwise_or_as_sbox_has_stable_ddt_and_lat():
     assert op.computeLAT() == [[4, -2], [0, 2], [0, 2], [0, 2]]
 
 
+def test_non_square_bitwise_sbox_implementation_uses_output_width():
+    op = Sbox(
+        [var.Variable(1, ID="a"), var.Variable(1, ID="b")],
+        [var.Variable(1, ID="out")],
+        input_bitsize=2,
+        output_bitsize=1,
+        ID="or_sbox",
+    )
+    op.table = [0, 1, 1, 1]
+
+    assert op.generate_implementation("python", unroll=True) == [
+        "x = (a << 1) | (b << 0)",
+        "y = Sbox[x]",
+        "out = (y >> 0) & 1",
+    ]
+    assert op.generate_implementation("c", unroll=True) == [
+        "x = (a << 1) | (b << 0);",
+        "y = Sbox[x];",
+        "out = (y >> 0) & 1;",
+    ]
+    assert op.generate_implementation_header("c") == [
+        "uint8_t Sbox[4] = {0, 1, 1, 1};",
+        "uint8_t x;",
+        "uint8_t y;",
+    ]
+
+
 def test_modular_implementation_generation_is_stable():
     left = var.Variable(4, ID="in0")
     right = var.Variable(4, ID="in1")

@@ -242,28 +242,30 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
         if implementation_type == 'python':
             if len(self.input_vars) == 1 and len(self.output_vars) == 1:
                 return [self.get_var_ID('out', 0, unroll) + ' = ' + str(self.__class__.__name__) + '[' + self.get_var_ID('in', 0, unroll) + ']']
-            elif len(self.input_vars) > 1 and len(self.output_vars) > 1:
+            elif len(self.input_vars) > 1 and len(self.output_vars) >= 1:
                 x_bits = len(self.input_vars)
+                y_bits = len(self.output_vars)
                 x_expr = 'x = ' + ' | '.join(f'({self.get_var_ID("in", i, unroll=unroll)} << {x_bits - 1 - i})'for i in range(x_bits))
                 model_list = [x_expr]
                 model_list.append(f'y = {self.__class__.__name__}[x]')
-                y_vars = ', '.join(f'{self.get_var_ID("out", i, unroll=unroll)}' for i in range(x_bits))
-                y_bits = ', '.join(f'(y >> {x_bits - 1 - i}) & 1' for i in range(x_bits))
-                model_list.append(f'{y_vars} = {y_bits}')
+                y_vars = ', '.join(f'{self.get_var_ID("out", i, unroll=unroll)}' for i in range(y_bits))
+                y_values = ', '.join(f'(y >> {y_bits - 1 - i}) & 1' for i in range(y_bits))
+                model_list.append(f'{y_vars} = {y_values}')
                 return model_list
             else: raise Exception(str(self.__class__.__name__) + ": unsupported number of input/output variables for 'python' implementation")
         elif implementation_type == 'c':
             if len(self.input_vars) == 1 and len(self.output_vars) == 1:
                 return [self.get_var_ID('out', 0, unroll) + ' = ' + str(self.__class__.__name__) + '[' + self.get_var_ID('in', 0, unroll) + '];']
-            elif len(self.input_vars) > 1 and len(self.output_vars) > 1:
+            elif len(self.input_vars) > 1 and len(self.output_vars) >= 1:
                 x_bits = len(self.input_vars)
+                y_bits = len(self.output_vars)
                 x_expr = 'x = ' + ' | '.join(f'({self.get_var_ID("in", i, unroll=unroll)} << {x_bits - 1 - i})'for i in range(x_bits))+ ";"
                 model_list = [x_expr]
                 model_list.append(f'y = {str(self.__class__.__name__)}[x];')
-                for i in range(x_bits):
+                for i in range(y_bits):
                     y_vars = self.get_var_ID("out", i, unroll=unroll)
-                    y_bits = f'(y >> {x_bits - 1 - i}) & 1'
-                    model_list.append(f'{y_vars} = {y_bits};')
+                    y_value = f'(y >> {y_bits - 1 - i}) & 1'
+                    model_list.append(f'{y_vars} = {y_value};')
                 return model_list
             else: raise Exception(str(self.__class__.__name__) + ": unsupported number of input/output variables for 'c' implementation")
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
@@ -276,10 +278,10 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             return [str(self.__class__.__name__) + ' = ' + str(self.table)]
         elif implementation_type == 'c':
             if self.input_bitsize <= 8:
-                if len(self.input_vars) > 1 and len(self.output_vars) > 1: return ['uint8_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint8_t ' + 'x;'] + ['uint8_t ' + 'y;']
+                if len(self.input_vars) > 1: return ['uint8_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint8_t ' + 'x;'] + ['uint8_t ' + 'y;']
                 else: return ['uint8_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};']
             else:
-                if len(self.input_vars) > 1 and len(self.output_vars) > 1: return ['uint32_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint32_t ' + 'x;'] + ['uint32_t ' + 'y;']
+                if len(self.input_vars) > 1: return ['uint32_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint32_t ' + 'x;'] + ['uint32_t ' + 'y;']
                 else: return ['uint32_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};']
         else: return None
 
