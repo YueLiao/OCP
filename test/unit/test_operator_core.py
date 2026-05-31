@@ -6,6 +6,9 @@ from operators.operators import CopyOperator, Equal, NoneOperator, Rot, Shift
 from operators.Sbox import AES_Sbox, PRESENT_Sbox, Sbox
 from operators.matrix import (
     Matrix,
+    gf2_inv,
+    gf2_multiply,
+    gf2_pow,
     generate_binary_matrix_2,
     generate_binary_matrix_3,
     generate_pmr_for_mds,
@@ -612,6 +615,9 @@ def test_sbox_weight_helpers_and_aes_header_are_stable():
 
 
 def test_gf2_matrix_helpers_are_stable_and_return_mutable_copies():
+    assert gf2_multiply(0x57, 0x83, 0x11B, 8) == 0xC1
+    assert gf2_pow(2, 3, 0x11B, 8) == 8
+    assert gf2_inv(0x53, 0x11B, 8) == 0xCA
     assert matrix_multiply_mod2([[1, 1], [0, 1]], [[1, 0], [1, 1]]) == [[0, 1], [1, 1]]
     assert matrix_power_mod2([[0, 1], [1, 1]], 3) == [[1, 0], [0, 1]]
 
@@ -634,6 +640,56 @@ def test_pmr_generation_populates_each_mds_block():
 
     assert pmr[0][:degree] == matrix2[0]
     assert pmr[0][degree:] == matrix3[0]
+
+
+def test_matrix_implementation_headers_and_zero_star_patterns_are_stable():
+    inputs = [var.Variable(4, ID=f"in{i}") for i in range(2)]
+    outputs = [var.Variable(4, ID=f"out{i}") for i in range(2)]
+    op = Matrix("tiny_matrix", inputs, outputs, [[1, 1], [0, 1]], ID="M")
+
+    assert op.generate_implementation("python", unroll=True) == ["(out0, out1) = tiny_matrix(in0, in1)"]
+    assert op.generate_implementation("c", unroll=True) == ["tiny_matrix(in0, in1, out0, out1);"]
+    assert op.generate_implementation_header("python") == [
+        "#Matrix Macro ",
+        "def tiny_matrix(x0, x1):",
+        "\ty0 = x0 ^ x1",
+        "\ty1 = x1",
+        "\treturn (y0, y1)",
+    ]
+    assert op.generate_implementation_header("c") == [
+        "//Matrix Macro ",
+        "#define tiny_matrix(x0, x1, y0, y1)  { \\",
+        "\ty0 = x0 ^ x1; \\",
+        "\ty1 = x1; \\",
+        "} ",
+    ]
+    assert op.zero_star_io_patterns() == [
+        (0, 0, 0, 0),
+        (0, "*", "*", "*"),
+        ("*", 0, "*", 0),
+        ("*", "*", "*", "*"),
+    ]
+
+    forced_patterns = op.patterns_where_a_star_is_forced_zero()
+    assert len(forced_patterns) == 15
+    assert ((0, "*"), ("*", "*"), "0") in forced_patterns
+    assert (("*", "*"), ("*", "*"), "0") in forced_patterns
+
+
+def test_polynomial_matrix_headers_are_stable():
+    inputs = [var.Variable(8, ID=f"in{i}") for i in range(2)]
+    outputs = [var.Variable(8, ID=f"out{i}") for i in range(2)]
+    op = Matrix("aes_matrix", inputs, outputs, [[2, 3], [1, 1]], polynomial="0x1b", ID="AESM")
+
+    assert op.generate_implementation_header("python") == [
+        "#Matrix Macro ",
+        "def aes_matrix(x0, x1):",
+        "\ty0 = GMUL(x0,2,0x1b,8) ^ GMUL(x1,3,0x1b,8)",
+        "\ty1 = x0 ^ x1",
+        "\treturn (y0, y1)",
+    ]
+    assert op.generate_implementation_header_unique("python")[0] == "#Galois Field Multiplication Macro"
+    assert op.generate_implementation_header_unique("c")[0] == "//Galois Field Multiplication Macro"
 
 
 def test_matrix_bit_models_share_stable_constraint_generation():
