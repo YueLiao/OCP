@@ -130,6 +130,7 @@ document, and extend.
 - Clarified legacy operator scripts as manual experiments.
 - Migrated Equal implementation and MILP equivalence coverage from legacy operator scripts into focused pytest coverage.
 - Split documentation into English and Chinese pages with language switch links.
+- Added SHACAL2 1024-bit Sigma/Sum constant regression coverage.
 
 ## Validation
 

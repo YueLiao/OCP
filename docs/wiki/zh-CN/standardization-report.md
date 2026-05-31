@@ -128,6 +128,7 @@
 - 明确旧式 operator 文件是人工实验脚本。
 - 将 Equal implementation 和 MILP equivalence 覆盖从旧式 operator 脚本迁入聚焦的 pytest 用例。
 - 将文档拆为英文和中文页面，并在顶部提供语言切换链接。
+- 为 SHACAL2 1024-bit Sigma/Sum 常量添加回归覆盖。
 
 ## 验证
 

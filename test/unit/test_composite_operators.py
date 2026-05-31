@@ -1,6 +1,13 @@
 import variables.variables as var
 from operators.AESround import AESround
-from operators.SHACAL2BooleanFunctions import SHACAL2_Ch, SHACAL2_Maj, SHACAL2_Sigma0, SHACAL2_Sum0
+from operators.SHACAL2BooleanFunctions import (
+    SHACAL2_Ch,
+    SHACAL2_Maj,
+    SHACAL2_Sigma0,
+    SHACAL2_Sigma1,
+    SHACAL2_Sum0,
+    SHACAL2_Sum1,
+)
 
 
 def _aes_round_inputs_outputs():
@@ -107,6 +114,33 @@ def test_shacal2_sigma_and_sum_composition_generates_expected_rotations():
         "x_0 = ROTR(x, 2, 32)",
         "x_1 = ROTR(x, 13, 32)",
         "x_2 = ROTR(x, 22, 32)",
+        "y = x_0 ^ x_1 ^ x_2",
+    ]
+
+
+def test_shacal2_1024_bit_sigma_and_sum_constants_are_stable():
+    x = [var.Variable(64, ID="x")]
+    y = [var.Variable(64, ID="y")]
+
+    sigma1 = SHACAL2_Sigma1(x, y, keysize=1024, ID="SIG1")
+    assert sigma1.generate_implementation("python", unroll=True) == [
+        "x_0 = ROTR(x, 19, 64)",
+        "x_1 = ROTR(x, 61, 64)",
+        "x_2 = (x >> 6) & (2**64 - 1)",
+        "y = x_0 ^ x_1 ^ x_2",
+    ]
+    assert sigma1.generate_implementation("c", unroll=True)[:4] == [
+        "uint8_t x_0, x_1, x_2;",
+        "x_0 = ROTR(x, 19, 64);",
+        "x_1 = ROTR(x, 61, 64);",
+        "x_2 = (x >> 6) & ((1<<64) - 1);",
+    ]
+
+    sum1 = SHACAL2_Sum1(x, y, keysize=1024, ID="SUM1")
+    assert sum1.generate_implementation("python", unroll=True) == [
+        "x_0 = ROTR(x, 14, 64)",
+        "x_1 = ROTR(x, 18, 64)",
+        "x_2 = ROTR(x, 41, 64)",
         "y = x_0 ^ x_1 ^ x_2",
     ]
 
