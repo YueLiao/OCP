@@ -130,6 +130,7 @@
 - 将文档拆为英文和中文页面，并在顶部提供语言切换链接。
 - 为 SHACAL2 1024-bit Sigma/Sum 常量添加回归覆盖。
 - 集中 SHACAL2 Sigma/Sum 常量，并为不支持的 keysize 添加显式校验。
+- 集中 Forro 参考测试向量，并覆盖 factory 挂载行为。
 
 ## 验证
 

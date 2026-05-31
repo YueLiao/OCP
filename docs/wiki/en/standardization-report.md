@@ -132,6 +132,7 @@ document, and extend.
 - Split documentation into English and Chinese pages with language switch links.
 - Added SHACAL2 1024-bit Sigma/Sum constant regression coverage.
 - Centralized SHACAL2 Sigma/Sum constants and added explicit unsupported-keysize validation.
+- Centralized Forro reference test vectors and covered factory attachment.
 
 ## Validation
 

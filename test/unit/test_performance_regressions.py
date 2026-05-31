@@ -13,8 +13,11 @@ from primitives.arx import chacha_quarter_rounds, salsa_quarter_rounds
 from primitives.chacha import CHACHA_KEYPERMUTATION, CHACHA_PERMUTATION
 from primitives.forro import (
     FORRO_KEYPERMUTATION,
+    FORRO_KEYPERMUTATION_TEST_OUTPUT,
     FORRO_PERMUTATION,
+    FORRO_PERMUTATION_TEST_OUTPUT,
     FORRO_KEYSTREAM_TEMP_START,
+    FORRO_TEST_INPUT,
     _forro_subround_selection,
 )
 from primitives.salsa import SALSA_KEYPERMUTATION, SALSA_PERMUTATION
@@ -101,6 +104,14 @@ def test_forro_subround_helper_preserves_round_schedule_and_structure():
     assert key_permutation.constraints[1][0][16].output_vars[0].ID == (
         f"v_1_1_{FORRO_KEYSTREAM_TEMP_START}"
     )
+
+
+def test_forro_factories_attach_reference_test_vectors():
+    permutation = FORRO_PERMUTATION(r=1)
+    key_permutation = FORRO_KEYPERMUTATION(r=1)
+
+    assert permutation.test_vectors == [[[FORRO_TEST_INPUT], FORRO_PERMUTATION_TEST_OUTPUT]]
+    assert key_permutation.test_vectors == [[[FORRO_TEST_INPUT], FORRO_KEYPERMUTATION_TEST_OUTPUT]]
 
 
 def test_chacha_arx_helper_preserves_round_schedule_and_structure():
