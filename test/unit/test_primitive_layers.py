@@ -127,6 +127,17 @@ def test_extraction_layer_links_external_variables_to_outputs():
     assert [constraint.output_vars[0].ID for constraint in constraints] == ["v_1_1_0", "v_1_1_1"]
 
 
+def test_add_constant_layer_rejects_unknown_add_type():
+    function = Layered_Function("F", "", 1, 1, 1, 0, 4)
+
+    try:
+        function.AddConstantLayer("C", 1, 0, "bad", [1], [[1]])
+    except ValueError as exc:
+        assert "unknown add_type 'bad'" in str(exc)
+    else:
+        raise AssertionError("AddConstantLayer should reject unknown add_type values")
+
+
 def test_primitive_build_dictionaries_indexes_function_graph():
     primitive = Function("F", [Variable(1, ID="in0")], [Variable(1, ID="out0")], 1, [1, 1, 1, 0, 1])
     function = primitive.functions["FUNCTION"]

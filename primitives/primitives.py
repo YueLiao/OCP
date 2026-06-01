@@ -173,11 +173,13 @@ class Layered_Function:
         i = 0
         for j in range(self._total_words()):
             in_var, out_var = self.vars[crt_round][crt_layer][j], self.vars[crt_round][crt_layer+1][j]
-            if constant[j]!=None:
+            if constant[j] is not None:
                 if add_type == 'xor':
                     self.constraints[crt_round][crt_layer].append(ConstantXOR([in_var], [out_var], constant_table, crt_round, i, ID=generateID(name,crt_round,crt_layer+1,j)))
                 elif add_type == 'modadd':
                     self.constraints[crt_round][crt_layer].append(ConstantAdd([in_var], [out_var], constant_table, crt_round, i, modulo=modulo, ID=generateID(name,crt_round,crt_layer+1,j)))
+                else:
+                    raise ValueError(f"AddConstantLayer: unknown add_type '{add_type}'")
                 i += 1
             else: self._add_equal_constraint(name, crt_round, crt_layer, j, in_var, out_var)
 
