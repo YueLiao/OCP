@@ -214,6 +214,55 @@ def test_attack_model_filename_honors_runtime_files_dir(monkeypatch, tmp_path):
     assert Path(config_model["filename"]).parent == tmp_path
 
 
+def test_attack_model_filename_preserves_explicit_path(tmp_path):
+    cipher = SimpleNamespace(
+        name="toy",
+        nbr_rounds=1,
+        functions={
+            "PERMUTATION": SimpleNamespace(
+                nbr_rounds=1,
+                nbr_layers=0,
+                constraints={1: {0: []}},
+            )
+        },
+    )
+    filename = tmp_path / "custom.cnf"
+
+    config_model, _ = common.parse_and_set_configs(
+        cipher,
+        "DIFFERENTIAL_SBOXCOUNT",
+        "EXISTENCE",
+        {"model_type": "SAT", "filename": str(filename)},
+        {},
+    )
+
+    assert config_model["model_type"] == "sat"
+    assert config_model["filename"] == str(filename)
+
+
+def test_attack_config_rejects_invalid_solution_number():
+    cipher = SimpleNamespace(
+        name="toy",
+        nbr_rounds=1,
+        functions={
+            "PERMUTATION": SimpleNamespace(
+                nbr_rounds=1,
+                nbr_layers=0,
+                constraints={1: {0: []}},
+            )
+        },
+    )
+
+    with pytest.raises(ValueError, match="solution_number"):
+        common.parse_and_set_configs(
+            cipher,
+            "DIFFERENTIAL_SBOXCOUNT",
+            "EXISTENCE",
+            {"model_type": "sat"},
+            {"solution_number": 0},
+        )
+
+
 def test_attack_search_request_validation_uses_value_errors():
     with pytest.raises(ValueError, match="Invalid objective_target"):
         common.validate_attack_search_request(

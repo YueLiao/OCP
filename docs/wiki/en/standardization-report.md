@@ -170,6 +170,7 @@ document, and extend.
 - Extended identity-elision regression coverage to ChaCha and Salsa for SAT and MILP model generation.
 - Made identity-elision trail lookup resolve chained aliases and filtered zero-constraint prefixes from profiler candidate summaries.
 - Added an optional PySAT-backed identity-elision smoke test that solves an elided Forro SAT model and verifies trail alias recovery.
+- Preserved explicit attack model filenames, normalized model/solver config values, and added solver-name validation helpers.
 
 ## Validation
 
@@ -180,10 +181,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `241 passed, 107 skipped, 1 warning`.
+Latest default pytest status: `244 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 
 1. Add optional solver-backed identity-elision smoke tests when SAT/MILP backends are available.
-2. Continue narrowing broad exception handling in solver/model generation paths.
+2. Continue splitting attack/search configuration into typed helper objects.
 3. Continue improving web draft review ergonomics and artifact browsing.

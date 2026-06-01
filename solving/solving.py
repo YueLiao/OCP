@@ -86,18 +86,46 @@ def solver_capabilities():
     }
 
 
+def normalize_milp_solver_name(solver="DEFAULT"):
+    solver_name = str(solver).upper()
+    if solver_name == "DEFAULT":
+        return DEFAULT_MILP_SOLVER
+    if solver_name not in MILP_SOLVERS:
+        raise ValueError(f"[ERROR] Unsupported solver: '{solver}'. Supported: 'GUROBI' (DEFAULT), 'SCIP'.")
+    return solver_name
+
+
+def normalize_sat_solver_name(solver="DEFAULT"):
+    if solver == "DEFAULT":
+        return "DEFAULT"
+    if solver in PYSAT_SOLVERS or solver == "ORTools":
+        return solver
+    raise ValueError(
+        f"[ERROR] Unsupported solver: '{solver}'. Supported: ORTools, DEFAULT, "
+        + ", ".join(PYSAT_SOLVERS)
+        + "."
+    )
+
+
 def is_solver_available(kind, solver="DEFAULT"):
     """Return whether a configured solver route is both installed and implemented."""
     kind = kind.lower()
     capabilities = solver_capabilities()
 
     if kind == "milp":
-        solver_name = DEFAULT_MILP_SOLVER if solver.upper() == "DEFAULT" else solver.upper()
+        try:
+            solver_name = normalize_milp_solver_name(solver)
+        except ValueError:
+            return False
         backend = capabilities["milp"].get(solver_name)
     elif kind == "sat":
-        if solver == "DEFAULT" or solver in PYSAT_SOLVERS:
+        try:
+            solver_name = normalize_sat_solver_name(solver)
+        except ValueError:
+            return False
+        if solver_name == "DEFAULT" or solver_name in PYSAT_SOLVERS:
             backend = capabilities["sat"]["PySAT"]
-        elif solver == "ORTools":
+        elif solver_name == "ORTools":
             backend = capabilities["sat"]["ORTools"]
         else:
             backend = None
@@ -152,18 +180,16 @@ def solve_milp(filename, config_solver=None):
     """
 
     config_solver = config_solver or {}
-    solver = config_solver.get("solver", "DEFAULT")
+    solver = normalize_milp_solver_name(config_solver.get("solver", "DEFAULT"))
     log(f"[INFO] Solving MILP model with settings: {config_solver}", config_solver=config_solver)
     monitor = RuntimeResourceMonitor(interval=0.2)
     monitor.start()
     time_start = time.time()
     try:
-        if solver.upper() in [DEFAULT_MILP_SOLVER, "DEFAULT"]:
+        if solver == DEFAULT_MILP_SOLVER:
             return solve_milp_gurobi(filename, config_solver)
-        elif solver.upper() == "SCIP":
+        elif solver == "SCIP":
             return solve_milp_scip(filename, config_solver)
-        else:
-            raise ValueError(f"[ERROR] Unsupported solver: '{solver}'. Supported: 'GUROBI' (DEFAULT), 'SCIP'.")
     finally:
         config_solver["resource_usage"] = monitor.stop()
         config_solver["solving_time(s)"] = round(time.time() - time_start, 2)
@@ -272,7 +298,7 @@ def solve_sat(filename, variable_map, config_solver=None):
     """
 
     config_solver = config_solver or {}
-    solver = config_solver.get("solver", "DEFAULT")
+    solver = normalize_sat_solver_name(config_solver.get("solver", "DEFAULT"))
     log(f"[INFO] Solving SAT model with settings: {config_solver}", config_solver=config_solver)
     monitor = RuntimeResourceMonitor(interval=0.2)
     monitor.start()
@@ -282,8 +308,6 @@ def solve_sat(filename, variable_map, config_solver=None):
             return solve_sat_pysat(filename, variable_map, config_solver)
         elif solver == "ORTools":
             return solve_sat_ortools(filename, variable_map, config_solver)
-        else:
-            raise ValueError(f"[ERROR] Unsupported solver: '{solver}'. Supported: ORTools, DEFAULT, Cadical103, Cadical153, Cadical195, CryptoMinisat, Gluecard3, Gluecard4, Glucose3, Glucose4, Lingeling, MapleChrono, MapleCM, Maplesat, Mergesat3, Minicard, Minisat22, MinisatGH'.")
     finally:
         config_solver["resource_usage"] = monitor.stop()
         config_solver["solving_time(s)"] = round(time.time() - time_start, 2)

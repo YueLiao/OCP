@@ -77,6 +77,17 @@ is_solver_available("sat", "Glucose3")
 PySAT 后端。OR-Tools SAT 路径目前是预留接口，尚未实现，因此即使 Python
 包已安装，也不会被报告为可执行可用。
 
+Attack 配置会在共享 frontend 边界统一规整：
+
+- `config_model["model_type"]` 接受 `milp` 或 `sat`，并统一成小写。
+- 显式传入的 `config_model["filename"]` 会被保留；未传入时，OCP 会写到运行时
+  `OCP_FILES_DIR` 位置。
+- `config_solver["solver"]` 默认是 `DEFAULT`。
+- 如果传入 `config_solver["solution_number"]`，它必须是正整数。
+
+Solver wrapper 暴露 `normalize_milp_solver_name()` 和 `normalize_sat_solver_name()`
+用于显式校验；`is_solver_available()` 仍是安静的能力检查，未知 solver 名会返回 `False`。
+
 ## 本地输出隔离
 
 ```bash

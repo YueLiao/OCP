@@ -81,6 +81,20 @@ PySAT backend. The OR-Tools SAT route is reserved but not implemented yet, so it
 is reported as unavailable for execution even when its Python packages are
 installed.
 
+Attack configuration is normalized at the shared frontend boundary:
+
+- `config_model["model_type"]` accepts `milp` or `sat` and is normalized to
+  lowercase.
+- An explicit `config_model["filename"]` is preserved. If omitted, OCP writes to
+  the runtime `OCP_FILES_DIR` location.
+- `config_solver["solver"]` defaults to `DEFAULT`.
+- `config_solver["solution_number"]`, when provided, must be a positive integer.
+
+Solver wrappers expose `normalize_milp_solver_name()` and
+`normalize_sat_solver_name()` for explicit validation, while
+`is_solver_available()` remains a quiet capability check and returns `False` for
+unknown solver names.
+
 ## Local Output Isolation
 
 ```bash

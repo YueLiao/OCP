@@ -41,6 +41,24 @@ def test_is_solver_available_respects_defaults_and_implemented_backends(monkeypa
     assert solving.is_solver_available("sat", "UnknownSAT") is False
 
 
+def test_solver_name_normalization_is_explicit():
+    assert solving.normalize_milp_solver_name("default") == "GUROBI"
+    assert solving.normalize_milp_solver_name("scip") == "SCIP"
+    assert solving.normalize_sat_solver_name("DEFAULT") == "DEFAULT"
+    assert solving.normalize_sat_solver_name("Glucose3") == "Glucose3"
+
+    for normalizer, solver_name in (
+        (solving.normalize_milp_solver_name, "not-milp"),
+        (solving.normalize_sat_solver_name, "not-sat"),
+    ):
+        try:
+            normalizer(solver_name)
+        except ValueError as exc:
+            assert "Unsupported solver" in str(exc)
+        else:
+            raise AssertionError("Expected unsupported solver to raise ValueError")
+
+
 def test_is_solver_available_rejects_unknown_solver_kind():
     try:
         solving.is_solver_available("cp", "DEFAULT")

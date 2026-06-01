@@ -421,11 +421,11 @@ def test_identity_elision_sat_solver_smoke_preserves_trail_lookup(pytestconfig, 
         {
             "identity_elision": True,
             "model_type": "sat",
+            "filename": str(tmp_path / "forro_identity_elision.cnf"),
             "verbose": False,
         },
         {"solver": "DEFAULT", "solution_number": 1, "verbose": False},
     )
-    config_model["filename"] = str(tmp_path / "forro_identity_elision.cnf")
     constraints, _ = gen_round_model_constraint_obj_fun(
         cipher,
         "DIFFERENTIALPATH_PROB",

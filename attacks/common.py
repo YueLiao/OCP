@@ -7,6 +7,33 @@ from tools.predefined_constraints import gen_predefined_constraints
 from tools.paths import get_files_dir
 
 
+def normalize_model_type(model_type):
+    """Normalize and validate supported model backend types."""
+
+    normalized = str(model_type).lower()
+    if normalized not in ("milp", "sat"):
+        raise ValueError(f"Invalid model_type: {model_type}. Expected one of ['milp', 'sat'].")
+    return normalized
+
+
+def default_model_filename(cipher, goal, objective_target, model_type):
+    """Return the default runtime model filename for a configured attack."""
+
+    suffix = "milp_model.lp" if model_type == "milp" else "sat_model.cnf"
+    return str(
+        get_files_dir()
+        / f"{cipher.nbr_rounds}round_{cipher.name}_{goal}_{objective_target}_{suffix}"
+    )
+
+
+def normalize_solution_number(value):
+    """Validate solver solution count settings used by attack frontends."""
+
+    if not isinstance(value, int) or value <= 0:
+        raise ValueError(f"Invalid solution_number: {value}. Expected a positive integer.")
+    return value
+
+
 def validate_attack_search_request(
     goal,
     allowed_goal_prefixes,
@@ -40,9 +67,9 @@ def validate_attack_search_request(
 def parse_and_set_configs(cipher, goal, objective_target, config_model, config_solver, many_solution_goal=None):
     """Apply common model and solver defaults for attack search."""
 
-    config_model = config_model or {}
-    config_solver = config_solver or {}
-    config_model["model_type"] = config_model.get("model_type", "milp").lower()
+    config_model = dict(config_model or {})
+    config_solver = dict(config_solver or {})
+    config_model["model_type"] = normalize_model_type(config_model.get("model_type", "milp"))
 
     functions, rounds, layers, positions = fill_functions_rounds_layers_positions(cipher)
     config_model.setdefault("functions", functions)
@@ -51,20 +78,15 @@ def parse_and_set_configs(cipher, goal, objective_target, config_model, config_s
     config_model.setdefault("positions", positions)
     config_solver.setdefault("solver", "DEFAULT")
 
-    model_type = config_model["model_type"]
-    if model_type == "milp":
-        suffix = "milp_model.lp"
-    elif model_type == "sat":
-        suffix = "sat_model.cnf"
-    else:
-        raise ValueError(f"Invalid model_type: {model_type}. Expected one of ['milp', 'sat'].")
-
-    config_model["filename"] = str(
-        get_files_dir() / f"{cipher.nbr_rounds}round_{cipher.name}_{goal}_{objective_target}_{suffix}"
+    config_model.setdefault(
+        "filename",
+        default_model_filename(cipher, goal, objective_target, config_model["model_type"]),
     )
 
     if many_solution_goal and goal == many_solution_goal:
         config_solver.setdefault("solution_number", 1000000)
+    if "solution_number" in config_solver:
+        config_solver["solution_number"] = normalize_solution_number(config_solver["solution_number"])
 
     return config_model, config_solver
 
