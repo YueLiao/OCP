@@ -695,7 +695,7 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
             return self._generate_model_truncated_diff_linear_valid_patterns(model_type, tool_type)
 
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'" + self.model_version)
+        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "' for " + self.model_version)
 
     def _generate_model_diff(self, model_type, bin_matrix): # Modeling for bit-wise differential cryptanalysis
         if self.model_version in [self.__class__.__name__ + "_XORDIFF"]:

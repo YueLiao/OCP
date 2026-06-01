@@ -860,6 +860,16 @@ def test_matrix_private_bit_model_helpers_raise_for_wrong_versions():
         op._generate_model_linear("sat", bin_matrix)
 
 
+def test_matrix_unknown_model_type_error_is_readable():
+    inputs = [var.Variable(1, ID="x0"), var.Variable(1, ID="x1")]
+    outputs = [var.Variable(1, ID="y0"), var.Variable(1, ID="y1")]
+    op = Matrix("M", inputs, outputs, [[1, 1], [0, 1]], ID="M")
+    op.model_version = "Matrix_XORDIFF"
+
+    with pytest.raises(Exception, match="unknown model type 'unknown' for Matrix_XORDIFF"):
+        op.generate_model("unknown")
+
+
 def test_matrix_truncated_fallback_warns_and_uses_runtime_files_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
     inputs = [var.Variable(1, ID="x0"), var.Variable(1, ID="x1")]

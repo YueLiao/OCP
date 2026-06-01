@@ -146,6 +146,7 @@
 - 让 direct API 和 chat 驱动的 AgentCore skill 执行都一致登记 artifacts。
 - 确保 extraction auto-build 结果只记录一次，同时仍登记返回的 artifacts。
 - 统一 experimental file-import 中非数字 PDF 页码输入的 page range 错误。
+- 让 Matrix unknown-model-type 错误包含更易读的 model-version 分隔。
 
 ## 验证
 

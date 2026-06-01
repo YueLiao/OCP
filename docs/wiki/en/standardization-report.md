@@ -148,6 +148,7 @@ document, and extend.
 - Registered artifacts consistently for both direct API and chat-driven AgentCore skill execution.
 - Ensured extraction auto-build results are recorded once while still registering returned artifacts.
 - Normalized experimental file-import page range errors for non-numeric PDF page inputs.
+- Made Matrix unknown-model-type errors include a readable model-version separator.
 
 ## Validation
 
