@@ -8,6 +8,10 @@ from agent.llm.response_parser import parse_llm_json_object
 from agent.artifacts import artifacts_from_result_data
 
 
+EXPECTED_SKILL_EXCEPTIONS = (ValueError, RuntimeError, OSError, ImportError, NotImplementedError)
+EXPECTED_EXTRACTION_EXCEPTIONS = (ValueError, RuntimeError, OSError, KeyError)
+
+
 class AgentCore:
     """Central orchestrator that connects LLM parsing, skill execution, and response generation.
 
@@ -130,16 +134,28 @@ class AgentCore:
 
         try:
             return skill.execute(request, self.session)
-        except Exception as e:
-            if self.llm is not None:
-                error_msg = self.llm.handle_error(e, request, self.session.get_context())
-            else:
-                error_msg = f"Skill '{request.skill.value}' failed: {e}"
+        except EXPECTED_SKILL_EXCEPTIONS as e:
+            error_msg = self._format_skill_exception(request, e, unexpected=False)
             return SkillResult(
                 success=False,
                 skill=request.skill,
                 error=error_msg,
             )
+        except Exception as e:
+            error_msg = self._format_skill_exception(request, e, unexpected=True)
+            return SkillResult(
+                success=False,
+                skill=request.skill,
+                error=error_msg,
+            )
+
+    def _format_skill_exception(self, request: SkillRequest, exc: Exception, *, unexpected: bool) -> str:
+        """Format skill execution exceptions while preserving LLM-specific error handling."""
+
+        if self.llm is not None:
+            return self.llm.handle_error(exc, request, self.session.get_context())
+        prefix = "Unexpected skill" if unexpected else "Skill"
+        return f"{prefix} '{request.skill.value}' failed: {exc}"
 
     def _process_extraction(self, extraction_result: SkillResult) -> Optional[SkillResult]:
         """Run the multi-step LLM pipeline to extract a CipherSpec from loaded file."""
@@ -234,10 +250,15 @@ class AgentCore:
                 success=False, skill=SkillName.CIPHER_EXTRACTION,
                 error="LLM provider does not implement call_llm().",
             )
-        except Exception as e:
+        except EXPECTED_EXTRACTION_EXCEPTIONS as e:
             return SkillResult(
                 success=False, skill=SkillName.CIPHER_EXTRACTION,
                 error=f"Extraction pipeline failed: {e}",
+            )
+        except Exception as e:
+            return SkillResult(
+                success=False, skill=SkillName.CIPHER_EXTRACTION,
+                error=f"Unexpected extraction pipeline failure: {e}",
             )
 
         # Validate and store

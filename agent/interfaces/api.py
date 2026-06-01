@@ -255,14 +255,27 @@ class OCPAgent:
             raw_response = self._core.llm.call_llm(prompt)
         except NotImplementedError as exc:
             return SkillResult(success=False, skill=SkillName.CIPHER_EXTRACTION, error=str(exc))
-        except Exception as exc:
+        except (RuntimeError, OSError, ValueError) as exc:
             return SkillResult(
                 success=False,
                 skill=SkillName.CIPHER_EXTRACTION,
                 error=f"LLM provider call failed during text-first fact extraction: {exc}",
             )
+        except Exception as exc:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_EXTRACTION,
+                error=f"Unexpected LLM provider failure during text-first fact extraction: {exc}",
+            )
 
-        facts = parse_cipher_facts_response(raw_response)
+        try:
+            facts = parse_cipher_facts_response(raw_response)
+        except (TypeError, ValueError) as exc:
+            return SkillResult(
+                success=False,
+                skill=SkillName.CIPHER_EXTRACTION,
+                error=f"LLM response parsing failed during text-first fact extraction: {exc}",
+            )
         if facts is None:
             return SkillResult(
                 success=False,

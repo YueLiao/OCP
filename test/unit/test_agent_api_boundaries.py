@@ -38,6 +38,16 @@ class FailingFactsProvider(FakeFactsProvider):
         raise RuntimeError("provider unavailable")
 
 
+class UnexpectedFailingFactsProvider(FakeFactsProvider):
+    def call_llm(self, prompt, image_data=None):
+        raise TypeError("programming detail")
+
+
+class MalformedFactsProvider(FakeFactsProvider):
+    def call_llm(self, prompt, image_data=None):
+        return "not json"
+
+
 def test_custom_cipher_definition_validates_missing_round_structure():
     agent = OCPAgent()
     spec = CipherSpec(name="Incomplete", round_structure=[])
@@ -89,6 +99,26 @@ def test_text_first_extraction_returns_skill_result_for_provider_failures():
     assert not result.success
     assert "LLM provider call failed" in result.error
     assert "provider unavailable" in result.error
+
+
+def test_text_first_extraction_classifies_unexpected_provider_failures():
+    agent = OCPAgent(llm_provider=UnexpectedFailingFactsProvider())
+
+    result = agent.extract_cipher_facts("x <- y")
+
+    assert not result.success
+    assert result.error == (
+        "Unexpected LLM provider failure during text-first fact extraction: programming detail"
+    )
+
+
+def test_text_first_extraction_reports_unparseable_llm_responses():
+    agent = OCPAgent(llm_provider=MalformedFactsProvider())
+
+    result = agent.extract_cipher_facts("x <- y")
+
+    assert not result.success
+    assert result.error == "LLM response did not contain parseable cipher facts JSON."
 
 
 def test_text_first_extract_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):

@@ -50,6 +50,26 @@ class FakeArtifactSkill(BaseSkill):
         )
 
 
+class FailingSkill(BaseSkill):
+    def __init__(self, exc):
+        self.exc = exc
+
+    @property
+    def name(self):
+        return SkillName.CODE_GENERATION
+
+    @property
+    def description(self):
+        return "failing skill"
+
+    @property
+    def param_schema(self):
+        return {}
+
+    def execute(self, request, session):
+        raise self.exc
+
+
 class FakeIntentProvider(LLMProvider):
     def parse_user_request(self, user_message, conversation_history, available_skills, session_context):
         return UserIntent(requests=[SkillRequest(skill=SkillName.CODE_GENERATION)])
@@ -72,6 +92,37 @@ def test_chat_skill_execution_registers_artifacts():
     assert agent.session.get_results()[0].summary == "generated"
     assert agent.session.get_context()["artifact_count"] == 1
     assert agent.session.get_artifacts()[0]["label"] == "generated_code"
+
+
+def test_direct_skill_execution_classifies_expected_and_unexpected_failures():
+    registry = SkillRegistry()
+    registry.register(FailingSkill(ValueError("bad user input")))
+    agent = OCPAgent(skill_registry=registry)
+
+    result = agent.generate_code()
+
+    assert not result.success
+    assert result.error == "Skill 'code_generation' failed: bad user input"
+
+    registry = SkillRegistry()
+    registry.register(FailingSkill(TypeError("programming detail")))
+    agent = OCPAgent(skill_registry=registry)
+
+    result = agent.generate_code()
+
+    assert not result.success
+    assert result.error == "Unexpected skill 'code_generation' failed: programming detail"
+
+
+def test_chat_skill_execution_keeps_provider_error_handler():
+    registry = SkillRegistry()
+    registry.register(FailingSkill(TypeError("provider should format this")))
+    agent = OCPAgent(llm_provider=FakeIntentProvider(), skill_registry=registry)
+
+    response = agent.chat("generate")
+
+    assert response == "done"
+    assert agent.session.get_results()[0].error == "provider should format this"
 
 
 class FakeExtractionSkill(BaseSkill):
@@ -142,6 +193,16 @@ class FakeExtractionProvider(FakeIntentProvider):
         }"""
 
 
+class InvalidExtractionProvider(FakeExtractionProvider):
+    def call_llm(self, prompt, image_data=None):
+        return "not json"
+
+
+class UnexpectedExtractionProvider(FakeExtractionProvider):
+    def call_llm(self, prompt, image_data=None):
+        raise TypeError("programming detail")
+
+
 def test_auto_build_extraction_result_is_recorded_once_with_artifacts():
     registry = SkillRegistry()
     registry.register(FakeExtractionSkill())
@@ -157,3 +218,25 @@ def test_auto_build_extraction_result_is_recorded_once_with_artifacts():
     ]
     assert agent.session.get_context()["artifact_count"] == 1
     assert agent.session.get_artifacts()[0]["label"] == "job_record"
+
+
+def test_extraction_pipeline_classifies_parse_and_unexpected_failures():
+    registry = SkillRegistry()
+    registry.register(FakeExtractionSkill())
+    agent = OCPAgent(llm_provider=InvalidExtractionProvider(), skill_registry=registry)
+
+    response = agent.chat("extract and build")
+
+    assert response == "done"
+    assert agent.session.get_results()[1].error.startswith("Extraction pipeline failed:")
+
+    registry = SkillRegistry()
+    registry.register(FakeExtractionSkill())
+    agent = OCPAgent(llm_provider=UnexpectedExtractionProvider(), skill_registry=registry)
+
+    response = agent.chat("extract and build")
+
+    assert response == "done"
+    assert agent.session.get_results()[1].error == (
+        "Unexpected extraction pipeline failure: programming detail"
+    )

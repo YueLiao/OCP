@@ -178,6 +178,8 @@
 - 将 differential 和 linear 的 trail formatting 收敛到共享 formatter，同时保留 trail artifact 命名和聚合日志措辞。
 - 将 agent differential/linear analysis skill 的校验和成功结果构造收敛到共享 helper，并加强 constraints 和 solution-count 校验。
 - 将 agent code generation、visualization 和 analysis 中可预期失败与意外程序错误分开归类。
+- 对 `AgentCore` skill execution 和 extraction pipeline 失败进行分类，同时保留 provider 自定义 chat error formatting。
+- 在 `OCPAgent` direct API 中区分 text-first facts extraction 的 provider 调用失败和 response parsing 失败。
 
 ## 验证
 
@@ -188,10 +190,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`258 passed, 107 skipped, 1 warning`。
+最新默认 pytest 状态：`263 passed, 107 skipped, 1 warning`。
 
 ## 后续工作
 
-1. 继续分类 agent/core 剩余 broad exception handler，同时避免泄露 provider 内部细节。
+1. 继续分类 web/CLI 剩余 broad exception handler，同时避免泄露 provider 内部细节。
 2. 在能减少 key-string 重复的地方，继续把 attack/search 调用点从裸 dict 访问迁到 typed helper property。
 3. 继续优化网页 draft review 体验和 artifact 浏览。

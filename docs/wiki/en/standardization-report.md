@@ -180,6 +180,8 @@ document, and extend.
 - Consolidated differential and linear trail formatting behind a shared formatter while preserving trail artifact naming and aggregate log wording.
 - Shared agent analysis skill validation/result construction across differential and linear skills, including stricter constraint and solution-count checks.
 - Classified expected agent code generation, visualization, and analysis failures separately from unexpected programming failures.
+- Classified `AgentCore` skill execution and extraction-pipeline failures while preserving provider-specific chat error formatting.
+- Split text-first fact extraction provider failures from response parsing failures in the direct `OCPAgent` API.
 
 ## Validation
 
@@ -190,10 +192,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `258 passed, 107 skipped, 1 warning`.
+Latest default pytest status: `263 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 
-1. Continue classifying remaining agent/core broad exception handlers without leaking provider internals.
+1. Continue classifying remaining web/CLI broad exception handlers without leaking provider internals.
 2. Continue moving attack/search call sites from raw dict access to typed helper properties where it reduces key-string duplication.
 3. Continue improving web draft review ergonomics and artifact browsing.
