@@ -38,11 +38,11 @@ def test_cipher_extractor_rejects_invalid_page_ranges(tmp_path):
 def test_parse_page_range_rejects_empty_and_non_positive_segments():
     assert parse_page_range("1-3,5") == {1, 2, 3, 5}
 
-    for pages in ("1,,2", "0", "2-0"):
+    for pages in ("1,,2", "0", "2-0", "a", "1-b"):
         try:
             parse_page_range(pages)
-        except ValueError:
-            pass
+        except ValueError as exc:
+            assert str(exc)
         else:
             raise AssertionError(f"Expected invalid page range {pages!r} to fail")
 

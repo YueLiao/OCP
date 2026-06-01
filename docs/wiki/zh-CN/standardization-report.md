@@ -145,6 +145,7 @@
 - 在 n-ary XOR 实现生成中复用共享输入表达式 helper。
 - 让 direct API 和 chat 驱动的 AgentCore skill 执行都一致登记 artifacts。
 - 确保 extraction auto-build 结果只记录一次，同时仍登记返回的 artifacts。
+- 统一 experimental file-import 中非数字 PDF 页码输入的 page range 错误。
 
 ## 验证
 

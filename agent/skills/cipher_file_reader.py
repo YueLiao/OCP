@@ -40,18 +40,25 @@ def parse_page_range(pages_str):
     if not pages_str:
         return None
     nums = set()
+
+    def parse_page_number(value):
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise ValueError(f"Invalid page number: {value!r}.") from exc
+
     for part in pages_str.split(","):
         part = part.strip()
         if not part:
             raise ValueError(f"Invalid page range segment in {pages_str!r}.")
         if "-" in part:
             a, b = part.split("-", 1)
-            start, end = int(a), int(b)
+            start, end = parse_page_number(a), parse_page_number(b)
             if start <= 0 or end <= 0 or end < start:
                 raise ValueError(f"Invalid page range segment: {part!r}.")
             nums.update(range(start, end + 1))
         else:
-            page = int(part)
+            page = parse_page_number(part)
             if page <= 0:
                 raise ValueError(f"Invalid page number: {part!r}.")
             nums.add(page)

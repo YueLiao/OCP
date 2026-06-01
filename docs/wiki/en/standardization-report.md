@@ -147,6 +147,7 @@ document, and extend.
 - Reused the shared input-expression helper in n-ary XOR implementation generation.
 - Registered artifacts consistently for both direct API and chat-driven AgentCore skill execution.
 - Ensured extraction auto-build results are recorded once while still registering returned artifacts.
+- Normalized experimental file-import page range errors for non-numeric PDF page inputs.
 
 ## Validation
 
