@@ -149,6 +149,8 @@ document, and extend.
 - Ensured extraction auto-build results are recorded once while still registering returned artifacts.
 - Normalized experimental file-import page range errors for non-numeric PDF page inputs.
 - Made Matrix unknown-model-type errors include a readable model-version separator.
+- Simplified Rot/Shift implementation code generation without changing emitted code.
+- Reused shared equivalence helpers in CopyOperator model generation.
 
 ## Validation
 
@@ -159,7 +161,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `222 passed, 106 skipped, 1 warning`.
+Latest default pytest status: `223 passed, 106 skipped, 1 warning`.
 
 ## Next Work
 

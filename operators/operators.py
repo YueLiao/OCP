@@ -170,26 +170,26 @@ class CopyOperator(Operator):  # Operator that duplicates one input into multipl
             if model_type == "sat" and self.model_version in [self.__class__.__name__ + "_XORDIFF"]:
                 var_in, var_out = (self.get_var_model("in", 0), [self.get_var_model("out", i) for i in range(len(self.output_vars))])
                 for i in range(self.input_vars[0].bitsize):
-                    for j in range(len(var_out)):
-                        model_list += [f"{var_out[j][i]} -{var_in[i]}", f"-{var_out[j][i]} {var_in[i]}"]
+                    for output_vars in var_out:
+                        model_list.extend(reversed(sat_equivalence_constraints([output_vars[i]], [var_in[i]])))
                 return model_list
             elif model_type == "milp" and self.model_version in [self.__class__.__name__ + "_XORDIFF"]:
                 var_in, var_out = (self.get_var_model("in", 0), [self.get_var_model("out", i) for i in range(len(self.output_vars))])
                 for i in range(self.output_vars[0].bitsize):
-                    for j in range(len(var_out)):
-                        model_list += [f"{var_out[j][i]} - {var_in[i]} = 0"]
+                    for output_vars in var_out:
+                        model_list.extend(milp_equivalence_constraints([output_vars[i]], [var_in[i]]))
                 model_list.append(binary_declaration(var_in, sum(var_out, [])))
                 return model_list
             # Modeling for truncated differential cryptanalysis
             elif model_type == "sat" and self.model_version == self.__class__.__name__ + "_TRUNCATEDDIFF":
                 var_in, var_out = (self.get_var_model("in", 0, bitwise=False), [self.get_var_model("out", i, bitwise=False) for i in range(len(self.output_vars))])
-                for j in range(len(var_out)):
-                    model_list += [f'{var_in[0]} -{var_out[j][0]}', f'-{var_in[0]} {var_out[j][0]}']
+                for output_vars in var_out:
+                    model_list.extend(reversed(sat_equivalence_constraints(var_in, output_vars)))
                 return model_list
             elif model_type == "milp" and self.model_version == self.__class__.__name__ + "_TRUNCATEDDIFF":
                 var_in, var_out = (self.get_var_model("in", 0, bitwise=False), [self.get_var_model("out", i, bitwise=False) for i in range(len(self.output_vars))])
-                for j in range(len(var_out)):
-                    model_list += [f"{var_out[j][0]} - {var_in[0]} = 0"]
+                for output_vars in var_out:
+                    model_list.extend(milp_equivalence_constraints(output_vars, var_in))
                 model_list.append(binary_declaration(var_in, sum(var_out, [])))
                 return model_list
             # Modeling for linear cryptanalysis
@@ -268,15 +268,17 @@ class Rot(UnaryOperator):     # Operator for the rotation function: rotation of 
         self.amount = amount
 
     def generate_implementation(self, implementation_type='python', unroll=False):
+        lhs = self.get_var_ID('out', 0, unroll)
+        source = self.get_var_ID('in', 0, unroll)
+        bitsize = self.input_vars[0].bitsize
+        macro = "ROTR" if self.direction == 'r' else "ROTL"
+
         if implementation_type == 'python':
-            if self.direction == 'r': return [self.get_var_ID('out', 0, unroll) + ' = ROTR(' + self.get_var_ID('in', 0, unroll) + ', ' + str(self.amount) + ', ' + str(self.input_vars[0].bitsize) + ')']
-            else: return [self.get_var_ID('out', 0, unroll) + ' = ROTL(' + self.get_var_ID('in', 0, unroll) + ', ' + str(self.amount) + ', ' + str(self.input_vars[0].bitsize) + ')']
+            return [f"{lhs} = {macro}({source}, {self.amount}, {bitsize})"]
         elif implementation_type == 'c':
-            if self.direction == 'r': return [self.get_var_ID('out', 0, unroll) + ' = ROTR(' + self.get_var_ID('in', 0, unroll) + ', ' + str(self.amount) + ', ' + str(self.input_vars[0].bitsize) + ');']
-            else: return [self.get_var_ID('out', 0, unroll) + ' = ROTL(' + self.get_var_ID('in', 0, unroll) + ', ' + str(self.amount) + ', ' + str(self.input_vars[0].bitsize) + ');']
+            return [f"{lhs} = {macro}({source}, {self.amount}, {bitsize});"]
         elif implementation_type == 'verilog':
-            if self.direction == 'r': return ["assign " + self.get_var_ID('out', 0, unroll) + ' = `ROTR(' + self.get_var_ID('in', 0, unroll) + ', ' + str(self.amount) + ', ' + str(self.input_vars[0].bitsize) + ');']
-            else: return ["assign " + self.get_var_ID('out', 0, unroll) + ' = `ROTL(' + self.get_var_ID('in', 0, unroll) + ', ' + str(self.amount) + ', ' + str(self.input_vars[0].bitsize) + ');']
+            return [f"assign {lhs} = `{macro}({source}, {self.amount}, {bitsize});"]
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 
     def generate_implementation_header_unique(self, implementation_type='python'):
@@ -325,12 +327,17 @@ class Shift(UnaryOperator):    # Operator for the shift function: shift of the i
         self.amount = amount
 
     def generate_implementation(self, implementation_type='python', unroll=False):
+        lhs = self.get_var_ID('out', 0, unroll)
+        source = self.get_var_ID('in', 0, unroll)
+        shift_operator = ">>" if self.direction == 'r' else "<<"
+        bitsize = self.input_vars[0].bitsize
+
         if implementation_type == 'python':
-            return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + [" >> " if self.direction == 'r' else " << "][0] + str(self.amount) + ") & (2**" + str(self.input_vars[0].bitsize) + " - 1)"]
+            return [f"{lhs} = ({source} {shift_operator} {self.amount}) & (2**{bitsize} - 1)"]
         elif implementation_type == 'c':
-            return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + [" >> " if self.direction == 'r' else " << "][0] + str(self.amount) + ') & ((1<<' + str(self.input_vars[0].bitsize) + ') - 1);']
+            return [f"{lhs} = ({source} {shift_operator} {self.amount}) & ((1<<{bitsize}) - 1);"]
         elif implementation_type == 'verilog':
-            return ["assign " + self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + [" >> " if self.direction == 'r' else " << "][0] + str(self.amount) + ') & ((1<<' + str(self.input_vars[0].bitsize) + ') - 1);']
+            return [f"assign {lhs} = ({source} {shift_operator} {self.amount}) & ((1<<{bitsize}) - 1);"]
         else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 
     def generate_model(self, model_type='sat'):

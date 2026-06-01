@@ -147,6 +147,8 @@
 - 确保 extraction auto-build 结果只记录一次，同时仍登记返回的 artifacts。
 - 统一 experimental file-import 中非数字 PDF 页码输入的 page range 错误。
 - 让 Matrix unknown-model-type 错误包含更易读的 model-version 分隔。
+- 简化 Rot/Shift implementation code generation，保持生成代码不变。
+- 在 CopyOperator model generation 中复用共享 equivalence helpers。
 
 ## 验证
 
@@ -157,7 +159,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`222 passed, 106 skipped, 1 warning`。
+最新默认 pytest 状态：`223 passed, 106 skipped, 1 warning`。
 
 ## 后续工作
 
