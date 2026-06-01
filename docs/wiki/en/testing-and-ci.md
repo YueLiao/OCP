@@ -93,7 +93,9 @@ Attack configuration is normalized at the shared frontend boundary:
 Solver wrappers expose `normalize_milp_solver_name()` and
 `normalize_sat_solver_name()` for explicit validation, while
 `is_solver_available()` remains a quiet capability check and returns `False` for
-unknown solver names.
+unknown solver names. Direct solver calls also validate that `config_solver` is
+a dictionary, preserve caller-owned empty configuration dictionaries, and store
+the normalized solver name back into that dictionary.
 
 ## Local Output Isolation
 

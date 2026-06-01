@@ -169,6 +169,9 @@
 - 让 identity-elision trail lookup 支持链式 alias，并从 profiler 候选摘要中过滤 0 约束前缀。
 - 增加可选 PySAT-backed identity-elision smoke test：求解 elided Forro SAT 模型并验证 trail alias recovery。
 - 保留显式 attack model filename，统一规整 model/solver 配置值，并添加 solver 名称校验 helper。
+- 为格式错误的固定 mask/diff 添加可读错误，严格校验 attack constraint list，并校验 solution count 必须为正整数。
+- 让直接 solver wrapper 保留调用者传入的空配置字典，拒绝非法配置类型，并把规整后的 solver 名称写回配置。
+- 缓存 PySAT solver 名称规整映射，避免每次校验时重复构造查找表。
 
 ## 验证
 
@@ -179,10 +182,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`244 passed, 107 skipped, 1 warning`。
+最新默认 pytest 状态：`248 passed, 107 skipped, 1 warning`。
 
 ## 后续工作
 
-1. 当 SAT/MILP 后端可用时，为 identity-elision 增加可选 solver-backed smoke test。
-2. 继续将 attack/search 配置拆成类型化 helper object。
-3. 继续优化网页 draft review 体验和 artifact 浏览。
+1. 继续将 attack/search 配置拆成类型化 helper object。
+2. 继续优化网页 draft review 体验和 artifact 浏览。
+3. 当 MILP 后端可用时，为 identity-elision 增加可选 MILP-backed smoke test。

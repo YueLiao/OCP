@@ -49,6 +49,8 @@ def validate_attack_search_request(
         raise ValueError(f"Invalid goal: {goal}. Expected one of {list(allowed_goal_prefixes)}.")
     if not isinstance(constraints, list):
         raise ValueError(f"Invalid constraints: {constraints}. Expected a list of strings.")
+    if any(not isinstance(constraint, str) for constraint in constraints):
+        raise ValueError(f"Invalid constraints: {constraints}. Expected a list of strings.")
     try:
         parse_objective_target(objective_target)
     except ValueError as exc:
@@ -148,7 +150,13 @@ def normalize_fixed_value_bits(fixed_value, bit_count, value_name):
     if text.startswith("0b"):
         bits = text[2:].zfill(bit_count)
     elif text.startswith("0x"):
-        bits = bin(int(text, 16))[2:].zfill(bit_count)
+        try:
+            bits = bin(int(text, 16))[2:].zfill(bit_count)
+        except ValueError as exc:
+            raise ValueError(
+                f"[WARNING] Invalid {value_name} format: {fixed_value}. "
+                "Expected binary (0b...) or hexadecimal (0x...) string."
+            ) from exc
     else:
         raise ValueError(
             f"[WARNING] Invalid {value_name} format: {fixed_value}. "

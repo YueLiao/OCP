@@ -87,6 +87,8 @@ Attack 配置会在共享 frontend 边界统一规整：
 
 Solver wrapper 暴露 `normalize_milp_solver_name()` 和 `normalize_sat_solver_name()`
 用于显式校验；`is_solver_available()` 仍是安静的能力检查，未知 solver 名会返回 `False`。
+直接调用 solver 时也会校验 `config_solver` 必须是字典，保留调用者传入的空配置字典，
+并把规整后的 solver 名称写回该字典。
 
 ## 本地输出隔离
 

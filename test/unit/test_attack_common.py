@@ -54,6 +54,11 @@ def test_fixed_value_rejects_too_many_bits():
         common.normalize_fixed_value_bits("0b10000", 4, "fix_value")
 
 
+def test_fixed_value_rejects_malformed_hex_with_readable_error():
+    with pytest.raises(ValueError, match="Invalid input_diff format"):
+        common.normalize_fixed_value_bits("0xnothex", 4, "input_diff")
+
+
 def test_input_non_zero_constraints_use_word_ids_for_truncated_goals():
     cipher = _boundary_cipher()
 
@@ -280,6 +285,17 @@ def test_attack_search_request_validation_uses_value_errors():
             "DIFFERENTIAL_SBOXCOUNT",
             ["DIFFERENTIAL_SBOXCOUNT"],
             "INPUT_NOT_ZERO",
+            "EXISTENCE",
+            0,
+            {},
+            {},
+        )
+
+    with pytest.raises(ValueError, match="Invalid constraints"):
+        common.validate_attack_search_request(
+            "DIFFERENTIAL_SBOXCOUNT",
+            ["DIFFERENTIAL_SBOXCOUNT"],
+            ["INPUT_NOT_ZERO", 1],
             "EXISTENCE",
             0,
             {},

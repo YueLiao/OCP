@@ -33,6 +33,7 @@ PYSAT_SOLVERS = (
     "MinisatGH",
 )
 SAT_SOLVERS = ("DEFAULT", *PYSAT_SOLVERS, "ORTools")
+PYSAT_SOLVER_NAME_MAP = {name.lower(): name for name in PYSAT_SOLVERS}
 
 
 def _modules_available(*module_names):
@@ -96,10 +97,13 @@ def normalize_milp_solver_name(solver="DEFAULT"):
 
 
 def normalize_sat_solver_name(solver="DEFAULT"):
-    if solver == "DEFAULT":
+    solver_text = str(solver)
+    if solver_text.upper() == "DEFAULT":
         return "DEFAULT"
-    if solver in PYSAT_SOLVERS or solver == "ORTools":
-        return solver
+    if solver_text.lower() == "ortools":
+        return "ORTools"
+    if solver_text.lower() in PYSAT_SOLVER_NAME_MAP:
+        return PYSAT_SOLVER_NAME_MAP[solver_text.lower()]
     raise ValueError(
         f"[ERROR] Unsupported solver: '{solver}'. Supported: ORTools, DEFAULT, "
         + ", ".join(PYSAT_SOLVERS)
@@ -179,8 +183,12 @@ def solve_milp(filename, config_solver=None):
             A list of solutions. Each solution is represented as a dictionary mapping variable names to their values.
     """
 
-    config_solver = config_solver or {}
+    if config_solver is None:
+        config_solver = {}
+    if not isinstance(config_solver, dict):
+        raise ValueError(f"Invalid config_solver: {config_solver}. Expected a dictionary or None.")
     solver = normalize_milp_solver_name(config_solver.get("solver", "DEFAULT"))
+    config_solver["solver"] = solver
     log(f"[INFO] Solving MILP model with settings: {config_solver}", config_solver=config_solver)
     monitor = RuntimeResourceMonitor(interval=0.2)
     monitor.start()
@@ -297,8 +305,12 @@ def solve_sat(filename, variable_map, config_solver=None):
         - None if no feasible solution is found or solver fails.
     """
 
-    config_solver = config_solver or {}
+    if config_solver is None:
+        config_solver = {}
+    if not isinstance(config_solver, dict):
+        raise ValueError(f"Invalid config_solver: {config_solver}. Expected a dictionary or None.")
     solver = normalize_sat_solver_name(config_solver.get("solver", "DEFAULT"))
+    config_solver["solver"] = solver
     log(f"[INFO] Solving SAT model with settings: {config_solver}", config_solver=config_solver)
     monitor = RuntimeResourceMonitor(interval=0.2)
     monitor.start()

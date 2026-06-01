@@ -44,8 +44,9 @@ def test_is_solver_available_respects_defaults_and_implemented_backends(monkeypa
 def test_solver_name_normalization_is_explicit():
     assert solving.normalize_milp_solver_name("default") == "GUROBI"
     assert solving.normalize_milp_solver_name("scip") == "SCIP"
-    assert solving.normalize_sat_solver_name("DEFAULT") == "DEFAULT"
-    assert solving.normalize_sat_solver_name("Glucose3") == "Glucose3"
+    assert solving.normalize_sat_solver_name("default") == "DEFAULT"
+    assert solving.normalize_sat_solver_name("glucose3") == "Glucose3"
+    assert solving.normalize_sat_solver_name("ortools") == "ORTools"
 
     for normalizer, solver_name in (
         (solving.normalize_milp_solver_name, "not-milp"),
@@ -134,6 +135,65 @@ def test_pysat_solver_is_released_when_solving_raises(monkeypatch):
         raise AssertionError("Expected PySAT solve error to propagate")
 
     assert FailingSolver.deleted is True
+
+
+def test_solve_sat_passes_normalized_solver_name_to_pysat(monkeypatch):
+    class FakeCNF:
+        clauses = []
+
+        def __init__(self, filename):
+            self.filename = filename
+
+    class RecordingSolver:
+        name = None
+
+        def __init__(self, name=None):
+            type(self).name = name
+
+        def append_formula(self, clauses):
+            self.clauses = clauses
+
+        def solve(self):
+            return False
+
+        def delete(self):
+            return None
+
+    monkeypatch.setattr(solving, "_load_pysat", lambda: (FakeCNF, RecordingSolver))
+
+    config_solver = {"solver": "glucose3", "verbose": False}
+    assert solving.solve_sat("model.cnf", {}, config_solver) == []
+    assert config_solver["solver"] == "Glucose3"
+    assert RecordingSolver.name == "Glucose3"
+
+
+def test_solver_wrappers_preserve_empty_config_dicts(monkeypatch):
+    monkeypatch.setattr(solving, "solve_milp_gurobi", lambda filename, config_solver: [])
+    monkeypatch.setattr(solving, "solve_sat_pysat", lambda filename, variable_map, config_solver: [])
+
+    milp_config = {}
+    sat_config = {}
+
+    assert solving.solve_milp("model.lp", milp_config) == []
+    assert solving.solve_sat("model.cnf", {}, sat_config) == []
+
+    assert milp_config["solver"] == "GUROBI"
+    assert "resource_usage" in milp_config
+    assert sat_config["solver"] == "DEFAULT"
+    assert "resource_usage" in sat_config
+
+
+def test_solver_wrappers_reject_invalid_config_solver_types():
+    for solver_fn, args in (
+        (solving.solve_milp, ("model.lp", [])),
+        (solving.solve_sat, ("model.cnf", {}, [])),
+    ):
+        try:
+            solver_fn(*args)
+        except ValueError as exc:
+            assert "Invalid config_solver" in str(exc)
+        else:
+            raise AssertionError("Expected invalid config_solver to raise ValueError")
 
 
 def test_scip_solver_errors_return_empty_solution_list(monkeypatch):
