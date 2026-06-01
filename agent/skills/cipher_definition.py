@@ -309,9 +309,15 @@ class CipherDefinitionSkill(BaseSkill):
                         f"{spec.block_size}-bit, {spec.nbr_rounds} rounds, "
                         f"{len(spec.round_structure)} layers/round)",
             )
-        except Exception as e:
+        except (KeyError, ValueError, RuntimeError, OSError) as e:
             return SkillResult(
                 success=False,
                 skill=self.name,
                 error=f"Failed to build cipher: {e}",
+            )
+        except Exception as e:
+            return SkillResult(
+                success=False,
+                skill=self.name,
+                error=f"Unexpected cipher definition failure: {e}",
             )

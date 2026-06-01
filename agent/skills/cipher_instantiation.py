@@ -275,9 +275,15 @@ class CipherInstantiationSkill(BaseSkill):
                 data={"cipher_name": cipher.name, "type": cipher_type},
                 summary=f"Created cipher: {cipher.name}",
             )
-        except Exception as e:
+        except (ModuleNotFoundError, AttributeError, ValueError, RuntimeError) as e:
             return SkillResult(
                 success=False,
                 skill=self.name,
                 error=_format_instantiation_error(cipher_name, e),
+            )
+        except Exception as e:
+            return SkillResult(
+                success=False,
+                skill=self.name,
+                error=f"Unexpected cipher instantiation failure for {cipher_name}: {e}",
             )

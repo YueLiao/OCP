@@ -183,6 +183,8 @@ document, and extend.
 - Classified `AgentCore` skill execution and extraction-pipeline failures while preserving provider-specific chat error formatting.
 - Split text-first fact extraction provider failures from response parsing failures in the direct `OCPAgent` API.
 - Centralized web API sanitized HTTP 500 responses so unexpected server failures keep one non-leaking response path.
+- Classified cipher instantiation and custom cipher definition failures into expected build/setup failures and unexpected programming failures.
+- Centralized CLI interactive error formatting while preserving the existing `[Error] ...` output shape.
 
 ## Validation
 
@@ -193,10 +195,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `263 passed, 107 skipped, 1 warning`.
+Latest default pytest status: `266 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 
-1. Continue classifying remaining web/CLI broad exception handlers without leaking provider internals.
+1. Continue classifying remaining broad exception handlers in lower-risk skill internals.
 2. Continue moving attack/search call sites from raw dict access to typed helper properties where it reduces key-string duplication.
 3. Continue improving web draft review ergonomics and artifact browsing.

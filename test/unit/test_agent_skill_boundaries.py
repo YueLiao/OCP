@@ -2,6 +2,9 @@ from types import SimpleNamespace
 
 from agent.interfaces.api import OCPAgent
 from agent.session import Session
+from agent.skills.cipher_spec import CipherSpec, LayerSpec
+from agent.skills.cipher_definition import CipherDefinitionSkill
+from agent.skills.cipher_instantiation import CipherInstantiationSkill
 from agent.skills.differential_analysis import DifferentialAnalysisSkill
 from agent.skills.linear_analysis import LinearAnalysisSkill
 from agent.types import SkillName, SkillRequest
@@ -213,3 +216,77 @@ def test_agent_visualization_classifies_unexpected_failures(monkeypatch, tmp_pat
 
     assert not result.success
     assert result.error == "Unexpected visualization failure: programming detail"
+
+
+def test_cipher_instantiation_classifies_expected_and_unexpected_failures(monkeypatch):
+    session = Session()
+
+    def raise_expected(**kwargs):
+        raise ValueError("bad version")
+
+    monkeypatch.setattr("primitives.speck.SPECK_BLOCKCIPHER", raise_expected)
+    result = CipherInstantiationSkill().execute(
+        SkillRequest(
+            SkillName.CIPHER_INSTANTIATION,
+            {"cipher_name": "speck", "cipher_type": "blockcipher", "version": [32, 64]},
+        ),
+        session,
+    )
+
+    assert not result.success
+    assert result.error == "Failed to instantiate speck: bad version"
+
+    def raise_unexpected(**kwargs):
+        raise TypeError("programming detail")
+
+    monkeypatch.setattr("primitives.speck.SPECK_BLOCKCIPHER", raise_unexpected)
+    result = CipherInstantiationSkill().execute(
+        SkillRequest(
+            SkillName.CIPHER_INSTANTIATION,
+            {"cipher_name": "speck", "cipher_type": "blockcipher", "version": [32, 64]},
+        ),
+        session,
+    )
+
+    assert not result.success
+    assert result.error == "Unexpected cipher instantiation failure for speck: programming detail"
+
+
+def test_cipher_definition_classifies_expected_and_unexpected_failures(monkeypatch):
+    spec = CipherSpec(
+        name="TinyARX",
+        cipher_type="permutation",
+        block_size=32,
+        word_bitsize=16,
+        nbr_words=2,
+        nbr_rounds=2,
+        round_structure=[
+            LayerSpec("rotation", {"direction": "r", "amount": 7, "word_index": 0}),
+            LayerSpec("xor", {"input_indices": [[0, 1]], "output_indices": [1]}),
+        ],
+    )
+    session = Session()
+
+    monkeypatch.setattr(
+        "agent.skills.cipher_definition.build_permutation_from_spec",
+        lambda spec: (_ for _ in ()).throw(ValueError("bad layer")),
+    )
+    result = CipherDefinitionSkill().execute(
+        SkillRequest(SkillName.CIPHER_DEFINITION, {"spec": spec}),
+        session,
+    )
+
+    assert not result.success
+    assert result.error == "Failed to build cipher: bad layer"
+
+    monkeypatch.setattr(
+        "agent.skills.cipher_definition.build_permutation_from_spec",
+        lambda spec: (_ for _ in ()).throw(TypeError("programming detail")),
+    )
+    result = CipherDefinitionSkill().execute(
+        SkillRequest(SkillName.CIPHER_DEFINITION, {"spec": spec}),
+        session,
+    )
+
+    assert not result.success
+    assert result.error == "Unexpected cipher definition failure: programming detail"

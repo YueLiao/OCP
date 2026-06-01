@@ -49,6 +49,12 @@ def _handle_text_draft(agent, text, input_func=input, output_func=print):
     return result
 
 
+def _format_cli_error(exc):
+    """Return a concise interactive CLI error without provider internals policy changes."""
+
+    return f"\n[Error] {exc}\n"
+
+
 def run_cli(llm_provider: LLMProvider, input_func=input, output_func=print):
     """Run an interactive CLI session with the OCP agent.
 
@@ -95,4 +101,4 @@ def run_cli(llm_provider: LLMProvider, input_func=input, output_func=print):
             response = agent.chat(user_input)
             output_func(f"\nAssistant> {response}\n")
         except Exception as e:
-            output_func(f"\n[Error] {e}\n")
+            output_func(_format_cli_error(e))

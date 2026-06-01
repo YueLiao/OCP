@@ -181,6 +181,8 @@
 - 对 `AgentCore` skill execution 和 extraction pipeline 失败进行分类，同时保留 provider 自定义 chat error formatting。
 - 在 `OCPAgent` direct API 中区分 text-first facts extraction 的 provider 调用失败和 response parsing 失败。
 - 集中 Web API 的脱敏 HTTP 500 响应，让非预期 server failure 走同一条不泄露内部细节的路径。
+- 将 cipher instantiation 和 custom cipher definition 失败分成可预期 build/setup 失败与意外程序错误。
+- 集中 CLI 交互错误格式，同时保留原有 `[Error] ...` 输出形态。
 
 ## 验证
 
@@ -191,10 +193,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`263 passed, 107 skipped, 1 warning`。
+最新默认 pytest 状态：`266 passed, 107 skipped, 1 warning`。
 
 ## 后续工作
 
-1. 继续分类 web/CLI 剩余 broad exception handler，同时避免泄露 provider 内部细节。
+1. 继续分类剩余低风险 skill internal broad exception handler。
 2. 在能减少 key-string 重复的地方，继续把 attack/search 调用点从裸 dict 访问迁到 typed helper property。
 3. 继续优化网页 draft review 体验和 artifact 浏览。

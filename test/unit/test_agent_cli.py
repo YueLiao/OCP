@@ -1,5 +1,5 @@
 from agent.interfaces.api import OCPAgent
-from agent.interfaces.cli import _format_draft_review, _handle_text_draft
+from agent.interfaces.cli import _format_cli_error, _format_draft_review, _handle_text_draft
 from agent.llm.provider import LLMProvider
 from agent.skills.cipher_text_input import CipherFacts, build_cipher_spec_draft
 from agent.types import UserIntent
@@ -84,3 +84,7 @@ def test_handle_text_draft_can_skip_build(monkeypatch, tmp_path):
     assert result.success
     assert agent.session.get_cipher() is None
     assert "Draft saved in session metadata. Build skipped." in outputs
+
+
+def test_format_cli_error_preserves_existing_message_shape():
+    assert _format_cli_error(RuntimeError("boom")) == "\n[Error] boom\n"
