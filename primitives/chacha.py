@@ -21,7 +21,7 @@ class ChaCha_permutation(Permutation):
         """
         
         if represent_mode==0:
-            if nbr_rounds ==None: nbr_rounds = 20
+            if nbr_rounds is None: nbr_rounds = 20
             nbr_layers = 12 # 1 for each of the 12 operations in 1 quarter round
             nbr_words = 16 # Words in the state of Chacha
             nbr_temp_words = 0
@@ -60,7 +60,7 @@ class ChaCha_keypermutation(Permutation):
         """
         
         if represent_mode==0:
-            if nbr_rounds ==None: nbr_rounds = 21 # 21st round is used add the initial state to obtain the final key stream
+            if nbr_rounds is None: nbr_rounds = 21 # 21st round is used add the initial state to obtain the final key stream
             nbr_layers = 13 # 1 for each of the 12 operations in 1 quarter round
             nbr_words = 16 # Words in the state of Chacha
             nbr_temp_words = 16 # To retain the initial input for adding with final state to obtain the key stream

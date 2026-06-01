@@ -1,6 +1,10 @@
+import pytest
+
 from operators.boolean_operators import XOR
 from operators.matrix import Matrix
 from operators.operators import Equal, Rot
+from primitives.led import LED_block_cipher
+from primitives.present import PRESENT_block_cipher
 from primitives.primitives import Function, Layered_Function, Permutation
 from variables.variables import Variable
 
@@ -136,6 +140,14 @@ def test_add_constant_layer_rejects_unknown_add_type():
         assert "unknown add_type 'bad'" in str(exc)
     else:
         raise AssertionError("AddConstantLayer should reject unknown add_type values")
+
+
+def test_block_cipher_constructors_reject_unsupported_versions_before_modeling():
+    with pytest.raises(ValueError, match="Unsupported PRESENT version"):
+        PRESENT_block_cipher("P", [32, 80], [], [], [])
+
+    with pytest.raises(ValueError, match="LED only supports"):
+        LED_block_cipher("L", [128, 128], [], [], [])
 
 
 def test_primitive_build_dictionaries_indexes_function_graph():

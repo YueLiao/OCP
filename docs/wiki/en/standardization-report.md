@@ -153,6 +153,12 @@ document, and extend.
 - Reused shared equivalence helpers in CopyOperator model generation.
 - Replaced AttackTrace constructor assertions with explicit ValueError boundary checks.
 - Made AddConstantLayer reject unknown add_type values instead of silently dropping constraints.
+- Replaced assertion-based Matsui/objective-target validation with explicit ValueError checks.
+- Normalized primitive None checks to use identity comparisons.
+- Replaced PRESENT/LED version assertions with explicit ValueError checks.
+- Replaced bit-constraint helper assertions with explicit TypeError checks.
+- Replaced predefined-constraint and template option assertions with explicit ValueError checks.
+- Replaced GF2Linear_Trans square-matrix assertion with an explicit ValueError.
 
 ## Validation
 
@@ -163,7 +169,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `225 passed, 106 skipped, 1 warning`.
+Latest default pytest status: `231 passed, 106 skipped, 1 warning`.
 
 ## Next Work
 

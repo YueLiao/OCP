@@ -18,6 +18,15 @@ from tools.model_constraints import (
     gen_sequential_encoding_sat,
     load_constraints_template,
 )
+from tools.bit_constraints import gen_nxor_constraints, gen_xor_constraints, gen_word_matrix_constraints
+from tools.model_templates import generate_and_save_constraints
+from tools.predefined_constraints import gen_constraints_sum_exactly
+from tools.objective_targets import gen_sat_constraints_from_objective_target
+from tools.search_constraints import (
+    gen_matsui_constraints_milp,
+    gen_matsui_constraints_sat,
+    gen_matsui_partial_cardinality_sat,
+)
 
 
 def test_predefined_constraints_expand_bitwise_variables():
@@ -44,6 +53,39 @@ def test_sequential_encoding_rejects_invalid_weight():
         gen_sequential_encoding_sat(["a"], 2)
 
 
+def test_matsui_constraint_builders_raise_value_errors_for_invalid_inputs():
+    with pytest.raises(ValueError, match="Round = 1"):
+        gen_matsui_constraints_milp(1, [], [["w0"]])
+
+    with pytest.raises(ValueError, match="best_obj"):
+        gen_matsui_constraints_sat(3, [1], 2, [["w0"], ["w1"], ["w2"]])
+
+    with pytest.raises(ValueError, match="GroupConstraintChoice"):
+        gen_matsui_constraints_sat(2, [1], 2, [["w0"], ["w1"]], GroupConstraintChoice=2)
+
+    with pytest.raises(ValueError, match="non-empty list"):
+        gen_matsui_partial_cardinality_sat([], [], 1, 0, 0, 0)
+
+
+def test_sat_objective_target_rejects_invalid_decimal_and_matsui_configs():
+    with pytest.raises(ValueError, match="Length mismatch"):
+        gen_sat_constraints_from_objective_target(
+            [["0.5 d0"]],
+            {"atmost_encoding_sat": "SEQUENTIAL"},
+            "SUM_AT_MOST",
+            1,
+            obj_val_decimal=[0, 1],
+        )
+
+    with pytest.raises(ValueError, match="Matsui constraints only support"):
+        gen_sat_constraints_from_objective_target(
+            [["w0"], ["w1"]],
+            {"matsui_constraint": {"Round": 2, "best_obj": [1]}},
+            "SUM_EXACTLY",
+            1,
+        )
+
+
 def test_matrix_constraints_preserve_xor_special_cases():
     assert gen_matrix_constraints(["a"], "b", "sat") == ["a -b", "-a b"]
     assert gen_matrix_constraints(["a", "b"], "c", "sat") == [
@@ -52,6 +94,33 @@ def test_matrix_constraints_preserve_xor_special_cases():
         "-a b c",
         "-a -b -c",
     ]
+
+
+def test_bit_constraint_helpers_reject_invalid_variable_shapes():
+    with pytest.raises(TypeError, match="must be strings"):
+        gen_xor_constraints("a", 1, "b", "sat")
+
+    with pytest.raises(TypeError, match="list of strings"):
+        gen_nxor_constraints(["a", 1], "b", "sat")
+
+    with pytest.raises(TypeError, match="list of strings"):
+        gen_word_matrix_constraints("a", "b", "sat")
+
+
+def test_predefined_and_template_helpers_raise_value_errors_for_invalid_options():
+    with pytest.raises(ValueError, match="Invalid encoding"):
+        gen_constraints_sum_exactly(
+            "sat",
+            ["a"],
+            1,
+            encoding=99,
+            pysat_available=lambda: True,
+            require_cardenc=lambda: object(),
+            cardinality_constraints=lambda *args, **kwargs: [],
+        )
+
+    with pytest.raises(ValueError, match="Unsupported tool type bad"):
+        generate_and_save_constraints("milp", "bad", "diff", [], ["x"], ["y"])
 
 
 def test_model_constraints_defers_pysat_cardinality_import():

@@ -44,7 +44,7 @@ class LED_permutation(Permutation):
         :param represent_mode: Integer specifying the mode of representation used for encoding the permutation.
         """
 
-        if nbr_rounds==None: nbr_rounds=32
+        if nbr_rounds is None: nbr_rounds=32
         if represent_mode==0: nbr_layers, nbr_words, nbr_temp_words, word_bitsize = (4, 16, 0, 4)
         super().__init__(name, s_input, s_output, nbr_rounds, [nbr_layers, nbr_words, nbr_temp_words, word_bitsize])
         S = self.functions["PERMUTATION"]
@@ -92,12 +92,13 @@ class LED_block_cipher(Block_cipher):
         :param represent_mode: Integer specifying the mode of representation used for encoding the cipher.
         """
 
-        assert version in [[64, 64], [64, 128]], f"LED only supports (64, 64) and (64, 128) versions, got {version}"
+        if version not in [[64, 64], [64, 128]]:
+            raise ValueError(f"LED only supports (64, 64) and (64, 128) versions, got {version}")
         p_bitsize, k_bitsize = version[0], version[1]
 
         # LED-64: 8 steps × 4 rounds = 32 rounds, 9 key additions (8 before each step + 1 final)
         # LED-128: 12 steps × 4 rounds = 48 rounds, 13 key additions (12 before each step + 1 final)
-        if nbr_rounds == None: nbr_rounds = 32 if k_bitsize == 64 else 48
+        if nbr_rounds is None: nbr_rounds = 32 if k_bitsize == 64 else 48
 
         if represent_mode==0:
             (s_nbr_layers, s_nbr_words, s_nbr_temp_words, s_word_bitsize) = (5, 16, 0, 4)

@@ -16,7 +16,7 @@ class Rocca_AD_permutation(Permutation):
         :param represent_mode: Integer specifying the mode of representation used for encoding the permutation.
         """
         
-        if nbr_rounds==None: nbr_rounds=20
+        if nbr_rounds is None: nbr_rounds=20
         if represent_mode==0: 
             nbr_layers, nbr_words, nbr_temp_words, word_bitsize = (4, 128+32*nbr_rounds, 32, 8)
             perm_s = [0,5,10,15, 4,9,14,3, 8,13,2,7, 12,1,6,11]

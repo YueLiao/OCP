@@ -18,7 +18,7 @@ class Skinny_permutation(Permutation):
 
         # define the parameters
         p_bitsize = version
-        if nbr_rounds==None: nbr_rounds=32 if version==64 else 40 if version==128 else None
+        if nbr_rounds is None: nbr_rounds=32 if version==64 else 40 if version==128 else None
         if represent_mode==0: nbr_layers, nbr_words, nbr_temp_words, word_bitsize = (4, 16, 0, int(p_bitsize/16))
         super().__init__(name, s_input, s_output, nbr_rounds, [nbr_layers, nbr_words, nbr_temp_words, word_bitsize])
         round_constants = self.gen_rounds_constant_table()
@@ -82,7 +82,7 @@ class Skinny_block_cipher(Block_cipher):
 
         # define the parameters
         p_bitsize, k_bitsize = version[0], version[1]
-        if nbr_rounds==None: nbr_rounds=32 if (version[0],version[1])==(64,64) else 36 if (version[0],version[1])==(64,128) else 40 if (version[0],version[1])==(64,192)  else 40 if (version[0],version[1])==(128,128)  else 48 if (version[0],version[1])==(128,256)  else 56 if (version[0],version[1])==(128,384) else None
+        if nbr_rounds is None: nbr_rounds=32 if (version[0],version[1])==(64,64) else 36 if (version[0],version[1])==(64,128) else 40 if (version[0],version[1])==(64,192)  else 40 if (version[0],version[1])==(128,128)  else 48 if (version[0],version[1])==(128,256)  else 56 if (version[0],version[1])==(128,384) else None
         self.tweak_size = int(k_bitsize/p_bitsize)
         k_nbr_rounds = nbr_rounds if self.tweak_size == 1 else nbr_rounds + 1
         if represent_mode==0:

@@ -17,7 +17,7 @@ class SPEEDY_permutation(Permutation):
         :param represent_mode: Integer specifying the mode of representation used for encoding the cipher.
         """
 
-        if nbr_rounds==None and version == 192: nbr_rounds=7
+        if nbr_rounds is None and version == 192: nbr_rounds=7
         if represent_mode==0: nbr_layers, nbr_words, nbr_temp_words, word_bitsize = (6, version, 0, 1)
         super().__init__(name, s_input, s_output, nbr_rounds, [nbr_layers, nbr_words, nbr_temp_words, word_bitsize])
 

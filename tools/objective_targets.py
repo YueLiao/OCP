@@ -145,9 +145,8 @@ def gen_sat_constraints_from_objective_target(
             objective_function,
             obj_fun_decimal=True,
         )
-        assert len(obj_val_decimal) == len(obj_fun_vars_decimal), (
-            "Length mismatch between objective function decimal variables and obj_val_decimal."
-        )
+        if len(obj_val_decimal) != len(obj_fun_vars_decimal):
+            raise ValueError("Length mismatch between objective function decimal variables and obj_val_decimal.")
         for i in range(len(obj_fun_vars_decimal)):
             hw_list = [obj for row in obj_fun_vars_decimal[i] for obj in row]
             constraints += gen_predefined_constraints(
@@ -166,7 +165,8 @@ def gen_sat_constraints_from_objective_target(
     if "matsui_constraint" in config_model and obj_val > 0:
         if log is not None:
             log("[INFO] Applying Matsui constraints for SAT modeling.", config_model)
-        assert cons_type == "SUM_AT_MOST", "Matsui constraints only support 'AT MOST' objective target."
+        if cons_type != "SUM_AT_MOST":
+            raise ValueError("Matsui constraints only support 'AT MOST' objective target.")
         Round = config_model.get("matsui_constraint").get("Round")
         best_obj = config_model.get("matsui_constraint").get("best_obj")
         GroupConstraintChoice = config_model["matsui_constraint"].get("GroupConstraintChoice", 1)

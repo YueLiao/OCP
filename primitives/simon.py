@@ -17,7 +17,7 @@ class Simon_permutation(Permutation):
         """
 
         p_bitsize = version
-        if nbr_rounds==None: nbr_rounds=32 if version==32 else 36 if version==48 else 42 if version==64 else 52 if version==96 else 68 if version==128 else None
+        if nbr_rounds is None: nbr_rounds=32 if version==32 else 36 if version==48 else 42 if version==64 else 52 if version==96 else 68 if version==128 else None
         if represent_mode==0: nbr_layers, nbr_words, nbr_temp_words, word_bitsize = (5, 2, 3, p_bitsize>>1)
         elif represent_mode==1: nbr_layers, nbr_words, nbr_temp_words, word_bitsize = (4, 2, 3, p_bitsize>>1)
         super().__init__(name, s_input, s_output, nbr_rounds, [nbr_layers, nbr_words, nbr_temp_words, word_bitsize])
@@ -85,7 +85,7 @@ class Simon_block_cipher(Block_cipher):
         :param represent_mode: Integer specifying the mode of representation used for encoding the cipher.
         """
         p_bitsize, k_bitsize = version[0], version[1]
-        if nbr_rounds==None: nbr_rounds=32 if (version[0],version[1])==(32,64) else 36 if (version[0],version[1])==(48,72) else 36 if (version[0],version[1])==(48,96)  else 42 if (version[0],version[1])==(64,96)  else 44 if (version[0],version[1])==(64,128)  else 52 if (version[0],version[1])==(96,96) else 54 if (version[0],version[1])==(96,144) else 68 if (version[0],version[1])==(128,128) else 69 if (version[0],version[1])==(128,192) else 72 if (version[0],version[1])==(128,256) else None
+        if nbr_rounds is None: nbr_rounds=32 if (version[0],version[1])==(32,64) else 36 if (version[0],version[1])==(48,72) else 36 if (version[0],version[1])==(48,96)  else 42 if (version[0],version[1])==(64,96)  else 44 if (version[0],version[1])==(64,128)  else 52 if (version[0],version[1])==(96,96) else 54 if (version[0],version[1])==(96,144) else 68 if (version[0],version[1])==(128,128) else 69 if (version[0],version[1])==(128,192) else 72 if (version[0],version[1])==(128,256) else None
         if represent_mode==0: (s_nbr_layers, s_nbr_words, s_nbr_temp_words, s_word_bitsize), (k_nbr_layers, k_nbr_words, k_nbr_temp_words, k_word_bitsize), (sk_nbr_layers, sk_nbr_words, sk_nbr_temp_words, sk_word_bitsize) = (6, 2, 3, p_bitsize>>1),  (6, int(2*k_bitsize/p_bitsize), 2, p_bitsize>>1),  (1, 1, 0, p_bitsize>>1)
         if k_nbr_words == 4: k_nbr_layers += 1
         k_nbr_rounds = max(1, nbr_rounds - k_nbr_words + 1)

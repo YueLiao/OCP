@@ -778,7 +778,8 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
 class GF2Linear_Trans(UnaryOperator):  # Operator for the linear transformation in GF(2^n) defined by a binary matrix: y = M*x
     def __init__(self, input_vars, output_vars, mat, ID = None, constants=None):
         super().__init__(input_vars, output_vars, ID = ID)
-        assert len(mat) == len(mat[0]), "The matrix should be a square matrix."
+        if len(mat) != len(mat[0]):
+            raise ValueError("GF2Linear_Trans: the matrix should be square.")
         self.mat = mat
         self.constants = constants
 

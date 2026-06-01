@@ -22,7 +22,7 @@ class SHACAL2_block_cipher(Block_cipher):
         :param represent_mode: Integer specifying the mode of representation used for encoding the cipher.
         """
         wordSize = 32 if version == 256 else 64
-        if nbr_rounds==None: (nbr_rounds, k_nbr_rounds) = (64, 49) if version==256 else (80, 65)
+        if nbr_rounds is None: (nbr_rounds, k_nbr_rounds) = (64, 49) if version==256 else (80, 65)
         if represent_mode==0: (s_nbr_layers, s_nbr_words, s_nbr_temp_words, s_word_bitsize), (k_nbr_layers, k_nbr_words, k_nbr_temp_words, k_word_bitsize), (sk_nbr_layers, sk_nbr_words, sk_nbr_temp_words, sk_word_bitsize) = (10, 8, 4, wordSize),  (6, 16, 2, wordSize),  (1, 1, 0, wordSize)
         super().__init__(name, p_input, k_input, c_output, nbr_rounds, k_nbr_rounds, [s_nbr_layers, s_nbr_words, s_nbr_temp_words, s_word_bitsize], [k_nbr_layers, k_nbr_words, k_nbr_temp_words, k_word_bitsize], [sk_nbr_layers, sk_nbr_words, sk_nbr_temp_words, sk_word_bitsize])
 

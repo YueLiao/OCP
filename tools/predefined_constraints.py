@@ -103,10 +103,11 @@ def gen_constraints_sum_exactly(
     elif model_type == "sat" and pysat_available():
         if not encoding:
             encoding = 1  # Default to 1 if not specified
-        assert encoding in [0,1,2,3,4,5,6,7,8,9], (
-            f"[ERROR] Invalid encoding = {encoding}, refer "
-            "https://pysathq.github.io/docs/html/api/card.html"
-        )
+        if encoding not in [0,1,2,3,4,5,6,7,8,9]:
+            raise ValueError(
+                f"[ERROR] Invalid encoding = {encoding}, refer "
+                "https://pysathq.github.io/docs/html/api/card.html"
+            )
         card_enc = require_cardenc()
         return cardinality_constraints(cons_vars, cons_value, encoding, card_enc.equals, "equals")
     else:

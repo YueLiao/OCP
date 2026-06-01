@@ -44,18 +44,16 @@ def gen_matsui_constraints_milp(
     predefined_constraint_factory=_default_milp_at_most,
 ):
     """Generate Matsui branch-and-bound constraints for MILP models."""
-    assert Round >= 2, f"Round = {Round} must be at least 2."
-    assert len(best_obj) == Round-1, f"best_obj = {best_obj} length must be Round-1 = {Round-1}."
+    if Round < 2:
+        raise ValueError(f"Round = {Round} must be at least 2.")
+    if len(best_obj) != Round - 1:
+        raise ValueError(f"best_obj = {best_obj} length must be Round-1 = {Round - 1}.")
     while obj_fun and obj_fun[-1] == []: # Remove empty lists at the end of obj_fun
         obj_fun.pop()
-    assert (
-        obj_fun is not None
-        and len(obj_fun) == Round
-        and all(isinstance(obj, list) for obj in obj_fun)
-    ), f"obj_fun = {obj_fun} must be a list of lists, and with length equal to Round = {Round}."
-    assert cons_type in ["ALL", "UPPER", "LOWER"], (
-        f"cons_type = {cons_type} must be one of ['ALL', 'UPPER', 'LOWER']."
-    )
+    if obj_fun is None or len(obj_fun) != Round or not all(isinstance(obj, list) for obj in obj_fun):
+        raise ValueError(f"obj_fun = {obj_fun} must be a list of lists, and with length equal to Round = {Round}.")
+    if cons_type not in ["ALL", "UPPER", "LOWER"]:
+        raise ValueError(f"cons_type = {cons_type} must be one of ['ALL', 'UPPER', 'LOWER'].")
 
     add_cons = []
     for i in range(1, Round):
@@ -90,20 +88,21 @@ def gen_matsui_constraints_sat(
     GroupNumForChoice=1,
 ):
     """Generate Matsui branch-and-bound constraints for SAT models."""
-    assert Round >= 2, f"Round = {Round} must be at least 2."
-    assert len(best_obj) == Round-1, f"best_obj length = {len(best_obj)} must be (Round-1) = {Round-1}."
-    assert isinstance(obj_sat, int) and obj_sat > 0, f"obj_sat = {obj_sat} must be a positive integer."
+    if Round < 2:
+        raise ValueError(f"Round = {Round} must be at least 2.")
+    if len(best_obj) != Round - 1:
+        raise ValueError(f"best_obj length = {len(best_obj)} must be (Round-1) = {Round - 1}.")
+    if not isinstance(obj_sat, int) or obj_sat <= 0:
+        raise ValueError(f"obj_sat = {obj_sat} must be a positive integer.")
     while obj_var and obj_var[-1] == []: # Remove empty lists at the end of obj_var
         obj_var.pop()
-    assert (
-        obj_var is not None
-        and len(obj_var) == Round
-        and all(isinstance(row, list) for row in obj_var)
-    ), f"obj_var must be a list of lists, and with length = {len(obj_var)} equal to Round = {Round}."
-    assert GroupConstraintChoice == 1, (
-        f"Currently only support GroupConstraintChoice = 1, but got {GroupConstraintChoice}."
-    )
-    assert GroupNumForChoice >= 1, f"GroupNumForChoice = {GroupNumForChoice} must be at least 1."
+    if obj_var is None or len(obj_var) != Round or not all(isinstance(row, list) for row in obj_var):
+        obj_var_len = "None" if obj_var is None else len(obj_var)
+        raise ValueError(f"obj_var must be a list of lists, and with length = {obj_var_len} equal to Round = {Round}.")
+    if GroupConstraintChoice != 1:
+        raise ValueError(f"Currently only support GroupConstraintChoice = 1, but got {GroupConstraintChoice}.")
+    if GroupNumForChoice < 1:
+        raise ValueError(f"GroupNumForChoice = {GroupNumForChoice} must be at least 1.")
 
     if not hasattr(gen_matsui_constraints_sat, "_counter"): # Use function attribute to set global counter
         gen_matsui_constraints_sat._counter = 0
@@ -153,17 +152,18 @@ def gen_matsui_constraints_sat(
 
 def gen_matsui_partial_cardinality_sat(obj_var, dummy_var, k, left, right, m):
     """Generate partial cardinality SAT clauses for Matsui constraints."""
-    assert isinstance(obj_var, list) and len(obj_var) > 0, "obj_var must be a non-empty list."
-    assert (
-        isinstance(dummy_var, list)
-        and len(dummy_var) == len(obj_var) - 1
-    ), "dummy_var must be a list with length equal to len(obj_var) - 1."
-    assert isinstance(k, int) and k > 0, "k must be a positive integer."
-    assert isinstance(left, int) and left >= 0, "left index must be a non-negative integer."
-    assert isinstance(right, int) and right < len(obj_var), (
-        f"right index = {right} out of range of obj_var = {len(obj_var)}."
-    )
-    assert isinstance(m, int) and m >= 0, f"m={m} must be a non-negative integer."
+    if not isinstance(obj_var, list) or len(obj_var) == 0:
+        raise ValueError("obj_var must be a non-empty list.")
+    if not isinstance(dummy_var, list) or len(dummy_var) != len(obj_var) - 1:
+        raise ValueError("dummy_var must be a list with length equal to len(obj_var) - 1.")
+    if not isinstance(k, int) or k <= 0:
+        raise ValueError("k must be a positive integer.")
+    if not isinstance(left, int) or left < 0:
+        raise ValueError("left index must be a non-negative integer.")
+    if not isinstance(right, int) or right >= len(obj_var):
+        raise ValueError(f"right index = {right} out of range of obj_var = {len(obj_var)}.")
+    if not isinstance(m, int) or m < 0:
+        raise ValueError(f"m={m} must be a non-negative integer.")
 
     n = len(obj_var)
     add_cons = []

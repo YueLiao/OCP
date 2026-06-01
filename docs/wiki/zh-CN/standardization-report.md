@@ -151,6 +151,12 @@
 - 在 CopyOperator model generation 中复用共享 equivalence helpers。
 - 将 AttackTrace constructor 的 assert 替换为显式 ValueError 边界校验。
 - 让 AddConstantLayer 对未知 add_type 显式报错，避免静默丢失约束。
+- 将 Matsui/objective-target 中基于 assert 的校验替换为显式 ValueError。
+- 将 primitive 中的 None 判断规范为 identity comparison。
+- 将 PRESENT/LED version assert 替换为显式 ValueError 校验。
+- 将 bit-constraint helper assert 替换为显式 TypeError 校验。
+- 将 predefined-constraint/template option assert 替换为显式 ValueError 校验。
+- 将 GF2Linear_Trans square-matrix assert 替换为显式 ValueError。
 
 ## 验证
 
@@ -161,7 +167,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`225 passed, 106 skipped, 1 warning`。
+最新默认 pytest 状态：`231 passed, 106 skipped, 1 warning`。
 
 ## 后续工作
 

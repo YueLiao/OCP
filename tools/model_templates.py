@@ -36,16 +36,18 @@ def generate_and_save_constraints(
     )
     time_start = time.time()
     if model_type == "milp":
-        assert tool_type in [
+        if tool_type not in [
             "minimize_logic",
             "minimize_logic_espresso",
             "polyhedron",
-        ], f"Unsupported tool type {tool_type} for MILP model."
+        ]:
+            raise ValueError(f"Unsupported tool type {tool_type} for MILP model.")
     elif model_type == "sat":
-        assert tool_type in [
+        if tool_type not in [
             "minimize_logic",
             "minimize_logic_espresso",
-        ], f"Unsupported tool type {tool_type} for SAT model."
+        ]:
+            raise ValueError(f"Unsupported tool type {tool_type} for SAT model.")
     else:
         raise ValueError(f"unknown model type {model_type}")
 

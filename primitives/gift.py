@@ -17,7 +17,7 @@ class GIFT_permutation(Permutation):
         :param represent_mode: Integer specifying the mode of representation used for encoding the permutation.
         """
 
-        if nbr_rounds==None: nbr_rounds=28 if version==64 else 40 if version==128 else None
+        if nbr_rounds is None: nbr_rounds=28 if version==64 else 40 if version==128 else None
         if represent_mode==0: nbr_layers, nbr_words, nbr_temp_words, word_bitsize = (3, version, 0, 1)
         super().__init__(name, s_input, s_output, nbr_rounds, [nbr_layers, nbr_words, nbr_temp_words, word_bitsize])
         s = self.functions["PERMUTATION"]
@@ -88,7 +88,7 @@ class GIFT_block_cipher(Block_cipher):
         :param represent_mode: Integer specifying the mode of representation used for encoding the cipher.
         """
         p_bitsize, k_bitsize = version[0], version[1]
-        if nbr_rounds==None: nbr_rounds=28 if p_bitsize==64 else 40 if p_bitsize==128 else None
+        if nbr_rounds is None: nbr_rounds=28 if p_bitsize==64 else 40 if p_bitsize==128 else None
         if represent_mode==0: (s_nbr_layers, s_nbr_words, s_nbr_temp_words, s_word_bitsize), (k_nbr_layers, k_nbr_words, k_nbr_temp_words, k_word_bitsize), (sk_nbr_layers, sk_nbr_words, sk_nbr_temp_words, sk_word_bitsize) = (4, p_bitsize, 0, 1),  (1, k_bitsize, 0, 1),  (1, int(p_bitsize/2), 0, 1)
         super().__init__(name, p_input, k_input, c_output, nbr_rounds, nbr_rounds, [s_nbr_layers, s_nbr_words, s_nbr_temp_words, s_word_bitsize], [k_nbr_layers, k_nbr_words, k_nbr_temp_words, k_word_bitsize], [sk_nbr_layers, sk_nbr_words, sk_nbr_temp_words, sk_word_bitsize])
 

@@ -18,7 +18,7 @@ class PRESENT_permutation(Permutation):
         :param represent_mode: Integer specifying the mode of representation used for encoding the permutation.
         """
 
-        if nbr_rounds==None: nbr_rounds=31
+        if nbr_rounds is None: nbr_rounds=31
         if represent_mode==0: nbr_layers, nbr_words, nbr_temp_words, word_bitsize = (2, 64, 0, 1)
         super().__init__(name, s_input, s_output, nbr_rounds, [nbr_layers, nbr_words, nbr_temp_words, word_bitsize])
         S = self.functions["PERMUTATION"]
@@ -54,9 +54,10 @@ class PRESENT_block_cipher(Block_cipher):
         :param nbr_rounds: Number of rounds
         :param represent_mode: Integer specifying the mode of representation used for encoding the cipher.
         """
-        assert version in [[64,80], [64,128]], f"Unsupported version: {version}."
+        if version not in [[64,80], [64,128]]:
+            raise ValueError(f"Unsupported PRESENT version: {version}.")
         p_bitsize, k_bitsize = version[0], version[1]
-        if nbr_rounds==None or nbr_rounds==31: # If nbr_rounds is unspecified or set to 31, extend it to 32 rounds to add the final round key addition
+        if nbr_rounds is None or nbr_rounds==31: # If nbr_rounds is unspecified or set to 31, extend it to 32 rounds to add the final round key addition
             nbr_rounds=32
             warnings.warn(
                 f"For PRESENT, after 31 round transformations, there is still a final AddRoundKey layer. Hence, the internal modeling round number is set to {nbr_rounds}. Please keep this in mind when interpreting subsequent relative files.",

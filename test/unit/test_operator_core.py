@@ -807,6 +807,16 @@ def test_gf2_linear_trans_code_generation_and_models_are_stable():
     ]
 
 
+def test_gf2_linear_trans_rejects_non_square_matrix():
+    with pytest.raises(ValueError, match="matrix should be square"):
+        GF2Linear_Trans(
+            [var.Variable(2, ID="x")],
+            [var.Variable(2, ID="y")],
+            [[1, 0, 1], [0, 1, 0]],
+            ID="L",
+        )
+
+
 def test_matrix_bit_models_share_stable_constraint_generation():
     inputs = [var.Variable(1, ID="x0"), var.Variable(1, ID="x1")]
     outputs = [var.Variable(1, ID="y0"), var.Variable(1, ID="y1")]

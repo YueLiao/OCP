@@ -17,7 +17,7 @@ class AES_permutation(Permutation):
         :param nbr_rounds: Number of rounds
         :param represent_mode: Integer specifying the mode of representation used for encoding the permutation.
         """
-        if nbr_rounds==None: nbr_rounds=10
+        if nbr_rounds is None: nbr_rounds=10
         if represent_mode==0: nbr_layers, nbr_words, nbr_temp_words, word_bitsize = (4, 16, 0, 8)
         super().__init__(name, s_input, s_output, nbr_rounds, [nbr_layers, nbr_words, nbr_temp_words, word_bitsize])
         full_rounds = 10
@@ -70,7 +70,7 @@ class AES_block_cipher(Block_cipher):
         """
 
         p_bitsize, k_bitsize = version[0], version[1]
-        if nbr_rounds==None: nbr_rounds=10 if version[1]==128 else 12 if version[1]==192 else 14 if version[1]==256  else None
+        if nbr_rounds is None: nbr_rounds=10 if version[1]==128 else 12 if version[1]==192 else 14 if version[1]==256  else None
         nbr_rounds += 1
         warnings.warn(
             f"For AES, after {nbr_rounds-1} round transformations, there is still a final AddRoundKey layer. Hence, the internal modeling round number is set to {nbr_rounds}. Please keep this in mind when interpreting subsequent relative files.",
