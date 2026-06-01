@@ -151,6 +151,7 @@ document, and extend.
 - Made Matrix unknown-model-type errors include a readable model-version separator.
 - Simplified Rot/Shift implementation code generation without changing emitted code.
 - Reused shared equivalence helpers in CopyOperator model generation.
+- Replaced AttackTrace constructor assertions with explicit ValueError boundary checks.
 
 ## Validation
 
@@ -161,7 +162,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `223 passed, 106 skipped, 1 warning`.
+Latest default pytest status: `224 passed, 106 skipped, 1 warning`.
 
 ## Next Work
 

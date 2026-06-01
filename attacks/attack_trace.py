@@ -44,8 +44,10 @@ class AttackTrace(ABC):
         - solution_trace: Optional mapping from variable name to its value, for example, the solution returned from MILP/SAT solver.
         """
 
-        assert "cipher" in data, "[WARNING] data must contain 'cipher'"
-        assert "rounds" in data, "[WARNING] data must contain 'rounds'"
+        if "cipher" not in data:
+            raise ValueError("AttackTrace data must contain 'cipher'")
+        if "rounds" not in data:
+            raise ValueError("AttackTrace data must contain 'rounds'")
 
         self.type = attack_type
         self.data = data

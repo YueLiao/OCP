@@ -149,6 +149,7 @@
 - 让 Matrix unknown-model-type 错误包含更易读的 model-version 分隔。
 - 简化 Rot/Shift implementation code generation，保持生成代码不变。
 - 在 CopyOperator model generation 中复用共享 equivalence helpers。
+- 将 AttackTrace constructor 的 assert 替换为显式 ValueError 边界校验。
 
 ## 验证
 
@@ -159,7 +160,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`223 passed, 106 skipped, 1 warning`。
+最新默认 pytest 状态：`224 passed, 106 skipped, 1 warning`。
 
 ## 后续工作
 

@@ -38,6 +38,14 @@ def test_bin_to_hex_emits_runtime_warning_instead_of_printing(capsys):
     assert capsys.readouterr().out == ""
 
 
+def test_trail_requires_explicit_boundary_fields():
+    with pytest.raises(ValueError, match="must contain 'cipher'"):
+        DifferentialTrail({"rounds": []})
+
+    with pytest.raises(ValueError, match="must contain 'rounds'"):
+        DifferentialTrail({"cipher": "toy"})
+
+
 def test_trail_save_txt_can_suppress_printing(tmp_path, capsys):
     trail = DifferentialTrail(_trail_data())
     trail.txt_filename = str(tmp_path / "trail.txt")
