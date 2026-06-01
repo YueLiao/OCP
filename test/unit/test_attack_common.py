@@ -70,6 +70,47 @@ def test_input_non_zero_constraints_use_word_ids_for_truncated_goals():
     ) == ["x y"]
 
 
+def test_additional_constraints_expand_symbolic_input_nonzero_in_order():
+    cipher = _boundary_cipher()
+
+    assert common.gen_additional_constraints(
+        cipher,
+        "TRUNCATEDDIFF_SBOXCOUNT",
+        ["custom >= 1", "INPUT_NOT_ZERO", "-tail"],
+        {"model_type": "sat"},
+        truncated_marker="TRUNCATEDDIFF",
+    ) == ["custom >= 1", "x y", "-tail"]
+
+
+def test_required_fixed_boundary_constraints_are_shared_for_diff_and_linear():
+    cipher = _boundary_cipher()
+
+    assert common.gen_required_fixed_boundary_constraints(
+        "DIFFERENTIAL_PROB",
+        "DIFFERENTIAL_PROB",
+        cipher,
+        {"model_type": "sat"},
+        "0x12",
+        None,
+        "input_diff",
+        "output_diff",
+        "fix_diff",
+    ) == ["-x_0", "-x_1", "-x_2", "x_3", "-y_0", "-y_1", "y_2", "-y_3"]
+
+    with pytest.raises(ValueError, match="input_mask or output_mask"):
+        common.gen_required_fixed_boundary_constraints(
+            "LINEARHULL_CORR",
+            "LINEARHULL_CORR",
+            cipher,
+            {"model_type": "sat"},
+            None,
+            None,
+            "input_mask",
+            "output_mask",
+            "fix_mask",
+        )
+
+
 def test_solution_bit_only_suppresses_value_conversion_errors():
     class BrokenValue:
         def __round__(self):
@@ -243,6 +284,36 @@ def test_attack_model_filename_preserves_explicit_path(tmp_path):
 
     assert config_model["model_type"] == "sat"
     assert config_model["filename"] == str(filename)
+
+
+def test_attack_search_config_exposes_typed_fields_and_legacy_dicts(tmp_path):
+    cipher = SimpleNamespace(
+        name="toy",
+        nbr_rounds=1,
+        functions={
+            "PERMUTATION": SimpleNamespace(
+                nbr_rounds=1,
+                nbr_layers=0,
+                constraints={1: {0: []}},
+            )
+        },
+    )
+    filename = tmp_path / "typed.lp"
+
+    attack_config = common.build_attack_search_config(
+        cipher,
+        "DIFFERENTIAL_PROB",
+        "EXISTENCE",
+        {"model_type": "MILP", "filename": str(filename)},
+        {},
+        many_solution_goal="DIFFERENTIAL_PROB",
+    )
+    config_model, config_solver = attack_config.as_dicts()
+
+    assert attack_config.model_type == "milp"
+    assert attack_config.filename == str(filename)
+    assert config_model["model_type"] == "milp"
+    assert config_solver["solution_number"] == 1000000
 
 
 def test_attack_config_rejects_invalid_solution_number():

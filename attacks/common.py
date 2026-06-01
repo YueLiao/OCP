@@ -1,10 +1,33 @@
 """Shared helpers for differential and linear attack frontends."""
 
+from dataclasses import dataclass
+
 from tools.model_configuration import fill_functions_rounds_layers_positions
 from tools.model_generation_state import IDENTITY_ELISION_ALIASES_KEY, rewrite_token_with_alias
 from tools.objective_targets import parse_objective_target
 from tools.predefined_constraints import gen_predefined_constraints
 from tools.paths import get_files_dir
+
+
+@dataclass(frozen=True)
+class AttackSearchConfig:
+    """Typed wrapper for normalized attack model/solver dictionaries."""
+
+    model: dict
+    solver: dict
+
+    @property
+    def model_type(self):
+        return self.model["model_type"]
+
+    @property
+    def filename(self):
+        return self.model["filename"]
+
+    def as_dicts(self):
+        """Return legacy dictionaries expected by existing search helpers."""
+
+        return self.model, self.solver
 
 
 def normalize_model_type(model_type):
@@ -66,7 +89,7 @@ def validate_attack_search_request(
         raise ValueError(f"Invalid config_solver: {config_solver}. Expected a dictionary or None.")
 
 
-def parse_and_set_configs(cipher, goal, objective_target, config_model, config_solver, many_solution_goal=None):
+def build_attack_search_config(cipher, goal, objective_target, config_model, config_solver, many_solution_goal=None):
     """Apply common model and solver defaults for attack search."""
 
     config_model = dict(config_model or {})
@@ -90,7 +113,20 @@ def parse_and_set_configs(cipher, goal, objective_target, config_model, config_s
     if "solution_number" in config_solver:
         config_solver["solution_number"] = normalize_solution_number(config_solver["solution_number"])
 
-    return config_model, config_solver
+    return AttackSearchConfig(model=config_model, solver=config_solver)
+
+
+def parse_and_set_configs(cipher, goal, objective_target, config_model, config_solver, many_solution_goal=None):
+    """Apply common model and solver defaults and return legacy dictionaries."""
+
+    return build_attack_search_config(
+        cipher,
+        goal,
+        objective_target,
+        config_model,
+        config_solver,
+        many_solution_goal=many_solution_goal,
+    ).as_dicts()
 
 
 def expand_var_ids(var, bitwise=False):
@@ -121,6 +157,20 @@ def gen_input_non_zero_constraints(cipher, goal, config_model, truncated_marker)
         if binary_vars:
             constraints.append("Binary\n" + " ".join(binary_vars))
     return constraints
+
+
+def gen_additional_constraints(cipher, goal, constraints, config_model, truncated_marker):
+    """Expand symbolic attack constraints into concrete model constraints."""
+
+    model_constraints = []
+    for constraint in constraints:
+        if constraint == "INPUT_NOT_ZERO":
+            model_constraints.extend(
+                gen_input_non_zero_constraints(cipher, goal, config_model, truncated_marker=truncated_marker)
+            )
+        else:
+            model_constraints.append(constraint)
+    return model_constraints
 
 
 def _cipher_boundary_vars(in_out, cipher):
@@ -205,6 +255,39 @@ def gen_fixed_input_output_constraints(in_out, fixed_value, cipher, config_model
             else:
                 raise ValueError(f"Invalid model_type: {model_type}. Expected one of ['milp', 'sat'].")
         offset += var.bitsize
+    return constraints
+
+
+def gen_required_fixed_boundary_constraints(
+    goal,
+    required_goal,
+    cipher,
+    config_model,
+    input_value,
+    output_value,
+    input_label,
+    output_label,
+    value_name,
+):
+    """Generate fixed input/output constraints required by hull/probability goals."""
+
+    if goal != required_goal:
+        return []
+    if input_value is None and output_value is None:
+        raise ValueError(
+            f"For goal='{required_goal}', either {input_label} or {output_label} "
+            "must be specified in config_model."
+        )
+
+    constraints = []
+    if input_value is not None:
+        constraints.extend(
+            gen_fixed_input_output_constraints("input", input_value, cipher, config_model, value_name)
+        )
+    if output_value is not None:
+        constraints.extend(
+            gen_fixed_input_output_constraints("output", output_value, cipher, config_model, value_name)
+        )
     return constraints
 
 

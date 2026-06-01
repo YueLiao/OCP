@@ -175,6 +175,8 @@ document, and extend.
 - Made direct solver wrappers preserve caller-owned empty config dictionaries, reject invalid config types, and write normalized solver names back to config.
 - Cached PySAT solver-name normalization lookup instead of rebuilding it on every validation call.
 - Split expected web text-draft and upload validation failures into HTTP 400 responses while keeping unexpected failures behind sanitized HTTP 500 errors.
+- Introduced a typed `AttackSearchConfig` normalization wrapper while preserving legacy dict returns for existing attack/search callers.
+- Consolidated differential and linear symbolic-constraint expansion and fixed boundary constraint generation behind shared attack helpers.
 
 ## Validation
 
@@ -185,10 +187,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `250 passed, 107 skipped, 1 warning`.
+Latest default pytest status: `253 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 
-1. Continue splitting attack/search configuration into typed helper objects.
+1. Continue moving attack/search call sites from raw dict access to typed helper properties where it reduces key-string duplication.
 2. Continue improving web draft review ergonomics and artifact browsing.
 3. Add optional MILP-backed identity-elision smoke tests when a MILP backend is available.

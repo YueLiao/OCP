@@ -86,25 +86,25 @@ def search_linear_trail(cipher, goal="LINEARPATH_CORR", constraints=["INPUT_NOT_
     round_constraints, obj_fun = gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model)
 
     # Step 3. Process additional constraints.
-    model_cons = []
-    for cons in constraints:
-        if cons == "INPUT_NOT_ZERO":  # Deal with specific additional constraints.
-            model_cons.extend(gen_input_non_zero_constraints(cipher, goal, config_model))
-        else:
-            model_cons.append(cons)
+    model_cons = common.gen_additional_constraints(
+        cipher, goal, constraints, config_model, truncated_marker="TRUNCATEDLINEAR"
+    )
     model_cons.extend(round_constraints)
 
     # For the goal of searching for linear hulls, fix the input and output masks
-    if goal == "LINEARHULL_CORR":
-        input_mask = config_model.get("input_mask", None)
-        output_mask = config_model.get("output_mask", None)
-        if input_mask == None and output_mask == None:
-            raise ValueError("For goal='LINEARHULL_CORR', either input_mask or output_mask must be specified in config_model.")
-        if input_mask is not None:
-            model_cons.extend(gen_fixed_input_output_constraints("input", input_mask, cipher, config_model))
-        if output_mask is not None:
-            model_cons.extend(gen_fixed_input_output_constraints("output", output_mask, cipher, config_model))
-
+    model_cons.extend(
+        common.gen_required_fixed_boundary_constraints(
+            goal,
+            "LINEARHULL_CORR",
+            cipher,
+            config_model,
+            config_model.get("input_mask"),
+            config_model.get("output_mask"),
+            "input_mask",
+            "output_mask",
+            "fix_mask",
+        )
+    )
 
     # Step 4: Modeling and Solving.
     if model_type == "milp":

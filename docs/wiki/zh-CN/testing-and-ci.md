@@ -90,6 +90,11 @@ Solver wrapper 暴露 `normalize_milp_solver_name()` 和 `normalize_sat_solver_n
 直接调用 solver 时也会校验 `config_solver` 必须是字典，保留调用者传入的空配置字典，
 并把规整后的 solver 名称写回该字典。
 
+共享 attack frontend 对外仍返回 legacy `config_model` 和 `config_solver` 字典，
+但内部会先通过类型化的 `AttackSearchConfig` wrapper 统一规整。Differential 和
+linear search 也复用同一条 helper 路径来展开 `INPUT_NOT_ZERO` 这类符号约束，
+以及 goal 要求的固定输入/输出 difference 或 mask 约束。
+
 ## 本地输出隔离
 
 ```bash

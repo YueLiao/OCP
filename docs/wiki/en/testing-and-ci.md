@@ -97,6 +97,12 @@ unknown solver names. Direct solver calls also validate that `config_solver` is
 a dictionary, preserve caller-owned empty configuration dictionaries, and store
 the normalized solver name back into that dictionary.
 
+The shared attack frontend still returns legacy `config_model` and
+`config_solver` dictionaries, but internally normalizes them through a typed
+`AttackSearchConfig` wrapper. Differential and linear searches also use the same
+helper path for symbolic constraints such as `INPUT_NOT_ZERO` and for required
+fixed input/output difference or mask constraints.
+
 ## Local Output Isolation
 
 ```bash

@@ -173,6 +173,8 @@
 - 让直接 solver wrapper 保留调用者传入的空配置字典，拒绝非法配置类型，并把规整后的 solver 名称写回配置。
 - 缓存 PySAT solver 名称规整映射，避免每次校验时重复构造查找表。
 - 将网页 text-draft 和 upload 中可预期的校验失败拆成 HTTP 400，同时保留非预期失败的脱敏 HTTP 500。
+- 引入类型化 `AttackSearchConfig` 规整 wrapper，同时继续为已有 attack/search 调用者保留 legacy dict 返回。
+- 将 differential 和 linear 的符号约束展开、固定边界约束生成收敛到共享 attack helper。
 
 ## 验证
 
@@ -183,10 +185,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`250 passed, 107 skipped, 1 warning`。
+最新默认 pytest 状态：`253 passed, 107 skipped, 1 warning`。
 
 ## 后续工作
 
-1. 继续将 attack/search 配置拆成类型化 helper object。
+1. 在能减少 key-string 重复的地方，继续把 attack/search 调用点从裸 dict 访问迁到 typed helper property。
 2. 继续优化网页 draft review 体验和 artifact 浏览。
 3. 当 MILP 后端可用时，为 identity-elision 增加可选 MILP-backed smoke test。
