@@ -180,6 +180,7 @@
 - 将 agent code generation、visualization 和 analysis 中可预期失败与意外程序错误分开归类。
 - 对 `AgentCore` skill execution 和 extraction pipeline 失败进行分类，同时保留 provider 自定义 chat error formatting。
 - 在 `OCPAgent` direct API 中区分 text-first facts extraction 的 provider 调用失败和 response parsing 失败。
+- 集中 Web API 的脱敏 HTTP 500 响应，让非预期 server failure 走同一条不泄露内部细节的路径。
 
 ## 验证
 

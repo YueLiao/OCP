@@ -57,6 +57,12 @@ def _error_response(message, status=400, code="request_error", **extra):
     return jsonify(payload), status
 
 
+def _unexpected_error_response(message, code):
+    """Return a sanitized HTTP 500 response for unexpected server-side failures."""
+
+    return _error_response(message, 500, code)
+
+
 def _require_agent():
     if agent is None:
         return _error_response(
@@ -142,9 +148,8 @@ def set_config():
     except ValueError as e:
         return _error_response(str(e), 400, "invalid_provider_config")
     except Exception:
-        return _error_response(
+        return _unexpected_error_response(
             "Provider setup failed. Check provider settings and server logs.",
-            500,
             "provider_setup_failed",
         )
 
@@ -173,9 +178,8 @@ def chat():
             "context": ctx,
         })
     except Exception:
-        return _error_response(
+        return _unexpected_error_response(
             "Chat processing failed. Check provider settings and server logs.",
-            500,
             "chat_failed",
         )
 
@@ -219,9 +223,8 @@ def draft_text_cipher():
     except ValueError as exc:
         return _error_response(str(exc), 400, "invalid_text_draft")
     except Exception:
-        return _error_response(
+        return _unexpected_error_response(
             "Text draft processing failed. Check provider settings and server logs.",
-            500,
             "text_draft_failed",
         )
 
@@ -392,9 +395,8 @@ def upload_file():
     except ValueError as exc:
         return _error_response(str(exc), 400, "invalid_upload")
     except Exception:
-        return _error_response(
+        return _unexpected_error_response(
             "File upload processing failed. Check the file and server logs.",
-            500,
             "upload_failed",
         )
     finally:

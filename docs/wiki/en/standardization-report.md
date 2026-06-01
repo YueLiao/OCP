@@ -182,6 +182,7 @@ document, and extend.
 - Classified expected agent code generation, visualization, and analysis failures separately from unexpected programming failures.
 - Classified `AgentCore` skill execution and extraction-pipeline failures while preserving provider-specific chat error formatting.
 - Split text-first fact extraction provider failures from response parsing failures in the direct `OCPAgent` API.
+- Centralized web API sanitized HTTP 500 responses so unexpected server failures keep one non-leaking response path.
 
 ## Validation
 
