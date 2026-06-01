@@ -19,6 +19,11 @@ from tools.model_constraints import (
     load_constraints_template,
 )
 from tools.bit_constraints import gen_nxor_constraints, gen_xor_constraints, gen_word_matrix_constraints
+from tools.model_generation_state import (
+    build_identity_elision_aliases,
+    is_identity_elision_candidate,
+    resolve_identity_alias,
+)
 from tools.model_templates import generate_and_save_constraints
 from tools.predefined_constraints import gen_constraints_sum_exactly
 from tools.objective_targets import gen_sat_constraints_from_objective_target
@@ -226,6 +231,56 @@ def test_identity_alias_rewrite_preserves_model_token_boundaries():
         "v_1_1_3_0 - v_1_1_30_0 = 0",
         "Binary\nv_1_1_3_0 v_1_1_30_0",
     ]
+
+
+def test_identity_elision_candidate_requires_single_equal_same_bitsize():
+    class Equal:
+        def __init__(self, input_vars, output_vars, ID="X_EQ"):
+            self.input_vars = input_vars
+            self.output_vars = output_vars
+            self.ID = ID
+
+    assert is_identity_elision_candidate(
+        Equal([var.Variable(2, ID="x")], [var.Variable(2, ID="y")])
+    )
+    assert not is_identity_elision_candidate(
+        Equal([var.Variable(2, ID="x")], [var.Variable(3, ID="y")])
+    )
+    assert not is_identity_elision_candidate(
+        Equal([var.Variable(2, ID="x"), var.Variable(2, ID="z")], [var.Variable(2, ID="y")])
+    )
+    assert not is_identity_elision_candidate(
+        Equal([var.Variable(2, ID="x")], [var.Variable(2, ID="y")], ID="IN_LINK_EQ_0")
+    )
+
+
+def test_identity_elision_alias_resolution_rejects_cycles():
+    with pytest.raises(ValueError, match="alias cycle"):
+        resolve_identity_alias({"a": "b", "b": "a"}, "a")
+
+
+def test_identity_elision_alias_builder_rejects_conflicting_outputs():
+    class Equal:
+        def __init__(self, input_id, output_id, ID):
+            self.input_vars = [var.Variable(1, ID=input_id)]
+            self.output_vars = [var.Variable(1, ID=output_id)]
+            self.ID = ID
+
+    class FakeFunctionWithConflict:
+        constraints = {1: {0: [Equal("a", "x", "A_EQ_0"), Equal("b", "x", "B_EQ_0")]}}
+
+    class FakeCipherWithConflict:
+        functions = {"PERMUTATION": FakeFunctionWithConflict()}
+
+    config_model = {
+        "functions": ["PERMUTATION"],
+        "rounds": {"PERMUTATION": [1]},
+        "layers": {"PERMUTATION": {1: [0]}},
+        "positions": {"PERMUTATION": {1: {0: [0, 1]}}},
+    }
+
+    with pytest.raises(ValueError, match="alias conflict"):
+        build_identity_elision_aliases(FakeCipherWithConflict(), config_model)
 
 
 def test_constraints_template_loading_is_cached(monkeypatch, tmp_path):

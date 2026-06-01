@@ -43,6 +43,11 @@ python -m tools.profile_model_generation forro:1 --identity-elision
 For `forro:1`, the SAT model drops from 16,586 constraints to 5,066 constraints
 in the current baseline. The MILP model drops from 10,029 constraints to 4,089.
 This mode is still experimental and is not enabled by default.
+Candidate selection is intentionally narrow: only single-input, single-output
+`Equal` edges with matching word sizes are eligible. Alias construction rejects
+conflicting outputs and alias cycles instead of silently producing ambiguous
+models. Constraint rewriting caches token substitutions within each generated
+batch to avoid repeated alias parsing on large SAT/MILP outputs.
 
 ## Verified Boundaries
 
@@ -52,11 +57,15 @@ This mode is still experimental and is not enabled by default.
   mutate constraint IDs, variable IDs, or Equal edges in the primitive object.
 - Reused model configuration dictionaries clear alias/profile state when
   identity elision is disabled again.
+- Candidate guards reject mismatched widths, multi-variable Equal-like edges,
+  alias conflicts, and alias cycles.
 
 ## Implementation Plan
 
 1. Add solver-backed smoke tests when optional solver CI is available.
 2. Compare profiler baselines before enabling it by default.
+3. Add broader opt-in coverage for ChaCha and Salsa after validating trail
+   extraction against solver-produced solutions.
 
 ## Safety Rules
 

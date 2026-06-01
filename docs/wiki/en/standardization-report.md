@@ -166,6 +166,7 @@ document, and extend.
 - Reduced Matrix truncated-model truth-table generation overhead with set membership and one-pass string assembly.
 - Moved Matrix and S-box implementation/model validation errors to explicit `ValueError` helpers.
 - Removed remaining active broad `Exception` raises from `operators/` and `primitives/`; unsupported implemented gaps now use explicit `NotImplementedError`.
+- Hardened identity-elision alias construction with strict Equal-edge guards, conflict/cycle checks, and cached token rewriting.
 
 ## Validation
 
@@ -176,7 +177,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `235 passed, 106 skipped, 1 warning`.
+Latest default pytest status: `238 passed, 106 skipped, 1 warning`.
 
 ## Next Work
 

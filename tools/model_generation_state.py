@@ -41,12 +41,30 @@ def identity_elision_prefix_key(cons):
 
 def is_identity_elision_candidate(cons):
     prefix_key = identity_elision_prefix_key(cons)
-    return prefix_key.startswith("Equal:") and not prefix_key.startswith(_NON_ELIDABLE_EQUAL_PREFIXES)
+    return (
+        _identity_equal_edge(cons) is not None
+        and prefix_key.startswith("Equal:")
+        and not prefix_key.startswith(_NON_ELIDABLE_EQUAL_PREFIXES)
+    )
+
+
+def _identity_equal_edge(cons):
+    if cons.__class__.__name__ != "Equal":
+        return None
+    if len(getattr(cons, "input_vars", [])) != 1 or len(getattr(cons, "output_vars", [])) != 1:
+        return None
+    input_var = cons.input_vars[0]
+    output_var = cons.output_vars[0]
+    if getattr(input_var, "bitsize", None) != getattr(output_var, "bitsize", None):
+        return None
+    return input_var.ID, output_var.ID
 
 
 def resolve_identity_alias(aliases, var_id):
     seen = set()
-    while var_id in aliases and var_id not in seen:
+    while var_id in aliases:
+        if var_id in seen:
+            raise ValueError(f"Identity elision alias cycle detected at '{var_id}'.")
         seen.add(var_id)
         var_id = aliases[var_id]
     return var_id
@@ -65,31 +83,49 @@ def build_identity_elision_aliases(cipher, config_model):
             for l in layers[f][r]:
                 for i in positions[f][r][l]:
                     cons = cipher.functions[f].constraints[r][l][i]
-                    if is_identity_elision_candidate(cons):
-                        aliases[cons.output_vars[0].ID] = cons.input_vars[0].ID
+                    edge = _identity_equal_edge(cons)
+                    if edge is None or not is_identity_elision_candidate(cons):
+                        continue
+                    input_id, output_id = edge
+                    if input_id == output_id:
+                        continue
+                    existing = aliases.get(output_id)
+                    if existing is not None and existing != input_id:
+                        raise ValueError(
+                            "Identity elision alias conflict for "
+                            f"'{output_id}': '{existing}' vs '{input_id}'."
+                        )
+                    aliases[output_id] = input_id
     return {
         var_id: resolve_identity_alias(aliases, target)
         for var_id, target in aliases.items()
     }
 
 
-def rewrite_token_with_alias(token, aliases):
+def rewrite_token_with_alias(token, aliases, cache=None):
+    if cache is not None and token in cache:
+        return cache[token]
     parts = token.split("_")
     for index in range(len(parts), 0, -1):
         source = "_".join(parts[:index])
         if source in aliases:
             suffix = "_".join(parts[index:])
-            return aliases[source] if not suffix else aliases[source] + "_" + suffix
+            rewritten = aliases[source] if not suffix else aliases[source] + "_" + suffix
+            if cache is not None:
+                cache[token] = rewritten
+            return rewritten
+    if cache is not None:
+        cache[token] = token
     return token
 
 
-def apply_identity_aliases_to_line(line, aliases):
+def apply_identity_aliases_to_line(line, aliases, token_cache=None):
     if not aliases:
         return line
 
     def replace(match):
         sign, token = match.groups()
-        return sign + rewrite_token_with_alias(token, aliases)
+        return sign + rewrite_token_with_alias(token, aliases, cache=token_cache)
 
     return _MODEL_TOKEN_RE.sub(replace, line)
 
@@ -97,7 +133,11 @@ def apply_identity_aliases_to_line(line, aliases):
 def apply_identity_aliases(model_lines, aliases):
     if not aliases:
         return model_lines
-    return [apply_identity_aliases_to_line(line, aliases) for line in model_lines]
+    token_cache = {}
+    return [
+        apply_identity_aliases_to_line(line, aliases, token_cache=token_cache)
+        for line in model_lines
+    ]
 
 
 def configure_identity_elision(cipher, config_model):

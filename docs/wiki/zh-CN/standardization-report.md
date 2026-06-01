@@ -164,6 +164,7 @@
 - 用 set membership 和一次性字符串拼接降低 Matrix truncated-model truth-table 生成开销。
 - 将 Matrix 和 S-box 的实现/模型校验错误迁移到显式 `ValueError` helper。
 - 清理 `operators/` 和 `primitives/` 中剩余 active broad `Exception`；尚未实现的功能缺口改用显式 `NotImplementedError`。
+- 加固 identity-elision alias 构造：增加严格 Equal-edge 保护、冲突/环检测和 token rewrite 缓存。
 
 ## 验证
 
@@ -174,7 +175,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`235 passed, 106 skipped, 1 warning`。
+最新默认 pytest 状态：`238 passed, 106 skipped, 1 warning`。
 
 ## 后续工作
 
