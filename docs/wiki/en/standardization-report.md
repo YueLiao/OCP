@@ -177,6 +177,7 @@ document, and extend.
 - Split expected web text-draft and upload validation failures into HTTP 400 responses while keeping unexpected failures behind sanitized HTTP 500 errors.
 - Introduced a typed `AttackSearchConfig` normalization wrapper while preserving legacy dict returns for existing attack/search callers.
 - Consolidated differential and linear symbolic-constraint expansion and fixed boundary constraint generation behind shared attack helpers.
+- Consolidated differential and linear trail formatting behind a shared formatter while preserving trail artifact naming and aggregate log wording.
 
 ## Validation
 

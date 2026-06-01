@@ -175,6 +175,7 @@
 - 将网页 text-draft 和 upload 中可预期的校验失败拆成 HTTP 400，同时保留非预期失败的脱敏 HTTP 500。
 - 引入类型化 `AttackSearchConfig` 规整 wrapper，同时继续为已有 attack/search 调用者保留 legacy dict 返回。
 - 将 differential 和 linear 的符号约束展开、固定边界约束生成收敛到共享 attack helper。
+- 将 differential 和 linear 的 trail formatting 收敛到共享 formatter，同时保留 trail artifact 命名和聚合日志措辞。
 
 ## 验证
 

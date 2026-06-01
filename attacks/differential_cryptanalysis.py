@@ -1,12 +1,9 @@
-from math import log2
 from attacks import common
 from attacks.attack_trace import DifferentialTrail
 from tools.model_configuration import gen_round_model_constraint_obj_fun
 import tools.model_objective as model_objective
 import tools.milp_search as milp_search
 import tools.sat_search as sat_search
-from tools.paths import get_files_dir
-from tools.search_reporting import log
 
 
 # **************************************************************************** #
@@ -129,34 +126,20 @@ def search_diff_trail(cipher, goal="DIFFERENTIALPATH_PROB", constraints=["INPUT_
 
 # -------------------- Trail Extraction and Visualization --------------------
 def extract_and_format_diff_trails(cipher, goal, config_model, config_solver, show_mode, solutions):
-    trails = []
-    trail_structs = []
-    pr = 0
-    for i, sol in enumerate(solutions):
-        trail_struct = extract_trail_structures(cipher, goal, sol, config_model)
-        if trail_struct in trail_structs:
-            continue
-        trail_structs.append(trail_struct)
-        data = {"cipher": f"{cipher.functions['PERMUTATION'].nbr_rounds}_round_{cipher.name}",
-                "functions": config_model["functions"],
-                "rounds": config_model["rounds"],
-                "config_model": config_model,
-                "config_solver": config_solver,
-                "trail_struct": trail_struct,
-                "diff_weight": sol.get("obj_fun_value"),
-                "rounds_diff_weight": sol.get("rounds_obj_fun_values")}
-        trail = DifferentialTrail(data, solution_trace=sol)
-        if i > 0:
-            log(f"[INFO] Saving the {i+1}-th Trail.", config_model, config_solver)
-            trail.json_filename = trail.json_filename.replace(".json", f"_{i}.json") if trail.json_filename else str(get_files_dir() / f"{trail.data['cipher']}_trail_{i}.json")
-            trail.txt_filename = trail.txt_filename.replace(".txt", f"_{i}.txt") if trail.txt_filename else str(get_files_dir() / f"{trail.data['cipher']}_trail_{i}.txt")
-        trail.save_json()
-        trail.save_txt(show_mode=show_mode, emit_print=config_model.get("verbose", True))
-        trails.append(trail)
-        pr += 2 ** ( - trail.data['diff_weight'] ) if trail.data['diff_weight'] is not None else 0
-    if solutions and goal == "DIFFERENTIAL_PROB":
-        log(f"[INFO] Total probability of all {len(trails)} found trails: 2^{log2(pr) if pr > 0 else 'undefined'}", config_model, config_solver)
-    return trails
+    return common.extract_and_format_trails(
+        cipher,
+        goal,
+        config_model,
+        config_solver,
+        show_mode,
+        solutions,
+        DifferentialTrail,
+        extract_trail_structures,
+        "diff_weight",
+        "rounds_diff_weight",
+        "DIFFERENTIAL_PROB",
+        "probability",
+    )
 
 def extract_trail_structures(cipher, goal, solution, config_model=None):
     """

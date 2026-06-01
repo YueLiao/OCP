@@ -1,12 +1,14 @@
 """Shared helpers for differential and linear attack frontends."""
 
 from dataclasses import dataclass
+from math import log2
 
 from tools.model_configuration import fill_functions_rounds_layers_positions
 from tools.model_generation_state import IDENTITY_ELISION_ALIASES_KEY, rewrite_token_with_alias
 from tools.objective_targets import parse_objective_target
 from tools.predefined_constraints import gen_predefined_constraints
 from tools.paths import get_files_dir
+from tools.search_reporting import log
 
 
 @dataclass(frozen=True)
@@ -348,3 +350,66 @@ def extract_trail_structures(cipher, goal, solution, truncated_marker, config_mo
             fun_store[round_index] = round_store
         trail_struct["functions"][fun] = fun_store
     return trail_struct
+
+
+def extract_and_format_trails(
+    cipher,
+    goal,
+    config_model,
+    config_solver,
+    show_mode,
+    solutions,
+    trail_class,
+    extract_trail_structures_func,
+    weight_key,
+    rounds_weight_key,
+    aggregate_goal,
+    aggregate_label,
+    include_aggregate_count=True,
+):
+    """Create trail objects, save artifacts, and report aggregate probability/correlation."""
+
+    trails = []
+    trail_structs = []
+    aggregate_value = 0
+    for i, solution in enumerate(solutions):
+        trail_struct = extract_trail_structures_func(cipher, goal, solution, config_model)
+        if trail_struct in trail_structs:
+            continue
+        trail_structs.append(trail_struct)
+        data = {
+            "cipher": f"{cipher.functions['PERMUTATION'].nbr_rounds}_round_{cipher.name}",
+            "functions": config_model["functions"],
+            "rounds": config_model["rounds"],
+            "config_model": config_model,
+            "config_solver": config_solver,
+            "trail_struct": trail_struct,
+            weight_key: solution.get("obj_fun_value"),
+            rounds_weight_key: solution.get("rounds_obj_fun_values"),
+        }
+        trail = trail_class(data, solution_trace=solution)
+        if i > 0:
+            log(f"[INFO] Saving the {i+1}-th Trail.", config_model, config_solver)
+            trail.json_filename = (
+                trail.json_filename.replace(".json", f"_{i}.json")
+                if trail.json_filename
+                else str(get_files_dir() / f"{trail.data['cipher']}_trail_{i}.json")
+            )
+            trail.txt_filename = (
+                trail.txt_filename.replace(".txt", f"_{i}.txt")
+                if trail.txt_filename
+                else str(get_files_dir() / f"{trail.data['cipher']}_trail_{i}.txt")
+            )
+        trail.save_json()
+        trail.save_txt(show_mode=show_mode, emit_print=config_model.get("verbose", True))
+        trails.append(trail)
+        aggregate_value += 2 ** (-trail.data[weight_key]) if trail.data[weight_key] is not None else 0
+    if solutions and goal == aggregate_goal:
+        count_text = f"all {len(trails)} found trails" if include_aggregate_count else "all found trails"
+        log(
+            f"[INFO] Total {aggregate_label} of {count_text}: "
+            f"2^{log2(aggregate_value) if aggregate_value > 0 else 'undefined'}",
+            config_model,
+            config_solver,
+        )
+    return trails
