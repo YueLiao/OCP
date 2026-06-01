@@ -85,6 +85,12 @@ def test_solution_bit_resolves_identity_elision_aliases():
     assert common.solution_bit({"v_1_1_30_0": 1}, "v_1_2_3_0", aliases=aliases) == "-"
 
 
+def test_solution_bit_resolves_chained_identity_elision_aliases():
+    aliases = {"v_1_3_0": "v_1_2_0", "v_1_2_0": "v_1_1_0"}
+
+    assert common.solution_bit({"v_1_1_0_1": 1}, "v_1_3_0_1", aliases=aliases) == "1"
+
+
 def test_extract_trail_structures_uses_identity_elision_aliases():
     source = var.Variable(2, ID="v_1_1_0")
     elided = var.Variable(2, ID="v_1_2_0")

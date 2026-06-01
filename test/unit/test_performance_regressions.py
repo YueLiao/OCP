@@ -229,6 +229,18 @@ def test_identity_elision_candidate_summary_is_conservative():
     }
     assert summarize_identity_elision_candidates(profile)["estimated_constraints"] == 8
 
+    elided_profile = {
+        "total_constraints": 20,
+        "operator_prefixes": {
+            "Equal:Add1_EQ": {"calls": 1, "constraints": 0, "time_s": 0.0},
+        },
+    }
+    assert summarize_identity_elision_candidates(elided_profile) == {
+        "estimated_constraints": 0,
+        "estimated_ratio": 0.0,
+        "top_candidates": [],
+    }
+
 
 def test_identity_elision_profile_can_skip_internal_equal_constraints():
     report = profile_case("forro:1", top_limit=2, identity_elision=True)
@@ -260,6 +272,39 @@ def test_identity_elision_supports_milp_model_generation():
         "skipped_constraints": 180,
     }
     assert elided["profile"]["operators"]["Equal"]["constraints"] == 1056
+
+
+@pytest.mark.parametrize(
+    ("case", "baseline_sat", "elided_sat", "baseline_milp", "elided_milp", "aliases"),
+    [
+        ("chacha:1", 20848, 11632, 15440, 10688, 144),
+        ("salsa:1", 22896, 11632, 16496, 10688, 176),
+    ],
+)
+def test_identity_elision_supports_chacha_and_salsa(case, baseline_sat, elided_sat, baseline_milp, elided_milp, aliases):
+    sat_baseline = profile_case(case, top_limit=2)
+    sat_elided = profile_case(case, top_limit=2, identity_elision=True)
+    milp_baseline = profile_case(case, model_type="milp", top_limit=2)
+    milp_elided = profile_case(case, model_type="milp", top_limit=2, identity_elision=True)
+
+    assert sat_baseline["constraint_count"] == baseline_sat
+    assert sat_elided["constraint_count"] == elided_sat
+    assert sat_elided["identity_elision_profile"] == {
+        "aliases": aliases,
+        "skipped_constraints": aliases,
+    }
+    assert sat_elided["identity_elision_candidates"] == {
+        "estimated_constraints": 0,
+        "estimated_ratio": 0.0,
+        "top_candidates": [],
+    }
+
+    assert milp_baseline["constraint_count"] == baseline_milp
+    assert milp_elided["constraint_count"] == elided_milp
+    assert milp_elided["identity_elision_profile"] == {
+        "aliases": aliases,
+        "skipped_constraints": aliases,
+    }
 
 
 def test_identity_elision_does_not_mutate_primitive_graph():

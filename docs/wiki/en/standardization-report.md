@@ -167,6 +167,8 @@ document, and extend.
 - Moved Matrix and S-box implementation/model validation errors to explicit `ValueError` helpers.
 - Removed remaining active broad `Exception` raises from `operators/` and `primitives/`; unsupported implemented gaps now use explicit `NotImplementedError`.
 - Hardened identity-elision alias construction with strict Equal-edge guards, conflict/cycle checks, and cached token rewriting.
+- Extended identity-elision regression coverage to ChaCha and Salsa for SAT and MILP model generation.
+- Made identity-elision trail lookup resolve chained aliases and filtered zero-constraint prefixes from profiler candidate summaries.
 
 ## Validation
 
@@ -177,10 +179,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `238 passed, 106 skipped, 1 warning`.
+Latest default pytest status: `241 passed, 106 skipped, 1 warning`.
 
 ## Next Work
 
-1. Use profiling results to prioritize deeper model generation optimizations.
+1. Add optional solver-backed identity-elision smoke tests when SAT/MILP backends are available.
 2. Continue narrowing broad exception handling in solver/model generation paths.
 3. Continue improving web draft review ergonomics and artifact browsing.

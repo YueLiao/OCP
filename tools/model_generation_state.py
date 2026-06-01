@@ -110,7 +110,8 @@ def rewrite_token_with_alias(token, aliases, cache=None):
         source = "_".join(parts[:index])
         if source in aliases:
             suffix = "_".join(parts[index:])
-            rewritten = aliases[source] if not suffix else aliases[source] + "_" + suffix
+            target = resolve_identity_alias(aliases, source)
+            rewritten = target if not suffix else target + "_" + suffix
             if cache is not None:
                 cache[token] = rewritten
             return rewritten

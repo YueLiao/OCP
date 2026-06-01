@@ -165,6 +165,8 @@
 - 将 Matrix 和 S-box 的实现/模型校验错误迁移到显式 `ValueError` helper。
 - 清理 `operators/` 和 `primitives/` 中剩余 active broad `Exception`；尚未实现的功能缺口改用显式 `NotImplementedError`。
 - 加固 identity-elision alias 构造：增加严格 Equal-edge 保护、冲突/环检测和 token rewrite 缓存。
+- 将 identity-elision 回归覆盖扩展到 ChaCha 和 Salsa 的 SAT/MILP 模型生成。
+- 让 identity-elision trail lookup 支持链式 alias，并从 profiler 候选摘要中过滤 0 约束前缀。
 
 ## 验证
 
@@ -175,10 +177,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`238 passed, 106 skipped, 1 warning`。
+最新默认 pytest 状态：`241 passed, 106 skipped, 1 warning`。
 
 ## 后续工作
 
-1. 基于 profiling 结果决定更深层模型生成优化优先级。
+1. 当 SAT/MILP 后端可用时，为 identity-elision 增加可选 solver-backed smoke test。
 2. 继续收窄 solver/model generation 路径里的宽泛异常处理。
 3. 继续优化网页 draft review 体验和 artifact 浏览。

@@ -40,19 +40,28 @@ their variable names rewritten through an alias map:
 python -m tools.profile_model_generation forro:1 --identity-elision
 ```
 
-For `forro:1`, the SAT model drops from 16,586 constraints to 5,066 constraints
-in the current baseline. The MILP model drops from 10,029 constraints to 4,089.
+Current one-round/subround opt-in baselines:
+
+| Case | SAT Baseline | SAT Elided | MILP Baseline | MILP Elided | Aliases |
+|---|---:|---:|---:|---:|---:|
+| `chacha:1` | 20,848 | 11,632 | 15,440 | 10,688 | 144 |
+| `salsa:1` | 22,896 | 11,632 | 16,496 | 10,688 | 176 |
+| `forro:1` | 16,586 | 5,066 | 10,029 | 4,089 | 180 |
+
 This mode is still experimental and is not enabled by default.
+
 Candidate selection is intentionally narrow: only single-input, single-output
 `Equal` edges with matching word sizes are eligible. Alias construction rejects
 conflicting outputs and alias cycles instead of silently producing ambiguous
-models. Constraint rewriting caches token substitutions within each generated
-batch to avoid repeated alias parsing on large SAT/MILP outputs.
+models. Constraint rewriting resolves chained aliases and caches token
+substitutions within each generated batch to avoid repeated alias parsing on
+large SAT/MILP outputs.
 
 ## Verified Boundaries
 
 - Trail extraction resolves missing original-layer variables through the alias
-  map while keeping the original layered graph in rendered trails.
+  map, including chained aliases, while keeping the original layered graph in
+  rendered trails.
 - Visualization continues to read the primitive graph. Identity elision does not
   mutate constraint IDs, variable IDs, or Equal edges in the primitive object.
 - Reused model configuration dictionaries clear alias/profile state when
@@ -64,8 +73,8 @@ batch to avoid repeated alias parsing on large SAT/MILP outputs.
 
 1. Add solver-backed smoke tests when optional solver CI is available.
 2. Compare profiler baselines before enabling it by default.
-3. Add broader opt-in coverage for ChaCha and Salsa after validating trail
-   extraction against solver-produced solutions.
+3. Validate trail extraction against solver-produced solutions for ChaCha,
+   Salsa, and Forro.
 
 ## Safety Rules
 

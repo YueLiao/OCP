@@ -57,7 +57,7 @@ def summarize_identity_elision_candidates(profile, top_limit=8):
     candidates = {
         name: stats
         for name, stats in profile.get("operator_prefixes", {}).items()
-        if _is_identity_elision_candidate(name)
+        if _is_identity_elision_candidate(name) and stats["constraints"] > 0
     }
     estimated_constraints = sum(stats["constraints"] for stats in candidates.values())
     total_constraints = profile.get("total_constraints", 0)

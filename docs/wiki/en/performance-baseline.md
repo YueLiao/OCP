@@ -41,6 +41,14 @@ identity constraints that could be removed by a future alias-based pass. See
 Passing `--identity-elision` enables the experimental alias pass and reports the
 actual reduced constraint count for model generation.
 
+## Identity-Elision Opt-In Baseline
+
+| Case | SAT Baseline | SAT Elided | MILP Baseline | MILP Elided |
+|---|---:|---:|---:|---:|
+| `chacha:1` | 20,848 | 11,632 | 15,440 | 10,688 |
+| `salsa:1` | 22,896 | 11,632 | 16,496 | 10,688 |
+| `forro:1` | 16,586 | 5,066 | 10,029 | 4,089 |
+
 ## Reading the Numbers
 
 - `Equal` dominates ARX primitives because layer transitions and state links are

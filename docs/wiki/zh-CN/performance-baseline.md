@@ -35,6 +35,14 @@ Profiler 还会输出 `operator_prefixes`，按 operator 类型和 ID 前缀聚�
 identity 约束子集。详见 [Identity Elision 设计](identity-elision-design.md)。
 传入 `--identity-elision` 会启用实验性 alias pass，并报告模型生成阶段实际降低后的约束数量。
 
+## Identity-Elision Opt-In 基线
+
+| Case | SAT 基线 | SAT elided | MILP 基线 | MILP elided |
+|---|---:|---:|---:|---:|
+| `chacha:1` | 20,848 | 11,632 | 15,440 | 10,688 |
+| `salsa:1` | 22,896 | 11,632 | 16,496 | 10,688 |
+| `forro:1` | 16,586 | 5,066 | 10,029 | 4,089 |
+
 ## 如何理解这些数字
 
 - ARX primitive 中 `Equal` 占比较高，因为层间状态传递和输入/输出链接都被显式建模。
