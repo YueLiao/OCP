@@ -5,6 +5,8 @@ from operators.operators import (
     RaiseExceptionVersionNotExisting,
     binary_declaration,
     milp_equivalence_constraints,
+    raise_unknown_implementation_type,
+    raise_unknown_model_type,
     sat_equivalence_constraints,
 )
 from tools.bit_constraints import gen_xor_constraints, gen_word_xor_constraints, gen_nxor_constraints, gen_word_nxor_constraints
@@ -28,7 +30,7 @@ def _binary_bitwise_implementation(operator, symbol, implementation_type, unroll
         return [f"{lhs} = {left} {symbol} {right};"]
     if implementation_type == 'verilog':
         return [f"assign {lhs} = {left} {symbol} {right};"]
-    raise Exception(str(operator.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+    raise_unknown_implementation_type(operator.__class__.__name__, implementation_type)
 
 
 def _input_expression(operator, symbol, unroll):
@@ -68,7 +70,7 @@ def _generate_and_or_active_weight_model(operator, model_type):
     elif model_type == 'cp':
         RaiseExceptionVersionNotExisting(class_name, operator.model_version, model_type)
     else:
-        raise Exception(class_name + ": unknown model type '" + model_type + "'")
+        raise_unknown_model_type(class_name, model_type)
 
     RaiseExceptionVersionNotExisting(class_name, operator.model_version, model_type)
 
@@ -152,7 +154,7 @@ class XOR(BinaryOperator):  # Operator for the bitwise XOR operation: compute th
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else: raise_unknown_model_type(self.__class__.__name__, model_type)
 
 
 class N_XOR(Operator): # Operator of the n-xor: a_0 xor a_1 xor ... xor a_n = b
@@ -167,7 +169,7 @@ class N_XOR(Operator): # Operator of the n-xor: a_0 xor a_1 xor ... xor a_n = b
             return [self.get_var_ID('out', 0, unroll) + ' = ' + expression + ';']
         elif implementation_type == 'verilog':
             return ["assign " + self.get_var_ID('out', 0, unroll) + ' = ' + expression + ';']
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        else: raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_model(self, model_type='sat'):
         model_list = []
@@ -221,7 +223,7 @@ class N_XOR(Operator): # Operator of the n-xor: a_0 xor a_1 xor ... xor a_n = b
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else: raise_unknown_model_type(self.__class__.__name__, model_type)
 
 
 class NOT(UnaryOperator): # Operator for the bitwise NOT operation: compute the bitwise NOT operation on the input variable towards the output variable
@@ -235,7 +237,7 @@ class NOT(UnaryOperator): # Operator for the bitwise NOT operation: compute the 
             return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' ^ ' + hex(2**self.input_vars[0].bitsize - 1) + ';']
         elif implementation_type == 'verilog':
             return ["assign " + self.get_var_ID('out', 0, unroll) + ' = ~' + self.get_var_ID('in', 0, unroll) + ';']
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        else: raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_model(self, model_type='sat'):
         if model_type == 'sat':
@@ -251,7 +253,7 @@ class NOT(UnaryOperator): # Operator for the bitwise NOT operation: compute the 
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else: raise_unknown_model_type(self.__class__.__name__, model_type)
 
 
 class ConstantXOR(UnaryOperator): # Operator for the constant addition using xor, to incorporate the constant with value "constant" to the input variable and result is stored in the output variable
@@ -269,7 +271,7 @@ class ConstantXOR(UnaryOperator): # Operator for the constant addition using xor
             return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' ^ ' + my_constant.replace("//", "/") + ';']
         elif implementation_type == 'verilog':
             return ["assign " + self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ' ^ ' + my_constant + ';']
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        else: raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_implementation_header(self, implementation_type='python'):
         if implementation_type == 'python':
@@ -305,7 +307,7 @@ class ConstantXOR(UnaryOperator): # Operator for the constant addition using xor
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else: raise_unknown_model_type(self.__class__.__name__, model_type)
 
 
 class ANDXOR(Operator):  # Operator for the bitwise AND-XOR operation: compute the bitwise AND then XOR on the three input variables towards the output variable
@@ -319,7 +321,7 @@ class ANDXOR(Operator):  # Operator for the bitwise AND-XOR operation: compute t
             return [self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' & ' + self.get_var_ID('in', 1, unroll) + ') ^ ' + self.get_var_ID('in', 2, unroll) + ';']
         elif implementation_type == 'verilog':
             return ["assign " + self.get_var_ID('out', 0, unroll) + ' = (' + self.get_var_ID('in', 0, unroll) + ' & ' + self.get_var_ID('in', 1, unroll) + ') ^ ' + self.get_var_ID('in', 2, unroll) + ';']
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        else: raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_model(self, model_type='sat'):
         model_list = []
@@ -344,4 +346,4 @@ class ANDXOR(Operator):  # Operator for the bitwise AND-XOR operation: compute t
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else: raise_unknown_model_type(self.__class__.__name__, model_type)

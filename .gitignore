@@ -31,3 +31,5 @@ files/*.txt
 # Keep checked-in modeling templates under files/*_modeling tracked for now.
 # They are part of the current upstream history and should be removed only in a
 # dedicated cleanup commit if the project decides to regenerate them on demand.
+files/*_modeling/ttable.txt
+files/*_modeling/sttable.txt

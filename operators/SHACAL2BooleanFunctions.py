@@ -1,5 +1,12 @@
 import copy
-from operators.operators import Operator, Rot, Shift, RaiseExceptionVersionNotExisting
+from operators.operators import (
+    Operator,
+    Rot,
+    Shift,
+    RaiseExceptionVersionNotExisting,
+    raise_unknown_implementation_type,
+    raise_unknown_model_type,
+)
 from operators.boolean_operators import NOT, AND, N_XOR, XOR
 
 
@@ -49,7 +56,7 @@ def _generate_layered_header(layers, implementation_type):
 
 def _generate_layered_implementation(owner, implementation_type, unroll):
     if implementation_type not in ['python', 'c']:
-        raise Exception(str(owner.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        raise_unknown_implementation_type(str(owner.__class__.__name__), implementation_type)
 
     code_list = []
     if implementation_type == 'c':
@@ -77,7 +84,7 @@ def _generate_layered_model(owner, model_type, unroll):
     elif model_type == 'cp':
         RaiseExceptionVersionNotExisting(str(owner.__class__.__name__), owner.model_version, model_type)
     else:
-        raise Exception(str(owner.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        raise_unknown_model_type(str(owner.__class__.__name__), model_type)
 
 
 class SHACAL2_Sigma0(Operator):

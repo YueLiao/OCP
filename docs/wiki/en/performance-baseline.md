@@ -10,7 +10,7 @@ python -m tools.profile_model_generation --indent 0
 python -m tools.profile_model_generation forro:1 --top-limit 5
 ```
 
-Snapshot date: 2026-05-28.
+Snapshot date: 2026-06-01.
 Environment: local `ocp` conda environment on macOS.
 Model: `DIFFERENTIALPATH_PROB`, SAT, one round/subround per primitive.
 
@@ -18,7 +18,7 @@ Model: `DIFFERENTIALPATH_PROB`, SAT, one round/subround per primitive.
 
 | Case | Constraints | Top Hotspots |
 |---|---:|---|
-| `present:1` | 1,280 | `PRESENT_Sbox` 896 constraints, `Equal` 384 |
+| `present:1` | 1,264 | `PRESENT_Sbox` 880 constraints, `Equal` 384 |
 | `chacha:1` | 20,848 | `Equal` 11,264, `ModAdd` 6,512 |
 | `salsa:1` | 22,896 | `Equal` 13,312, `ModAdd` 6,512 |
 | `forro:1` | 16,586 | `Equal` 13,568, `ModAdd` 2,442 |
@@ -54,6 +54,9 @@ actual reduced constraint count for model generation.
   output links, and each ARX layer's untouched words. That means meaningful
   constraint-count reduction would require a planned variable-aliasing or
   identity-elision design, not a local deletion.
+- PRESENT's S-box template cache is keyed by S-box table fingerprint, so the
+  current minimized template is isolated from other S-boxes that share a model
+  version.
 
 ## Optimization Direction
 

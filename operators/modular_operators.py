@@ -1,4 +1,11 @@
-from operators.operators import BinaryOperator, UnaryOperator, RaiseExceptionVersionNotExisting, binary_declaration
+from operators.operators import (
+    BinaryOperator,
+    UnaryOperator,
+    RaiseExceptionVersionNotExisting,
+    binary_declaration,
+    raise_unknown_implementation_type,
+    raise_unknown_model_type,
+)
 
 
 def _word_mask(bitsize):
@@ -35,8 +42,9 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
         elif implementation_type == 'verilog':
             if self.modulo == None: return ["assign " + var_out + ' = ' + var_in1 + ' + ' + var_in2 + ";"]
             else:
-                raise Exception(str(self.__class__.__name__) + ": addition modulo not a power a 2 is not yet handled for verilog '")
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+                raise NotImplementedError(f"{self.__class__.__name__}: non-power-of-two modulo is not handled for verilog")
+        else:
+            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
 
     def generate_model(self, model_type='sat'):
         model_list = []
@@ -218,7 +226,8 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
             else:
                 RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else:
+            raise_unknown_model_type(str(self.__class__.__name__), model_type)
 
 
 class ModMul(BinaryOperator):  # Operator for the modular multiplication: multiply the two input variables together towards the output variable
@@ -240,14 +249,16 @@ class ModMul(BinaryOperator):  # Operator for the modular multiplication: multip
             else:
                 return [f"{var_out} = {expr};"]
         elif implementation_type == 'verilog':
-            raise Exception(str(self.__class__.__name__) + ": multiplication is not yet handled for verilog '")
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+            raise NotImplementedError(f"{self.__class__.__name__}: multiplication is not handled for verilog")
+        else:
+            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
 
     def generate_model(self, model_type='sat', unroll=True):
         if model_type == 'sat': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'milp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else:
+            raise_unknown_model_type(str(self.__class__.__name__), model_type)
 
 
 class ConstantAdd(UnaryOperator): # Operator for the constant addition: use modular addition to incorporate the constant with value "constant" to the input variable and result is stored in the output variable
@@ -275,7 +286,8 @@ class ConstantAdd(UnaryOperator): # Operator for the constant addition: use modu
             if self.modulo == None: return ["assign " + var_out + ' = ' + var_in + ' + ' + my_constant + ';']
             else:
                 return [f"assign {var_out} = {expr};"]
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        else:
+            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
 
     def generate_implementation_header(self, implementation_type='python'):
         if implementation_type == 'python':
@@ -293,4 +305,5 @@ class ConstantAdd(UnaryOperator): # Operator for the constant addition: use modu
         if model_type == 'sat': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'milp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else:
+            raise_unknown_model_type(str(self.__class__.__name__), model_type)

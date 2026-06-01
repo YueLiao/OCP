@@ -157,6 +157,13 @@
 - 将 bit-constraint helper assert 替换为显式 TypeError 校验。
 - 将 predefined-constraint/template option assert 替换为显式 ValueError 校验。
 - 将 GF2Linear_Trans square-matrix assert 替换为显式 ValueError。
+- 增加共享 operator error helpers，并将 core/boolean operator 校验迁移为显式 ValueError。
+- 将 primitive constructor/layer 的 broad exceptions 替换为显式 ValueError 边界校验。
+- 为 S-box 模型模板缓存路径加入表指纹，避免不同 S-box 之间误复用模板。
+- 使用新缓存键重新生成 PRESENT S-box SAT 模板；一轮 PRESENT 最小化基线现在为 1,264 条约束。
+- 用 set membership 和一次性字符串拼接降低 Matrix truncated-model truth-table 生成开销。
+- 将 Matrix 和 S-box 的实现/模型校验错误迁移到显式 `ValueError` helper。
+- 清理 `operators/` 和 `primitives/` 中剩余 active broad `Exception`；尚未实现的功能缺口改用显式 `NotImplementedError`。
 
 ## 验证
 
@@ -167,7 +174,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`231 passed, 106 skipped, 1 warning`。
+最新默认 pytest 状态：`235 passed, 106 skipped, 1 warning`。
 
 ## 后续工作
 

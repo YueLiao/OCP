@@ -654,6 +654,38 @@ def test_present_sbox_bitsliced_code_generation_is_stable():
     ]
 
 
+def test_sbox_implementation_validation_errors_are_readable():
+    op = PRESENT_Sbox([], [var.Variable(4, ID="out")], ID="S")
+
+    with pytest.raises(ValueError, match="unsupported number of input/output variables"):
+        op.generate_implementation("python", unroll=True)
+
+    with pytest.raises(ValueError, match="unknown implementation type 'rust'"):
+        op.generate_implementation("rust", unroll=True)
+
+
+def test_sbox_model_cache_paths_include_table_fingerprint(monkeypatch, tmp_path):
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
+
+    inputs = [var.Variable(1, ID="x0"), var.Variable(1, ID="x1")]
+    outputs = [var.Variable(1, ID="y")]
+    left = Sbox(inputs, outputs, 2, 1, ID="S0")
+    right = Sbox(inputs, outputs, 2, 1, ID="S1")
+    left.table = [0, 1, 1, 1]
+    right.table = [0, 0, 0, 1]
+    left.model_version = "Sbox_XORDIFF"
+    right.model_version = "Sbox_XORDIFF"
+
+    left.generate_model("sat", filename_load=False)
+    right.generate_model("sat", filename_load=False)
+
+    assert left.model_filename != right.model_filename
+    assert left.model_filename.startswith(str(tmp_path / "sbox_modeling"))
+    assert right.model_filename.startswith(str(tmp_path / "sbox_modeling"))
+    assert "_Sbox_2x1_" in left.model_filename
+    assert "_Sbox_2x1_" in right.model_filename
+
+
 def test_present_sbox_weighted_truth_tables_are_stable():
     op = PRESENT_Sbox([var.Variable(4, ID="in")], [var.Variable(4, ID="out")], ID="S")
 
@@ -722,7 +754,7 @@ def test_matrix_implementation_headers_and_zero_star_patterns_are_stable():
 
     assert op.generate_implementation("python", unroll=True) == ["(out0, out1) = tiny_matrix(in0, in1)"]
     assert op.generate_implementation("c", unroll=True) == ["tiny_matrix(in0, in1, out0, out1);"]
-    with pytest.raises(Exception, match="unknown implementation type"):
+    with pytest.raises(ValueError, match="unknown implementation type"):
         op.generate_implementation("rust")
     assert op.generate_implementation_header("python") == [
         "#Matrix Macro ",
@@ -876,7 +908,7 @@ def test_matrix_unknown_model_type_error_is_readable():
     op = Matrix("M", inputs, outputs, [[1, 1], [0, 1]], ID="M")
     op.model_version = "Matrix_XORDIFF"
 
-    with pytest.raises(Exception, match="unknown model type 'unknown' for Matrix_XORDIFF"):
+    with pytest.raises(ValueError, match="unknown model type 'unknown' for Matrix_XORDIFF"):
         op.generate_model("unknown")
 
 

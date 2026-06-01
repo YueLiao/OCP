@@ -9,7 +9,7 @@ python -m tools.profile_model_generation --indent 0
 python -m tools.profile_model_generation forro:1 --top-limit 5
 ```
 
-快照日期：2026-05-28。
+快照日期：2026-06-01。
 环境：本机 macOS 上的 `ocp` conda 环境。
 模型：`DIFFERENTIALPATH_PROB`，SAT，每个 primitive 取一轮/一个 subround。
 
@@ -17,7 +17,7 @@ python -m tools.profile_model_generation forro:1 --top-limit 5
 
 | Case | 约束数量 | 主要热点 |
 |---|---:|---|
-| `present:1` | 1,280 | `PRESENT_Sbox` 896 条约束，`Equal` 384 |
+| `present:1` | 1,264 | `PRESENT_Sbox` 880 条约束，`Equal` 384 |
 | `chacha:1` | 20,848 | `Equal` 11,264，`ModAdd` 6,512 |
 | `salsa:1` | 22,896 | `Equal` 13,312，`ModAdd` 6,512 |
 | `forro:1` | 16,586 | `Equal` 13,568，`ModAdd` 2,442 |
@@ -44,6 +44,8 @@ identity 约束子集。详见 [Identity Elision 设计](identity-elision-design
 - Forro 一个 subround 的 `Equal` 约束分散在输入链接、输出链接以及每个 ARX 层未被更新的
   word 上。因此如果要显著减少约束数量，需要设计变量别名或 identity-elision 方案，
   不能只做局部删除。
+- PRESENT 的 S-box 模板缓存现在按 S-box 表指纹区分，因此当前最小化后的模板不会和其他
+  共享模型版本的 S-box 混用。
 
 ## 优化方向
 

@@ -1,11 +1,15 @@
+import hashlib
 import math
 import os
 from functools import lru_cache
-from operators.operators import Operator, RaiseExceptionVersionNotExisting, binary_declaration
+from operators.operators import (
+    Operator,
+    RaiseExceptionVersionNotExisting,
+    binary_declaration,
+    raise_unknown_implementation_type,
+)
 from tools.model_templates import generate_and_save_constraints, gen_constraints_obj_func_from_template
 from tools.paths import get_files_dir
-
-BASE_PATH = get_files_dir("sbox_modeling")
 
 
 def _truth_table(total_bits, predicate):
@@ -44,6 +48,11 @@ def _compute_lat_cached(table, input_bitsize, output_bitsize):
 
 def _copy_table(table):
     return [list(row) for row in table]
+
+
+def _table_fingerprint(table):
+    table_bytes = ",".join(str(value) for value in table).encode("ascii")
+    return hashlib.sha256(table_bytes).hexdigest()[:12]
 
 
 class Sbox(Operator):  # Generic operator assigning a Sbox relationship between the input variable and output variable (must be of same bitsize)
@@ -237,6 +246,19 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
     def _template_io_vars(var_in, var_out):
         return [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
 
+    def _model_cache_key(self):
+        return (
+            f"{self.__class__.__name__}_{self.input_bitsize}x{self.output_bitsize}_"
+            f"{_table_fingerprint(tuple(self.table))}"
+        )
+
+    def _model_cache_path(self, model_type, model_version, tool_type, mode):
+        filename = (
+            f"constraints_{model_type}_{self._model_cache_key()}_"
+            f"{model_version}_{tool_type}_{mode}.txt"
+        )
+        return str(get_files_dir("sbox_modeling") / filename)
+
     def _packed_input_expression(self, unroll, terminator=""):
         x_bits = len(self.input_vars)
         return (
@@ -272,7 +294,11 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                     f'y = {self.__class__.__name__}[x]',
                     self._python_bitwise_assignment(unroll),
                 ]
-            else: raise Exception(str(self.__class__.__name__) + ": unsupported number of input/output variables for 'python' implementation")
+            else:
+                raise ValueError(
+                    f"{self.__class__.__name__}: unsupported number of input/output variables "
+                    "for 'python' implementation"
+                )
         elif implementation_type == 'c':
             if len(self.input_vars) == 1 and len(self.output_vars) == 1:
                 return [self.get_var_ID('out', 0, unroll) + ' = ' + str(self.__class__.__name__) + '[' + self.get_var_ID('in', 0, unroll) + '];']
@@ -282,8 +308,13 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                     f'y = {str(self.__class__.__name__)}[x];',
                     *self._c_bitwise_assignments(unroll),
                 ]
-            else: raise Exception(str(self.__class__.__name__) + ": unsupported number of input/output variables for 'c' implementation")
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+            else:
+                raise ValueError(
+                    f"{self.__class__.__name__}: unsupported number of input/output variables "
+                    "for 'c' implementation"
+                )
+        else:
+            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
 
     def get_header_ID(self):
         return [self.__class__.__name__, self.model_version, self.input_bitsize, self.output_bitsize, self.table]
@@ -303,7 +334,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
 
     # ---------------- Modeling Interface ---------------- #
     def generate_model(self, model_type='sat', tool_type="minimize_logic", mode = 0, filename_load=True):
-        self.model_filename = str(BASE_PATH / f"constraints_{model_type}_{self.model_version}_{tool_type}_{mode}.txt")
+        self.model_filename = self._model_cache_path(model_type, self.model_version, tool_type, mode)
         self.filename_load = filename_load
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_PR", self.__class__.__name__ + "_LINEAR_PR"]:
             return self._generate_model_diff_linear_pr(model_type, tool_type, mode)
@@ -361,7 +392,12 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
 
     def _generate_model_diff_linear(self, model_type, tool_type, mode): # modeling all possible (input difference, output difference)
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_A", self.__class__.__name__ + "_LINEAR_A"]:
-            self.model_filename = str(BASE_PATH / f"constraints_{model_type}_{self.model_version.replace('_A', '')}_{tool_type}_{mode}.txt")
+            self.model_filename = self._model_cache_path(
+                model_type,
+                self.model_version.replace("_A", ""),
+                tool_type,
+                mode,
+            )
 
         var_in, var_out = self._bitwise_model_vars()
 
@@ -407,7 +443,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
 
         for i in range(len(spectrum)):
             self.model_version = model_v + str(spectrum[i])
-            self.model_filename = str(BASE_PATH / f"constraints_{model_type}_{self.model_version}_{tool_type}_{mode}.txt")
+            self.model_filename = self._model_cache_path(model_type, self.model_version, tool_type, mode)
 
             if self.filename_load and os.path.exists(self.model_filename):
                 sbox_inequalities, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)

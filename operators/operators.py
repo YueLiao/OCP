@@ -4,7 +4,31 @@ from tools.bit_constraints import gen_xor_constraints, gen_word_xor_constraints,
 
 
 def RaiseExceptionVersionNotExisting(class_name, model_version, model_type):
-    raise Exception(class_name + ": version " + str(model_version) + " not existing for " + model_type)
+    raise ValueError(f"{class_name}: version {model_version} not existing for {model_type}")
+
+
+def raise_unknown_model_type(class_name, model_type, context=None):
+    context_message = f" for {context}" if context is not None else ""
+    raise ValueError(f"{class_name}: unknown model type '{model_type}'{context_message}")
+
+
+def raise_unknown_implementation_type(class_name, implementation_type):
+    raise ValueError(f"{class_name}: unknown implementation type '{implementation_type}'")
+
+
+def require_variable_count(class_name, variables, expected_count, side):
+    if len(variables) != expected_count:
+        raise ValueError(f"{class_name}: expected exactly {expected_count} {side} variable(s), got {len(variables)}")
+
+
+def require_min_variable_count(class_name, variables, min_count, side):
+    if len(variables) < min_count:
+        raise ValueError(f"{class_name}: expected at least {min_count} {side} variable(s), got {len(variables)}")
+
+
+def require_same_bitsize(class_name, left_var, right_var, message):
+    if left_var.bitsize != right_var.bitsize:
+        raise ValueError(f"{class_name}: {message}")
 
 
 def binary_declaration(*var_groups):
@@ -70,7 +94,7 @@ class Operator(ABC):
         elif in_out == 'in':
             return self.input_vars[index].ID if unroll else self.input_vars[index].remove_round_from_ID()
         else:
-            raise Exception(str(self.__class__.__name__) + ": unknown in_out type '" + in_out + "'")
+            raise ValueError(f"{self.__class__.__name__}: unknown in_out type '{in_out}'")
 
     def get_header_ID(self):
         return [self.__class__.__name__, self.model_version]
@@ -85,7 +109,7 @@ class Operator(ABC):
         elif in_out == 'out':
             var = self.output_vars[index]
         else:
-            raise Exception(str(self.__class__.__name__) + ": unknown in_out type '" + in_out + "'")
+            raise ValueError(f"{self.__class__.__name__}: unknown in_out type '{in_out}'")
         if bitwise and var.bitsize > 1:
             return [f"{var.ID}_{i}_{j}" for i in range(var.bitsize) for j in range(dim)] if dim > 1 else [f"{var.ID}_{i}" for i in range(var.bitsize)]
         else:
@@ -108,7 +132,8 @@ class CastingOperator(Operator):    # Operator for casting from one type to anot
     """
 
     def __init__(self, input_vars, output_vars, ID = None):
-        if sum([input_vars[i].bitsize for i in range(len(input_vars))]) != sum([output_vars[i].bitsize for i in range(len(output_vars))]): raise Exception("CastingOperator: the total input size does not match the total output size")
+        if sum(input_var.bitsize for input_var in input_vars) != sum(output_var.bitsize for output_var in output_vars):
+            raise ValueError("CastingOperator: the total input size does not match the total output size")
         super().__init__(input_vars, output_vars, ID = ID)
 
 
@@ -118,18 +143,18 @@ class CastingWordtoBitVector(CastingOperator):   # Operator for casting a bit wo
 
 class UnaryOperator(Operator):   # Generic operator taking one input and one output (must be of same bitsize)
     def __init__(self, input_vars, output_vars, ID = None):
-        if len(input_vars) != 1: raise Exception(str(self.__class__.__name__) + ": your input does not contain exactly 1 element")
-        if len(output_vars) != 1: raise Exception(str(self.__class__.__name__) + ": your output does not contain exactly 1 element")
+        require_variable_count(self.__class__.__name__, input_vars, 1, "input")
+        require_variable_count(self.__class__.__name__, output_vars, 1, "output")
         # if input_vars[0].bitsize != output_vars[0].bitsize: raise Exception(str(self.__class__.__name__) + ": your input and output sizes do not match") zcn: can be removed because the input size and output size of sbox may be different
         super().__init__(input_vars, output_vars, ID = ID)
 
 
 class BinaryOperator(Operator):   # Generic operator taking two inputs and one output (must be of same bitsize)
     def __init__(self, input_vars, output_vars, ID = None):
-        if len(input_vars) != 2: raise Exception(str(self.__class__.__name__) + ": your input does not contain exactly 2 element")
-        if len(output_vars) != 1: raise Exception(str(self.__class__.__name__) + ": your output does not contain exactly 1 element")
-        if input_vars[0].bitsize != input_vars[1].bitsize: raise Exception(str(self.__class__.__name__) + ": your inputs sizes do not match")
-        if input_vars[0].bitsize != output_vars[0].bitsize: raise Exception(str(self.__class__.__name__) + ": your input and output sizes do not match")
+        require_variable_count(self.__class__.__name__, input_vars, 2, "input")
+        require_variable_count(self.__class__.__name__, output_vars, 1, "output")
+        require_same_bitsize(self.__class__.__name__, input_vars[0], input_vars[1], "input sizes do not match")
+        require_same_bitsize(self.__class__.__name__, input_vars[0], output_vars[0], "input and output sizes do not match")
         super().__init__(input_vars, output_vars, ID = ID)
 
 
@@ -146,10 +171,8 @@ class NoneOperator(Operator):  # Ghost Operator, does nothing (just a placeholde
 
 class CopyOperator(Operator):  # Operator that duplicates one input into multiple outputs: b_0, b_1, ..., b_n = a
     def __init__(self, input_vars, output_vars, ID = None):
-        if len(input_vars) != 1:
-            raise Exception(f"{self.__class__.__name__}: your input does not contain exactly 1 element")
-        if len(output_vars) < 2:
-            raise Exception(f"{self.__class__.__name__}: your output must contain at least 2 element")
+        require_variable_count(self.__class__.__name__, input_vars, 1, "input")
+        require_min_variable_count(self.__class__.__name__, output_vars, 2, "output")
         super().__init__(input_vars, output_vars, ID=ID)
 
     def generate_implementation(self, implementation_type='python', unroll=False):
@@ -161,7 +184,7 @@ class CopyOperator(Operator):  # Operator that duplicates one input into multipl
         elif implementation_type == 'verilog':
             return [f"assign {self.get_var_ID('out', j, unroll)} = {in_id};" for j in range(len(self.output_vars))]
         else:
-            raise Exception(f"{self.__class__.__name__}: unknown implementation type '{implementation_type}'")
+            raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_model(self, model_type='sat'):
         model_list = []
@@ -217,7 +240,7 @@ class CopyOperator(Operator):  # Operator that duplicates one input into multipl
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else: raise_unknown_model_type(self.__class__.__name__, model_type)
 
 
 
@@ -232,7 +255,7 @@ class Equal(UnaryOperator):  # Operator assigning equality between the input var
             return [self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ';']
         elif implementation_type == 'verilog':
             return ["assign " + self.get_var_ID('out', 0, unroll) + ' = ' + self.get_var_ID('in', 0, unroll) + ';']
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        else: raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_model(self, model_type='sat'):
         if model_type == 'sat':
@@ -256,15 +279,17 @@ class Equal(UnaryOperator):  # Operator assigning equality between the input var
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else: raise_unknown_model_type(self.__class__.__name__, model_type)
 
 
 class Rot(UnaryOperator):     # Operator for the rotation function: rotation of the input variable to the output variable with "direction" ('l' or 'r') and "amount" of bits
     def __init__(self, input_vars, output_vars, direction, amount, ID = None):
         super().__init__(input_vars, output_vars, ID = ID)
-        if direction!='l' and direction!='r': raise Exception(str(self.__class__.__name__) + ": unknown direction value")
+        if direction not in {'l', 'r'}:
+            raise ValueError(f"{self.__class__.__name__}: direction must be 'l' or 'r', got '{direction}'")
         self.direction = direction
-        if amount<=0 or amount>= input_vars[0].bitsize: raise Exception(str(self.__class__.__name__) + ": wrong amount value")
+        if amount <= 0 or amount >= input_vars[0].bitsize:
+            raise ValueError(f"{self.__class__.__name__}: amount must satisfy 0 < amount < bitsize ({input_vars[0].bitsize}), got {amount}")
         self.amount = amount
 
     def generate_implementation(self, implementation_type='python', unroll=False):
@@ -279,7 +304,7 @@ class Rot(UnaryOperator):     # Operator for the rotation function: rotation of 
             return [f"{lhs} = {macro}({source}, {self.amount}, {bitsize});"]
         elif implementation_type == 'verilog':
             return [f"assign {lhs} = `{macro}({source}, {self.amount}, {bitsize});"]
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        else: raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_implementation_header_unique(self, implementation_type='python'):
         if implementation_type == 'python':
@@ -315,15 +340,17 @@ class Rot(UnaryOperator):     # Operator for the rotation function: rotation of 
                 return  model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else: raise_unknown_model_type(self.__class__.__name__, model_type)
 
 
 class Shift(UnaryOperator):    # Operator for the shift function: shift of the input variable to the output variable with "direction" ('l' or 'r') and "amount" of bits
     def __init__(self, input_vars, output_vars, direction, amount, ID = None):
         super().__init__(input_vars, output_vars, ID = ID)
-        if direction!='l' and direction!='r': raise Exception(str(self.__class__.__name__) + ": unknown direction value")
+        if direction not in {'l', 'r'}:
+            raise ValueError(f"{self.__class__.__name__}: direction must be 'l' or 'r', got '{direction}'")
         self.direction = direction
-        if amount<=0 or amount>= input_vars[0].bitsize: raise Exception(str(self.__class__.__name__) + ": wrong amount value")
+        if amount <= 0 or amount >= input_vars[0].bitsize:
+            raise ValueError(f"{self.__class__.__name__}: amount must satisfy 0 < amount < bitsize ({input_vars[0].bitsize}), got {amount}")
         self.amount = amount
 
     def generate_implementation(self, implementation_type='python', unroll=False):
@@ -338,7 +365,7 @@ class Shift(UnaryOperator):    # Operator for the shift function: shift of the i
             return [f"{lhs} = ({source} {shift_operator} {self.amount}) & ((1<<{bitsize}) - 1);"]
         elif implementation_type == 'verilog':
             return [f"assign {lhs} = ({source} {shift_operator} {self.amount}) & ((1<<{bitsize}) - 1);"]
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        else: raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_model(self, model_type='sat'):
         if model_type == 'sat':
@@ -370,7 +397,7 @@ class Shift(UnaryOperator):    # Operator for the shift function: shift of the i
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else: raise_unknown_model_type(self.__class__.__name__, model_type)
 
 
 class CustomOP(Operator):   # generic custom operator (to be defined by the user)

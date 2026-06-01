@@ -1,4 +1,10 @@
-from operators.operators import Operator, Equal, RaiseExceptionVersionNotExisting
+from operators.operators import (
+    Operator,
+    Equal,
+    RaiseExceptionVersionNotExisting,
+    raise_unknown_implementation_type,
+    raise_unknown_model_type,
+)
 from operators.Sbox import AES_Sbox
 from operators.matrix import Matrix
 from operators.boolean_operators import XOR
@@ -13,7 +19,10 @@ def _iter_layer_constraints(layers):
 
 class AESround(Operator): # Operator for the AES round
     def __init__(self, input_vars, output_vars, subkey=None, ID = None):
-        if len(input_vars) != 16: raise Exception(str(self.__class__.__name__) + ": your input does not contain exactly 16 element")
+        if len(input_vars) != 16:
+            raise ValueError(
+                f"{self.__class__.__name__}: expected exactly 16 input variables, got {len(input_vars)}"
+            )
         super().__init__(input_vars, output_vars, ID = ID)
         self.subkey = subkey
         self.layers = []
@@ -71,7 +80,8 @@ class AESround(Operator): # Operator for the AES round
             for cons in _iter_layer_constraints(self.layers):
                 code_list += cons.generate_implementation(implementation_type, unroll=unroll)
             return code_list
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        else:
+            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
 
     def generate_model(self, model_type='sat'):
         model_list = []
@@ -90,4 +100,5 @@ class AESround(Operator): # Operator for the AES round
                     self.weight += cons.weight
             return model_list
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else:
+            raise_unknown_model_type(str(self.__class__.__name__), model_type)

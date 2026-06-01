@@ -3,7 +3,14 @@ import os
 import copy
 import warnings
 from functools import lru_cache
-from operators.operators import Operator, UnaryOperator, RaiseExceptionVersionNotExisting, binary_declaration
+from operators.operators import (
+    Operator,
+    UnaryOperator,
+    RaiseExceptionVersionNotExisting,
+    binary_declaration,
+    raise_unknown_implementation_type,
+    raise_unknown_model_type,
+)
 from tools.bit_constraints import gen_matrix_constraints, gen_word_matrix_constraints, gen_word_nxor_constraints
 from tools.model_templates import generate_and_save_constraints, gen_constraints_obj_func_from_template
 from tools.paths import get_files_dir
@@ -225,9 +232,12 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
     def __init__(self, name, input_vars, output_vars, mat, polynomial = None, ID = None):
         r, c = len(mat), len(mat[0])
         for i in mat:
-            if len(i)!=c: raise Exception(str(self.__class__.__name__) + ": matrix size not consistent")
-        if len(input_vars)!=c: raise Exception(str(self.__class__.__name__) + ": input vector does not match matrix size")
-        if len(output_vars)!=r: raise Exception(str(self.__class__.__name__) + ": output vector does not match matrix size")
+            if len(i) != c:
+                raise ValueError(f"{self.__class__.__name__}: matrix size not consistent")
+        if len(input_vars) != c:
+            raise ValueError(f"{self.__class__.__name__}: input vector does not match matrix size")
+        if len(output_vars) != r:
+            raise ValueError(f"{self.__class__.__name__}: output vector does not match matrix size")
         super().__init__(input_vars, output_vars, ID = ID)
         self.name = name
         self.mat = mat
@@ -603,7 +613,7 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
         elif implementation_type == 'c':
             return [f"{self.name}({input_args}, {output_args});"]
         else:
-            raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
 
     def get_header_ID(self):
         return [self.__class__.__name__, self.model_version, self.input_vars[0].bitsize, self.mat, self.polynomial]
@@ -695,7 +705,8 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
             return self._generate_model_truncated_diff_linear_valid_patterns(model_type, tool_type)
 
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "' for " + self.model_version)
+        else:
+            raise_unknown_model_type(str(self.__class__.__name__), model_type, context=self.model_version)
 
     def _generate_model_diff(self, model_type, bin_matrix): # Modeling for bit-wise differential cryptanalysis
         if self.model_version in [self.__class__.__name__ + "_XORDIFF"]:
@@ -759,15 +770,15 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
         else:
             RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
 
-        ttable = ""
+        pattern_set = set(patterns)
+        truth_bits = []
         for i in range(2**input_words):
             x = tuple('*' if b == '1' else 0 for b in format(i, f"0{input_words}b"))
             for j in range(2**output_words):
                 y = tuple('*' if b == '1' else 0 for b in format(j, f"0{output_words}b"))
                 pattern = (x, y)
-                if pattern in patterns:
-                    ttable += "1"
-                else: ttable += "0"
+                truth_bits.append("1" if pattern in pattern_set else "0")
+        ttable = "".join(truth_bits)
 
         input_variables, output_variables = [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
         generate_and_save_constraints(model_type, tool_type, 0, ttable, input_variables, output_variables, model_filename=self.model_filename)
@@ -823,7 +834,8 @@ class GF2Linear_Trans(UnaryOperator):  # Operator for the linear transformation 
                     s += f") << {n-i-1} | "
             s = s.rstrip(' | ') + ';'
             return [s]
-        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+        else:
+            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
 
     def generate_model(self, model_type='sat'):
         model_list = []
@@ -871,4 +883,5 @@ class GF2Linear_Trans(UnaryOperator):  # Operator for the linear transformation 
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        else: raise Exception(str(self.__class__.__name__) + ": unknown model type '" + model_type + "'")
+        else:
+            raise_unknown_model_type(str(self.__class__.__name__), model_type)

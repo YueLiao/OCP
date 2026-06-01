@@ -159,6 +159,13 @@ document, and extend.
 - Replaced bit-constraint helper assertions with explicit TypeError checks.
 - Replaced predefined-constraint and template option assertions with explicit ValueError checks.
 - Replaced GF2Linear_Trans square-matrix assertion with an explicit ValueError.
+- Added shared operator error helpers and moved core/boolean operator validation to explicit ValueError checks.
+- Replaced primitive constructor and layer broad exceptions with explicit ValueError boundary checks.
+- Added table-fingerprinted S-box model template cache paths to avoid cross-S-box template reuse.
+- Rebuilt the PRESENT S-box SAT template under the new cache key; the minimized one-round PRESENT baseline is now 1,264 constraints.
+- Reduced Matrix truncated-model truth-table generation overhead with set membership and one-pass string assembly.
+- Moved Matrix and S-box implementation/model validation errors to explicit `ValueError` helpers.
+- Removed remaining active broad `Exception` raises from `operators/` and `primitives/`; unsupported implemented gaps now use explicit `NotImplementedError`.
 
 ## Validation
 
@@ -169,7 +176,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `231 passed, 106 skipped, 1 warning`.
+Latest default pytest status: `235 passed, 106 skipped, 1 warning`.
 
 ## Next Work
 

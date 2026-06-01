@@ -9,6 +9,11 @@ from operators.modular_operators import ConstantAdd
 def generateID(name, round_nb, layer, position):
     return name + '_' + str(round_nb) + '_' + str(layer) + '_' + str(position)
 
+
+def _require_count(context, values, expected, noun):
+    if len(values) != expected:
+        raise ValueError(f"{context}: expected {expected} {noun}, got {len(values)}")
+
 # ********************* LAYERED_FUNCTION ********************* #
 # Class that represents a layered function object, i.e. a collection of functions that will be updated through a certain number of rounds each composed of a certain number of layers
 # This object will contain the list of variables representing the functions at each stage of the computation
@@ -222,14 +227,16 @@ class Layered_Function:
     def MatrixLayer(self, name, crt_round, crt_layer, mat, indexes_list, polynomial = None):
         m = len(mat)
         for i in mat:
-            if len(i)!=m: raise Exception("MatrixLayer: matrix shape is not square")
+            if len(i) != m:
+                raise ValueError("MatrixLayer: matrix shape is not square")
         flat_indexes = [x for sublist in indexes_list for x in sublist]
         flat_indexes_set = set(flat_indexes)
         for j in range(self._total_words()):
             if j not in flat_indexes_set:
                 self._add_equal_constraint(name, crt_round, crt_layer, j)
         for j, indexes in enumerate(indexes_list):
-            if len(indexes)!=m: raise Exception("MatrixLayer: input vector does not match matrix size")
+            if len(indexes) != m:
+                raise ValueError("MatrixLayer: input vector does not match matrix size")
             self.constraints[crt_round][crt_layer].append(Matrix(name, [self.vars[crt_round][crt_layer][x] for x in indexes], [self.vars[crt_round][crt_layer+1][x] for x in indexes], mat = mat, polynomial = polynomial, ID=generateID(name,crt_round,crt_layer+1,j)) )
 
     # extract a subkey from the external variable, determined by "extraction_mask"
@@ -241,7 +248,8 @@ class Layered_Function:
     # apply a layer "name" of an AddRoundKeyLayer addition, at the round "crt_round", at the layer "crt_layer", with the adding operator "my_operator". Only the positions where mask=1 will have the AddRoundKey applied, the rest being just identity
     def AddRoundKeyLayer(self, name, crt_round, crt_layer, my_operator, sk_function, mask = None):
         if mask is None: mask = [1]*sk_function.nbr_words
-        if sum(mask)!=sk_function.nbr_words: raise Exception("AddRoundKeyLayer: subkey size does not match the mask")
+        if sum(mask) != sk_function.nbr_words:
+            raise ValueError("AddRoundKeyLayer: subkey size does not match the mask")
         if len(mask)<(self.nbr_words + self.nbr_temp_words): mask += [0]*(self.nbr_words + self.nbr_temp_words - len(mask))
         cpt = 0
         for j in range(self._total_words()):
@@ -416,10 +424,10 @@ class Function(Primitive):
         self.functions_implementation_order = ["FUNCTION"]
         self.functions_display_order = ["FUNCTION"]
 
-        if len(s_input)!=nbr_words_input: raise Exception("Function: the number of input words does not match the number of input words in function")
+        _require_count("Function", s_input, nbr_words_input, "input word(s)")
         self._append_input_links(s_input, self.functions["FUNCTION"].vars[1][0], "IN_LINK_EQ_")
 
-        if len(s_output)!=nbr_words_output: raise Exception("Function: the number of output words does not match the number of output words in function")
+        _require_count("Function", s_output, nbr_words_output, "output word(s)")
         self._append_output_links(self.functions["FUNCTION"].vars[nbr_rounds][nbr_layers], s_output, "OUT_LINK_EQ_")
 
 
@@ -435,10 +443,10 @@ class Permutation(Primitive):
         self.functions_implementation_order = ["PERMUTATION"]
         self.functions_display_order = ["PERMUTATION"]
 
-        if len(s_input)!=nbr_words: raise Exception("Permutation: the number of input words does not match the number of words in function")
+        _require_count("Permutation", s_input, nbr_words, "input word(s)")
         self._append_input_links(s_input, self.functions["PERMUTATION"].vars[1][0], "IN_LINK_EQ_")
 
-        if len(s_output)!=nbr_words: raise Exception("Permutation: the number of output words does not match the number of words in function")
+        _require_count("Permutation", s_output, nbr_words, "output word(s)")
         self._append_output_links(self.functions["PERMUTATION"].vars[nbr_rounds][nbr_layers], s_output, "OUT_LINK_EQ_")
 
 
@@ -457,15 +465,13 @@ class Block_cipher(Primitive):
         self.functions_implementation_order = ["SUBKEYS", "KEY_SCHEDULE", "PERMUTATION"]
         self.functions_display_order = ["PERMUTATION", "KEY_SCHEDULE", "SUBKEYS"]
 
-        if (len(k_input)!=k_nbr_words) or (len(p_input)!=s_nbr_words): raise Exception("Block_cipher: the number of input plaintext/key words does not match the number of plaintext/key words in function")
-
-        if len(p_input)!=s_nbr_words: raise Exception("Block_cipher: the number of plaintext words does not match the number of words in the permutation")
+        _require_count("Block_cipher", p_input, s_nbr_words, "plaintext word(s)")
         self._append_input_links(p_input, self.functions["PERMUTATION"].vars[1][0], "IN_LINK_P_EQ_")
 
-        if len(k_input)!=k_nbr_words: raise Exception("Block_cipher: the number of key words does not match the number of words in the")
+        _require_count("Block_cipher", k_input, k_nbr_words, "key word(s)")
         self._append_input_links(k_input, self.functions["KEY_SCHEDULE"].vars[1][0], "IN_LINK_K_EQ_")
 
-        if len(c_output)!=s_nbr_words: raise Exception("Block_cipher: the number of ciphertext words does not match the number of words in the permutation")
+        _require_count("Block_cipher", c_output, s_nbr_words, "ciphertext word(s)")
         self._append_output_links(self.functions["PERMUTATION"].vars[nbr_rounds][s_nbr_layers], c_output, "OUT_LINK_C_EQ_")
 
 
@@ -487,13 +493,11 @@ class Stream_cipher(Primitive):
         self.functions_implementation_order = ["INITIALIZATION", "STATE_UPDATE", "KEYSTREAM_GEN"]
         self.functions_display_order = ["INITIALIZATION", "STATE_UPDATE", "KEYSTREAM_GEN"]
 
-        if (len(iv_input)!=init_nbr_words) or (len(k_input)!=init_nbr_words): raise Exception("Stream_cipher: the number of input IV/key words does not match the number of IV/key words in initialization function")
-
-        if len(iv_input)!=init_nbr_words: raise Exception("Stream_cipher: the number of IV words does not match the number of words in the initialization function")
+        _require_count("Stream_cipher", iv_input, init_nbr_words, "IV word(s)")
         self._append_input_links(iv_input, self.functions["INITIALIZATION"].vars[1][0], "IN_LINK_IV_EQ_")
 
-        if len(k_input)!=init_nbr_words: raise Exception("Stream_cipher: the number of key words does not match the number of words in the initialization function")
+        _require_count("Stream_cipher", k_input, init_nbr_words, "key word(s)")
         self._append_input_links(k_input, self.functions["INITIALIZATION"].vars[1][0][init_nbr_words:], "IN_LINK_K_EQ_")
 
-        if len(keystream_output)!=keystream_nbr_words: raise Exception("Stream_cipher: the number of keystream words does not match the number of words in the keystream generation function")
+        _require_count("Stream_cipher", keystream_output, keystream_nbr_words, "keystream word(s)")
         self._append_output_links(self.functions["KEYSTREAM_GEN"].vars[nbr_rounds_keystream][keystream_nbr_layers], keystream_output, "OUT_LINK_KS_EQ_")

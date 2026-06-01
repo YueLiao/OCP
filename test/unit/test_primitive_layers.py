@@ -5,7 +5,7 @@ from operators.matrix import Matrix
 from operators.operators import Equal, Rot
 from primitives.led import LED_block_cipher
 from primitives.present import PRESENT_block_cipher
-from primitives.primitives import Function, Layered_Function, Permutation
+from primitives.primitives import Block_cipher, Function, Layered_Function, Permutation
 from variables.variables import Variable
 
 
@@ -119,6 +119,16 @@ def test_matrix_layer_adds_identity_constraints_outside_matrix_groups():
     assert isinstance(constraints[1], Matrix)
 
 
+def test_matrix_layer_rejects_invalid_shapes():
+    function = Layered_Function("F", "", 1, 1, 3, 0, 4)
+
+    with pytest.raises(ValueError, match="matrix shape is not square"):
+        function.MatrixLayer("M", 1, 0, [[1, 0, 1], [0, 1]], [[0, 1]])
+
+    with pytest.raises(ValueError, match="input vector does not match"):
+        function.MatrixLayer("M", 1, 0, [[1, 0], [0, 1]], [[0, 1, 2]])
+
+
 def test_extraction_layer_links_external_variables_to_outputs():
     function = Layered_Function("F", "", 1, 1, 2, 0, 1)
     external = [Variable(1, ID=f"ext{i}") for i in range(3)]
@@ -148,6 +158,33 @@ def test_block_cipher_constructors_reject_unsupported_versions_before_modeling()
 
     with pytest.raises(ValueError, match="LED only supports"):
         LED_block_cipher("L", [128, 128], [], [], [])
+
+
+def test_primitive_constructors_raise_value_errors_for_count_mismatches():
+    with pytest.raises(ValueError, match="expected 2 input"):
+        Function("F", [Variable(1, ID="in0")], [Variable(1, ID="out0")], 1, [1, 2, 1, 0, 1])
+
+    with pytest.raises(ValueError, match="expected 2 output"):
+        Permutation(
+            "P",
+            [Variable(1, ID="in0"), Variable(1, ID="in1")],
+            [Variable(1, ID="out0")],
+            1,
+            [1, 2, 0, 1],
+        )
+
+    with pytest.raises(ValueError, match="expected 2 plaintext"):
+        Block_cipher(
+            "B",
+            [Variable(1, ID="p0")],
+            [Variable(1, ID="k0")],
+            [Variable(1, ID="c0")],
+            1,
+            1,
+            [1, 2, 0, 1],
+            [1, 1, 0, 1],
+            [1, 1, 0, 1],
+        )
 
 
 def test_primitive_build_dictionaries_indexes_function_graph():

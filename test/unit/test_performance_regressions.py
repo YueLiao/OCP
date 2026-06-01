@@ -167,7 +167,7 @@ def test_model_generation_profiler_reports_constraint_hotspots():
     assert report["profile"]["operators"]["PRESENT_Sbox"]["calls"] == 16
     assert report["top_operators"][0]["name"] == "PRESENT_Sbox"
     assert report["top_operators"][0]["calls"] == 16
-    assert report["top_operators"][0]["constraints"] == 896
+    assert report["top_operators"][0]["constraints"] == 880
     assert len(report["top_operator_prefixes"]) == 1
     assert report["generation_time_s"] >= 0
 
