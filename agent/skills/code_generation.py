@@ -124,9 +124,15 @@ class CodeGenerationSkill(BaseSkill):
                 data=results_data,
                 summary=summary,
             )
-        except Exception as e:
+        except (OSError, ValueError) as e:
             return SkillResult(
                 success=False,
                 skill=self.name,
                 error=f"Code generation failed: {e}",
+            )
+        except Exception as e:
+            return SkillResult(
+                success=False,
+                skill=self.name,
+                error=f"Unexpected code generation failure: {e}",
             )

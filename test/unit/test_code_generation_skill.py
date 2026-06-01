@@ -120,3 +120,25 @@ def test_code_generation_wraps_output_directory_errors(monkeypatch, tmp_path):
 
     assert not result.success
     assert result.error.startswith("Code generation failed:")
+
+
+def test_code_generation_classifies_unexpected_failures(monkeypatch, tmp_path):
+    def fake_generate_implementation(cipher, filename, language, unroll):
+        raise TypeError("programming detail")
+
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        "implementations.implementations.generate_implementation",
+        fake_generate_implementation,
+    )
+
+    session = Session()
+    session.set_cipher(SimpleNamespace(name="Tiny", test_vectors=[]))
+
+    result = CodeGenerationSkill().execute(
+        SkillRequest(SkillName.CODE_GENERATION, {"language": "python", "test": False}),
+        session,
+    )
+
+    assert not result.success
+    assert result.error == "Unexpected code generation failure: programming detail"

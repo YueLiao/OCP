@@ -178,6 +178,8 @@ document, and extend.
 - Introduced a typed `AttackSearchConfig` normalization wrapper while preserving legacy dict returns for existing attack/search callers.
 - Consolidated differential and linear symbolic-constraint expansion and fixed boundary constraint generation behind shared attack helpers.
 - Consolidated differential and linear trail formatting behind a shared formatter while preserving trail artifact naming and aggregate log wording.
+- Shared agent analysis skill validation/result construction across differential and linear skills, including stricter constraint and solution-count checks.
+- Classified expected agent code generation, visualization, and analysis failures separately from unexpected programming failures.
 
 ## Validation
 
@@ -188,10 +190,10 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `253 passed, 107 skipped, 1 warning`.
+Latest default pytest status: `258 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 
-1. Continue moving attack/search call sites from raw dict access to typed helper properties where it reduces key-string duplication.
-2. Continue improving web draft review ergonomics and artifact browsing.
-3. Add optional MILP-backed identity-elision smoke tests when a MILP backend is available.
+1. Continue classifying remaining agent/core broad exception handlers without leaking provider internals.
+2. Continue moving attack/search call sites from raw dict access to typed helper properties where it reduces key-string duplication.
+3. Continue improving web draft review ergonomics and artifact browsing.

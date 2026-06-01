@@ -2,6 +2,11 @@ from typing import Any, Dict
 
 from agent.types import SkillName, SkillRequest, SkillResult
 from agent.session import Session
+from agent.skills.analysis_common import (
+    analysis_success_result,
+    build_solver_config,
+    validate_analysis_params,
+)
 from agent.skills.artifacts import trail_artifact_links
 from agent.skills.base import BaseSkill
 
@@ -96,30 +101,19 @@ class DifferentialAnalysisSkill(BaseSkill):
             )
 
         params = request.params
-        goal = params.get("goal", "DIFFERENTIALPATH_PROB")
-        model_type = params.get("model_type", "milp")
-        constraints = params.get("constraints", ["INPUT_NOT_ZERO"])
-        objective_target = params.get("objective_target", "OPTIMAL")
-        show_mode = params.get("show_mode", 0)
-
-        if goal not in VALID_GOALS:
+        normalized, error = validate_analysis_params(
+            params,
+            valid_goals=VALID_GOALS,
+            default_goal="DIFFERENTIALPATH_PROB",
+        )
+        if error:
             return SkillResult(
                 success=False,
                 skill=self.name,
-                error=f"Invalid goal: '{goal}'. Valid: {VALID_GOALS}",
+                error=error,
             )
-        if model_type not in ("milp", "sat"):
-            return SkillResult(
-                success=False,
-                skill=self.name,
-                error=f"Invalid model_type: '{model_type}'. Use 'milp' or 'sat'.",
-            )
-        if "solution_number" in params and params["solution_number"] <= 0:
-            return SkillResult(
-                success=False,
-                skill=self.name,
-                error="Invalid solution_number: use a positive integer.",
-            )
+        goal = normalized["goal"]
+        model_type = normalized["model_type"]
 
         # Build config_model
         config_model = {"model_type": model_type}
@@ -128,46 +122,35 @@ class DifferentialAnalysisSkill(BaseSkill):
         if "output_diff" in params:
             config_model["output_diff"] = params["output_diff"]
 
-        # Build config_solver
-        config_solver = None
-        if "solver" in params or "solution_number" in params:
-            config_solver = {}
-            if "solver" in params:
-                config_solver["solver"] = params["solver"]
-            if "solution_number" in params:
-                config_solver["solution_number"] = params["solution_number"]
+        config_solver = build_solver_config(params)
 
         try:
             trails = attacks.diff_attacks(
                 cipher,
                 goal=goal,
-                constraints=constraints,
-                objective_target=objective_target,
-                show_mode=show_mode,
+                constraints=normalized["constraints"],
+                objective_target=normalized["objective_target"],
+                show_mode=normalized["show_mode"],
                 config_model=config_model,
                 config_solver=config_solver,
             )
-            trail_count = len(trails) if trails else 0
-            summary = (
-                f"Differential analysis ({model_type.upper()}, {goal}): "
-                f"found {trail_count} trail(s)."
+            return analysis_success_result(
+                skill_name=self.name,
+                analysis_label="Differential",
+                goal=goal,
+                model_type=model_type,
+                trails=trails,
+                artifact_links=trail_artifact_links(trails),
             )
-            artifact_links = trail_artifact_links(trails)
+        except (ValueError, RuntimeError) as e:
             return SkillResult(
-                success=True,
+                success=False,
                 skill=self.name,
-                data={
-                    "trails": trails,
-                    "trail_count": trail_count,
-                    "goal": goal,
-                    "model_type": model_type,
-                    "artifact_links": artifact_links,
-                },
-                summary=summary,
+                error=f"Differential analysis failed: {e}",
             )
         except Exception as e:
             return SkillResult(
                 success=False,
                 skill=self.name,
-                error=f"Differential analysis failed: {e}",
+                error=f"Unexpected differential analysis failure: {e}",
             )

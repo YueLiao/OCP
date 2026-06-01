@@ -41,6 +41,34 @@ def test_analysis_skills_reject_invalid_solution_number_at_boundary():
         assert "Invalid solution_number" in result.error
 
 
+def test_analysis_skills_reject_non_integer_solution_number_at_boundary():
+    for skill, skill_name in (
+        (DifferentialAnalysisSkill(), SkillName.DIFFERENTIAL_ANALYSIS),
+        (LinearAnalysisSkill(), SkillName.LINEAR_ANALYSIS),
+    ):
+        result = skill.execute(
+            SkillRequest(skill_name, {"solution_number": "2"}),
+            _session_with_cipher(),
+        )
+
+        assert not result.success
+        assert "Invalid solution_number" in result.error
+
+
+def test_analysis_skills_reject_invalid_constraints_at_boundary():
+    for skill, skill_name in (
+        (DifferentialAnalysisSkill(), SkillName.DIFFERENTIAL_ANALYSIS),
+        (LinearAnalysisSkill(), SkillName.LINEAR_ANALYSIS),
+    ):
+        result = skill.execute(
+            SkillRequest(skill_name, {"constraints": ["INPUT_NOT_ZERO", 1]}),
+            _session_with_cipher(),
+        )
+
+        assert not result.success
+        assert "Invalid constraints" in result.error
+
+
 def test_differential_analysis_returns_trail_artifact_links(monkeypatch, tmp_path):
     trail = SimpleNamespace(
         json_filename=tmp_path / "diff.json",
@@ -62,6 +90,34 @@ def test_differential_analysis_returns_trail_artifact_links(monkeypatch, tmp_pat
         {"label": "trail_json_1", "path": str(tmp_path / "diff.json")},
         {"label": "trail_text_1", "path": str(tmp_path / "diff.txt")},
     ]
+
+
+def test_differential_analysis_classifies_expected_and_unexpected_failures(monkeypatch):
+    def raise_expected(*args, **kwargs):
+        raise ValueError("bad objective")
+
+    monkeypatch.setattr("attacks.attacks.diff_attacks", raise_expected)
+
+    result = DifferentialAnalysisSkill().execute(
+        SkillRequest(SkillName.DIFFERENTIAL_ANALYSIS, {}),
+        _session_with_cipher(),
+    )
+
+    assert not result.success
+    assert result.error == "Differential analysis failed: bad objective"
+
+    def raise_unexpected(*args, **kwargs):
+        raise TypeError("programming detail")
+
+    monkeypatch.setattr("attacks.attacks.diff_attacks", raise_unexpected)
+
+    result = DifferentialAnalysisSkill().execute(
+        SkillRequest(SkillName.DIFFERENTIAL_ANALYSIS, {}),
+        _session_with_cipher(),
+    )
+
+    assert not result.success
+    assert result.error == "Unexpected differential analysis failure: programming detail"
 
 
 def test_linear_analysis_returns_trail_artifact_links(monkeypatch, tmp_path):
@@ -141,3 +197,19 @@ def test_agent_visualization_wraps_output_directory_errors(tmp_path):
 
     assert not result.success
     assert result.error.startswith("Visualization failed:")
+
+
+def test_agent_visualization_classifies_unexpected_failures(monkeypatch, tmp_path):
+    def fake_generate_figure(cipher, filepath):
+        raise TypeError("programming detail")
+
+    monkeypatch.setenv("OCP_FILES_DIR", str(tmp_path))
+    monkeypatch.setattr("visualisations.visualisations.generate_figure", fake_generate_figure)
+
+    agent = OCPAgent()
+    agent.session.set_cipher(SimpleNamespace(name="Tiny"))
+
+    result = agent.generate_visualization()
+
+    assert not result.success
+    assert result.error == "Unexpected visualization failure: programming detail"

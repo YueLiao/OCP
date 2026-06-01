@@ -62,9 +62,15 @@ class VisualizationSkill(BaseSkill):
                 },
                 summary=f"Generated visualization: {filepath}",
             )
-        except Exception as e:
+        except (OSError, ValueError) as e:
             return SkillResult(
                 success=False,
                 skill=self.name,
                 error=f"Visualization failed: {e}",
+            )
+        except Exception as e:
+            return SkillResult(
+                success=False,
+                skill=self.name,
+                error=f"Unexpected visualization failure: {e}",
             )
