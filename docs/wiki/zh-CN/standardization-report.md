@@ -167,6 +167,7 @@
 - 加固 identity-elision alias 构造：增加严格 Equal-edge 保护、冲突/环检测和 token rewrite 缓存。
 - 将 identity-elision 回归覆盖扩展到 ChaCha 和 Salsa 的 SAT/MILP 模型生成。
 - 让 identity-elision trail lookup 支持链式 alias，并从 profiler 候选摘要中过滤 0 约束前缀。
+- 增加可选 PySAT-backed identity-elision smoke test：求解 elided Forro SAT 模型并验证 trail alias recovery。
 
 ## 验证
 
@@ -177,7 +178,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`241 passed, 106 skipped, 1 warning`。
+最新默认 pytest 状态：`241 passed, 107 skipped, 1 warning`。
 
 ## 后续工作
 

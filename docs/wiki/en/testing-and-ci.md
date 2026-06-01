@@ -24,6 +24,14 @@ python -m pytest --run-solver
 Use these suites when touching the corresponding subsystem and after installing
 the matching optional backends.
 
+The solver suite includes an identity-elision SAT smoke test when PySAT is
+available. It builds an elided Forro model, solves it, and verifies that trail
+extraction can recover values for variables removed by the alias pass:
+
+```bash
+python -m pytest test/unit/test_performance_regressions.py::test_identity_elision_sat_solver_smoke_preserves_trail_lookup --run-solver
+```
+
 Legacy operator files under `test/operators/` are manual experiment scripts and
 are intentionally skipped under pytest:
 
@@ -100,6 +108,7 @@ For a repeatable local snapshot without solving:
 
 ```bash
 python -m tools.profile_model_generation present:1 forro:1
+python -m tools.profile_model_generation chacha:1 salsa:1 forro:1 --identity-elision
 ```
 
 Profile cases use `name` or `name:rounds`; rounds and `--top-limit` must be

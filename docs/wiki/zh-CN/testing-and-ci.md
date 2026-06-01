@@ -23,6 +23,14 @@ python -m pytest --run-solver
 
 修改对应子系统并安装匹配的可选后端后，再运行这些测试。
 
+当 PySAT 可用时，solver 套件会包含一条 identity-elision SAT smoke test。
+该测试会构建 Forro 的 elided 模型、求解它，并验证 trail extraction 能通过 alias pass
+找回被移除变量的取值：
+
+```bash
+python -m pytest test/unit/test_performance_regressions.py::test_identity_elision_sat_solver_smoke_preserves_trail_lookup --run-solver
+```
+
 `test/operators/` 下的旧式算子文件是人工实验脚本，会在 pytest 下有意跳过：
 
 ```bash
@@ -93,6 +101,7 @@ config_model = {"profile_model_generation": True}
 
 ```bash
 python -m tools.profile_model_generation present:1 forro:1
+python -m tools.profile_model_generation chacha:1 salsa:1 forro:1 --identity-elision
 ```
 
 Profile case 使用 `name` 或 `name:rounds` 格式；rounds 和 `--top-limit`

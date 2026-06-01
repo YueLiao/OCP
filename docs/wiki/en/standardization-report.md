@@ -169,6 +169,7 @@ document, and extend.
 - Hardened identity-elision alias construction with strict Equal-edge guards, conflict/cycle checks, and cached token rewriting.
 - Extended identity-elision regression coverage to ChaCha and Salsa for SAT and MILP model generation.
 - Made identity-elision trail lookup resolve chained aliases and filtered zero-constraint prefixes from profiler candidate summaries.
+- Added an optional PySAT-backed identity-elision smoke test that solves an elided Forro SAT model and verifies trail alias recovery.
 
 ## Validation
 
@@ -179,7 +180,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `241 passed, 106 skipped, 1 warning`.
+Latest default pytest status: `241 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 

@@ -1,6 +1,7 @@
 import variables.variables as var
 import pytest
 from attacks.common import parse_and_set_configs
+from attacks.common import extract_trail_structures
 from operators.Sbox import PRESENT_Sbox, _compute_ddt_cached, _compute_lat_cached
 from operators.matrix import (
     _generate_binary_matrix_2_cached,
@@ -28,7 +29,9 @@ from tools.model_generation_state import (
     IDENTITY_ELISION_PROFILE_KEY,
     MODEL_GENERATION_PROFILE_ENABLED_KEY,
 )
+from tools.model_io import write_sat_model
 from tools.profile_model_generation import main, profile_case, summarize_identity_elision_candidates
+from solving import solving
 
 
 def test_sbox_ddt_lat_are_cached_across_instances():
@@ -401,3 +404,68 @@ def test_identity_elision_disabled_clears_private_state_on_reused_config():
     assert len(constraints) == 16586
     assert IDENTITY_ELISION_ALIASES_KEY not in config_model
     assert IDENTITY_ELISION_PROFILE_KEY not in config_model
+
+
+@pytest.mark.solver
+def test_identity_elision_sat_solver_smoke_preserves_trail_lookup(pytestconfig, tmp_path):
+    if not pytestconfig.getoption("--run-solver"):
+        pytest.skip("external solver-dependent test; pass --run-solver to run")
+    if not solving.is_solver_available("sat", "DEFAULT"):
+        pytest.skip("PySAT backend is not available")
+
+    cipher = FORRO_PERMUTATION(r=1)
+    config_model, _ = parse_and_set_configs(
+        cipher,
+        "DIFFERENTIALPATH_PROB",
+        "EXISTENCE",
+        {
+            "identity_elision": True,
+            "model_type": "sat",
+            "verbose": False,
+        },
+        {"solver": "DEFAULT", "solution_number": 1, "verbose": False},
+    )
+    config_model["filename"] = str(tmp_path / "forro_identity_elision.cnf")
+    constraints, _ = gen_round_model_constraint_obj_fun(
+        cipher,
+        "DIFFERENTIALPATH_PROB",
+        "sat",
+        config_model,
+    )
+    model = write_sat_model(constraints, config_model["filename"])
+    solutions = solving.solve_sat(
+        config_model["filename"],
+        model["variable_map"],
+        {"solver": "DEFAULT", "solution_number": 1, "verbose": False},
+    )
+
+    assert solutions
+    aliases = config_model[IDENTITY_ELISION_ALIASES_KEY]
+    aliased_var, source_var = next(iter(aliases.items()))
+    solution = solutions[0]
+    trail = extract_trail_structures(
+        cipher,
+        "DIFFERENTIALPATH_PROB",
+        solution,
+        truncated_marker="TRUNCATEDDIFF",
+        config_model=config_model,
+    )
+
+    def find_node(var_id):
+        for round_store in trail["functions"]["PERMUTATION"].values():
+            if not isinstance(round_store, dict):
+                continue
+            for layer_nodes in round_store.values():
+                if not isinstance(layer_nodes, list):
+                    continue
+                for node in layer_nodes:
+                    if node["var_ID"] == var_id:
+                        return node
+        return None
+
+    source_node = find_node(source_var)
+    aliased_node = find_node(aliased_var)
+    assert source_node is not None
+    assert aliased_node is not None
+    assert aliased_node["bin_values"] == source_node["bin_values"]
+    assert set(aliased_node["bin_values"]) <= {"0", "1"}
