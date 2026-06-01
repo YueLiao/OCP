@@ -216,6 +216,8 @@ def draft_text_cipher():
                 "artifact_links": (job or {}).get("artifact_links", []),
             },
         )
+    except ValueError as exc:
+        return _error_response(str(exc), 400, "invalid_text_draft")
     except Exception:
         return _error_response(
             "Text draft processing failed. Check provider settings and server logs.",
@@ -387,6 +389,8 @@ def upload_file():
     try:
         result = agent.extract_cipher_from_file(tmp_path, focus=focus or None, auto_build=False)
         return _skill_response(result)
+    except ValueError as exc:
+        return _error_response(str(exc), 400, "invalid_upload")
     except Exception:
         return _error_response(
             "File upload processing failed. Check the file and server logs.",

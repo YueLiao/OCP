@@ -171,6 +171,25 @@ def test_text_draft_hides_unexpected_processing_details():
     assert "provider secret detail" not in data["error"]
 
 
+def test_text_draft_returns_400_for_expected_validation_errors():
+    class InvalidTextAgent:
+        session = SimpleNamespace(get_context=lambda: {"has_cipher": False})
+
+        def extract_cipher_facts(self, *args, **kwargs):
+            raise ValueError("draft validation detail")
+
+    web_app.agent = InvalidTextAgent()
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    response = client.post("/api/text/draft", json={"text": "tiny arx text"})
+    data = response.get_json()
+
+    assert response.status_code == 400
+    assert data["error_code"] == "invalid_text_draft"
+    assert data["error"] == "draft validation detail"
+
+
 def test_upload_response_includes_data_and_artifact_links():
     class FakeUploadAgent:
         session = SimpleNamespace(get_context=lambda: {"has_cipher": False})
@@ -224,6 +243,29 @@ def test_upload_hides_unexpected_processing_details():
     assert response.status_code == 500
     assert data["error_code"] == "upload_failed"
     assert "file parser secret detail" not in data["error"]
+
+
+def test_upload_returns_400_for_expected_validation_errors():
+    class InvalidUploadAgent:
+        session = SimpleNamespace(get_context=lambda: {"has_cipher": False})
+
+        def extract_cipher_from_file(self, file_path, focus=None, auto_build=False):
+            raise ValueError("invalid page range")
+
+    web_app.agent = InvalidUploadAgent()
+    web_app.config = {"provider": "fake", "model": "fake", "connected": True}
+    client = web_app.app.test_client()
+
+    response = client.post(
+        "/api/upload",
+        data={"file": (BytesIO(b"cipher text"), "cipher.txt")},
+        content_type="multipart/form-data",
+    )
+    data = response.get_json()
+
+    assert response.status_code == 400
+    assert data["error_code"] == "invalid_upload"
+    assert data["error"] == "invalid page range"
 
 
 def test_upload_cleanup_does_not_mask_response_when_temp_file_is_missing(monkeypatch):

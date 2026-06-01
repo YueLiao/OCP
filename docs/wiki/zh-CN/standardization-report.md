@@ -172,6 +172,7 @@
 - 为格式错误的固定 mask/diff 添加可读错误，严格校验 attack constraint list，并校验 solution count 必须为正整数。
 - 让直接 solver wrapper 保留调用者传入的空配置字典，拒绝非法配置类型，并把规整后的 solver 名称写回配置。
 - 缓存 PySAT solver 名称规整映射，避免每次校验时重复构造查找表。
+- 将网页 text-draft 和 upload 中可预期的校验失败拆成 HTTP 400，同时保留非预期失败的脱敏 HTTP 500。
 
 ## 验证
 
@@ -182,7 +183,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`248 passed, 107 skipped, 1 warning`。
+最新默认 pytest 状态：`250 passed, 107 skipped, 1 warning`。
 
 ## 后续工作
 

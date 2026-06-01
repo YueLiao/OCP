@@ -174,6 +174,7 @@ document, and extend.
 - Added readable malformed fixed-mask errors, strict attack constraint-list validation, and positive solution-count validation.
 - Made direct solver wrappers preserve caller-owned empty config dictionaries, reject invalid config types, and write normalized solver names back to config.
 - Cached PySAT solver-name normalization lookup instead of rebuilding it on every validation call.
+- Split expected web text-draft and upload validation failures into HTTP 400 responses while keeping unexpected failures behind sanitized HTTP 500 errors.
 
 ## Validation
 
@@ -184,7 +185,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `248 passed, 107 skipped, 1 warning`.
+Latest default pytest status: `250 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 
