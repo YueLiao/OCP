@@ -13,6 +13,14 @@ python -m tools.profile_model_generation forro:1 --top-limit 5
 环境：本机 macOS 上的 `ocp` conda 环境。
 模型：`DIFFERENTIALPATH_PROB`，SAT，每个 primitive 取一轮/一个 subround。
 
+后续复测日期：2026-06-02。
+复测使用：
+
+```bash
+python -m tools.profile_model_generation forro:1 chacha:1 salsa:1 --identity-elision --top-limit 3
+python -m tools.profile_model_generation present:1 forro:1 --top-limit 3
+```
+
 ## 基线
 
 | Case | 约束数量 | 主要热点 |
@@ -54,6 +62,15 @@ identity 约束子集。详见 [Identity Elision 设计](identity-elision-design
   不能只做局部删除。
 - PRESENT 的 S-box 模板缓存现在按 S-box 表指纹区分，因此当前最小化后的模板不会和其他
   共享模型版本的 S-box 混用。
+
+2026-06-02 的复测确认了相同方向：
+
+- `forro:1` SAT 在开启 `--identity-elision` 后从 16,586 条约束降到 5,066 条，
+  通过 alias 跳过 180 条内部 identity 约束。
+- `chacha:1` 和 `salsa:1` SAT 的 elided 约束数量均为 11,632；剩余最大 operator
+  group 仍是 `ModAdd`。
+- `present:1` 仍由 `PRESENT_Sbox` 主导：非 elided SAT 快照中 1,264 条约束里有
+  880 条来自 `PRESENT_Sbox`。
 
 ## 优化方向
 

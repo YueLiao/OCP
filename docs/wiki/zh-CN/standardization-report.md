@@ -183,6 +183,8 @@
 - 集中 Web API 的脱敏 HTTP 500 响应，让非预期 server failure 走同一条不泄露内部细节的路径。
 - 将 cipher instantiation 和 custom cipher definition 失败分成可预期 build/setup 失败与意外程序错误。
 - 集中 CLI 交互错误格式，同时保留原有 `[Error] ...` 输出形态。
+- 集中 generated implementation test-vector 执行逻辑，同时保留 legacy 的 `True`/错误消息结果条目。
+- 重新运行 PRESENT、Forro、ChaCha 和 Salsa 的模型生成 profiling，并记录 2026-06-02 性能快照。
 
 ## 验证
 
@@ -193,7 +195,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`266 passed, 107 skipped, 1 warning`。
+最新默认 pytest 状态：`267 passed, 107 skipped, 1 warning`。
 
 ## 后续工作
 

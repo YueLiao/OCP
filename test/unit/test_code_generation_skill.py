@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from agent.session import Session
-from agent.skills.code_generation import CodeGenerationSkill
+from agent.skills.code_generation import CodeGenerationSkill, _run_single_test_vector
 from agent.types import SkillName, SkillRequest
 
 
@@ -101,6 +101,18 @@ def test_code_generation_reports_structured_test_summary(monkeypatch, tmp_path):
     assert result.data["test_results"][0] is True
     assert result.data["test_results"][1] == "mismatch"
     assert result.data["test_summary"] == {"passed": 1, "total": 2, "failed": 1}
+
+
+def test_single_generated_test_vector_returns_message_for_any_test_failure():
+    def failing_test(cipher, impl_name, test_input, expected_output):
+        raise TypeError("test harness detail")
+
+    assert _run_single_test_vector(
+        failing_test,
+        SimpleNamespace(),
+        "Tiny",
+        (["input"], ["output"]),
+    ) == "test harness detail"
 
 
 def test_code_generation_wraps_output_directory_errors(monkeypatch, tmp_path):

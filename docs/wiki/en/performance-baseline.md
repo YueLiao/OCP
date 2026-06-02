@@ -14,6 +14,14 @@ Snapshot date: 2026-06-01.
 Environment: local `ocp` conda environment on macOS.
 Model: `DIFFERENTIALPATH_PROB`, SAT, one round/subround per primitive.
 
+Follow-up snapshot date: 2026-06-02.
+The follow-up run used:
+
+```bash
+python -m tools.profile_model_generation forro:1 chacha:1 salsa:1 --identity-elision --top-limit 3
+python -m tools.profile_model_generation present:1 forro:1 --top-limit 3
+```
+
 ## Baseline
 
 | Case | Constraints | Top Hotspots |
@@ -65,6 +73,16 @@ actual reduced constraint count for model generation.
 - PRESENT's S-box template cache is keyed by S-box table fingerprint, so the
   current minimized template is isolated from other S-boxes that share a model
   version.
+
+The 2026-06-02 follow-up confirms the same direction:
+
+- `forro:1` SAT drops from 16,586 constraints to 5,066 with
+  `--identity-elision`, skipping 180 internal identity constraints through
+  aliases.
+- `chacha:1` and `salsa:1` SAT both report 11,632 elided constraints, with
+  `ModAdd` as the largest remaining operator group.
+- `present:1` remains dominated by `PRESENT_Sbox`: 880 of 1,264 constraints in
+  the non-elided SAT snapshot.
 
 ## Optimization Direction
 

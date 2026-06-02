@@ -7,6 +7,31 @@ from agent.skills.base import BaseSkill
 from tools.paths import get_files_dir
 
 
+def _run_single_test_vector(test_fn, cipher, impl_name, test_vector):
+    """Run one generated implementation test vector and return True or a failure message."""
+
+    try:
+        test_fn(cipher, impl_name, test_vector[0], test_vector[1])
+        return True
+    except Exception as exc:
+        return str(exc)
+
+
+def _run_generated_implementation_tests(imp, cipher, language, impl_name):
+    """Run generated implementation tests while preserving legacy result entries."""
+
+    test_fn_map = {
+        "python": imp.test_implementation_python,
+        "c": imp.test_implementation_c,
+        "verilog": imp.test_implementation_verilog,
+    }
+    test_fn = test_fn_map[language]
+    return [
+        _run_single_test_vector(test_fn, cipher, impl_name, test_vector)
+        for test_vector in cipher.test_vectors
+    ]
+
+
 class CodeGenerationSkill(BaseSkill):
 
     @property
@@ -90,22 +115,9 @@ class CodeGenerationSkill(BaseSkill):
             }
 
             # Run tests if requested
-            test_results = []
             if test and cipher.test_vectors:
-                test_fn_map = {
-                    "python": imp.test_implementation_python,
-                    "c": imp.test_implementation_c,
-                    "verilog": imp.test_implementation_verilog,
-                }
-                test_fn = test_fn_map[language]
                 impl_name = cipher.name + suffix
-                for tv in cipher.test_vectors:
-                    try:
-                        test_fn(cipher, impl_name, tv[0], tv[1])
-                        test_results.append(True)
-                    except Exception as e:
-                        test_results.append(str(e))
-
+                test_results = _run_generated_implementation_tests(imp, cipher, language, impl_name)
                 results_data["test_results"] = test_results
                 passed = sum(1 for r in test_results if r is True)
                 total = len(test_results)
