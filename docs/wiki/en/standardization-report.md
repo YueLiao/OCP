@@ -186,6 +186,7 @@ document, and extend.
 - Classified cipher instantiation and custom cipher definition failures into expected build/setup failures and unexpected programming failures.
 - Centralized CLI interactive error formatting while preserving the existing `[Error] ...` output shape.
 - Centralized generated implementation test-vector execution while preserving legacy `True`/message result entries.
+- Centralized differential/linear attack execution and expected/unexpected analysis failure classification behind one skill helper.
 - Re-ran model-generation profiling for PRESENT, Forro, ChaCha, and Salsa and recorded the 2026-06-02 performance snapshot.
 
 ## Validation
@@ -197,7 +198,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `267 passed, 107 skipped, 1 warning`.
+Latest default pytest status: `268 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 

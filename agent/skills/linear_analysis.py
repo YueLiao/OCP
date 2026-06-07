@@ -5,6 +5,7 @@ from agent.session import Session
 from agent.skills.analysis_common import (
     analysis_success_result,
     build_solver_config,
+    run_analysis_attack,
     validate_analysis_params,
 )
 from agent.skills.artifacts import trail_artifact_links
@@ -110,33 +111,27 @@ class LinearAnalysisSkill(BaseSkill):
 
         config_solver = build_solver_config(params)
 
-        try:
-            trails = attacks.linear_attacks(
-                cipher,
-                goal=goal,
-                constraints=normalized["constraints"],
-                objective_target=normalized["objective_target"],
-                show_mode=normalized["show_mode"],
-                config_model=config_model,
-                config_solver=config_solver,
-            )
-            return analysis_success_result(
-                skill_name=self.name,
-                analysis_label="Linear",
-                goal=goal,
-                model_type=model_type,
-                trails=trails,
-                artifact_links=trail_artifact_links(trails),
-            )
-        except (ValueError, RuntimeError) as e:
-            return SkillResult(
-                success=False,
-                skill=self.name,
-                error=f"Linear analysis failed: {e}",
-            )
-        except Exception as e:
-            return SkillResult(
-                success=False,
-                skill=self.name,
-                error=f"Unexpected linear analysis failure: {e}",
-            )
+        trails, failure = run_analysis_attack(
+            skill_name=self.name,
+            expected_error_prefix="Linear analysis failed",
+            unexpected_error_prefix="Unexpected linear analysis failure",
+            attack_fn=attacks.linear_attacks,
+            cipher=cipher,
+            goal=goal,
+            constraints=normalized["constraints"],
+            objective_target=normalized["objective_target"],
+            show_mode=normalized["show_mode"],
+            config_model=config_model,
+            config_solver=config_solver,
+        )
+        if failure:
+            return failure
+
+        return analysis_success_result(
+            skill_name=self.name,
+            analysis_label="Linear",
+            goal=goal,
+            model_type=model_type,
+            trails=trails,
+            artifact_links=trail_artifact_links(trails),
+        )

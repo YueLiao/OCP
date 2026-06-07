@@ -2,6 +2,8 @@
 
 from agent.types import SkillResult
 
+EXPECTED_ANALYSIS_ERRORS = (ValueError, RuntimeError)
+
 
 def validate_analysis_params(params, *, valid_goals, default_goal):
     """Validate common differential/linear analysis request parameters."""
@@ -69,3 +71,29 @@ def analysis_success_result(
         },
         summary=f"{analysis_label} analysis ({model_type.upper()}, {goal}): found {trail_count} trail(s).",
     )
+
+
+def run_analysis_attack(
+    *,
+    skill_name,
+    expected_error_prefix,
+    unexpected_error_prefix,
+    attack_fn,
+    **attack_kwargs,
+):
+    """Run an attack function and classify expected solver/model failures."""
+
+    try:
+        return attack_fn(**attack_kwargs), None
+    except EXPECTED_ANALYSIS_ERRORS as exc:
+        return None, SkillResult(
+            success=False,
+            skill=skill_name,
+            error=f"{expected_error_prefix}: {exc}",
+        )
+    except Exception as exc:
+        return None, SkillResult(
+            success=False,
+            skill=skill_name,
+            error=f"{unexpected_error_prefix}: {exc}",
+        )

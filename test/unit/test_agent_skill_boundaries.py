@@ -146,6 +146,34 @@ def test_linear_analysis_returns_trail_artifact_links(monkeypatch, tmp_path):
     ]
 
 
+def test_linear_analysis_classifies_expected_and_unexpected_failures(monkeypatch):
+    def raise_expected(*args, **kwargs):
+        raise RuntimeError("solver unavailable")
+
+    monkeypatch.setattr("attacks.attacks.linear_attacks", raise_expected)
+
+    result = LinearAnalysisSkill().execute(
+        SkillRequest(SkillName.LINEAR_ANALYSIS, {}),
+        _session_with_cipher(),
+    )
+
+    assert not result.success
+    assert result.error == "Linear analysis failed: solver unavailable"
+
+    def raise_unexpected(*args, **kwargs):
+        raise TypeError("programming detail")
+
+    monkeypatch.setattr("attacks.attacks.linear_attacks", raise_unexpected)
+
+    result = LinearAnalysisSkill().execute(
+        SkillRequest(SkillName.LINEAR_ANALYSIS, {}),
+        _session_with_cipher(),
+    )
+
+    assert not result.success
+    assert result.error == "Unexpected linear analysis failure: programming detail"
+
+
 def test_agent_generate_code_uses_runtime_files_dir_by_default(monkeypatch, tmp_path):
     generated = {}
 

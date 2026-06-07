@@ -184,6 +184,7 @@
 - 将 cipher instantiation 和 custom cipher definition 失败分成可预期 build/setup 失败与意外程序错误。
 - 集中 CLI 交互错误格式，同时保留原有 `[Error] ...` 输出形态。
 - 集中 generated implementation test-vector 执行逻辑，同时保留 legacy 的 `True`/错误消息结果条目。
+- 将 differential/linear attack 执行和预期/非预期 analysis 失败分类收敛到同一个 skill helper。
 - 重新运行 PRESENT、Forro、ChaCha 和 Salsa 的模型生成 profiling，并记录 2026-06-02 性能快照。
 
 ## 验证
@@ -195,7 +196,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`267 passed, 107 skipped, 1 warning`。
+最新默认 pytest 状态：`268 passed, 107 skipped, 1 warning`。
 
 ## 后续工作
 
