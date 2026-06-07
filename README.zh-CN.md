@@ -122,7 +122,10 @@ python3 web/app.py --port 5001
 Agent 目录当前包含：
 
 `speck`, `simon`, `aes`, `gift`, `present`, `skinny`, `ascon`, `chacha`,
-`salsa`, `forro`, `led`, `siphash`, `shacal2`, `rocca`, `speedy`, `trivium`.
+`salsa`, `forro`, `led`, `siphash`, `shacal2`, `rocca`, `speedy`.
+
+`shacal2` 目前通过已实现的 256-bit 变体暴露。核心树中存在实验性的 `trivium`
+prototype，但在 update equations 和 test vectors 完成前，不加入 Agent catalog。
 
 不同密码支持的类型不同：`permutation`、`blockcipher` 和 `keypermutation`。
 
@@ -170,6 +173,7 @@ export OCP_FILES_DIR=/tmp/ocp-files
 ```bash
 python -m compileall agent primitives attacks solving tools operators
 python -m pytest
+python -m tools.profile_model_generation present:1 forro:1
 
 # 可选重型测试：
 python -m pytest --run-implementations

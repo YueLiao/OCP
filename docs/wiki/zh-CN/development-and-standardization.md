@@ -53,6 +53,30 @@ OCP 是研究代码、库和工具混合型仓库。当前公开使用方式主�
 4. 保持可选后端 lazy import。
 5. 文档抽取优先使用文本输入，避免整篇文档直接进入 LLM prompt。
 
+## 上游同步流程
+
+当 Open-CP/OCP 上游更新时，使用以下流程：
+
+```bash
+git status --short
+git fetch origin
+git fetch myfork
+git rev-list --left-right --count origin/main...HEAD
+git log --oneline --left-right --cherry-pick origin/main...HEAD
+git diff --name-status $(git merge-base origin/main HEAD)..origin/main
+```
+
+推荐合并策略：
+
+- 保留本地 optimization、Agent、Web、测试和文档改进。
+- 当 fork 已经领先很多提交时，用显式 merge commit 把上游合入 `main`；
+  不要随意改写本地历史。
+- 如果 `operators/`、`primitives/`、`tools/` 或 `attacks/` 出现冲突，先识别
+  上游语义变化，再把它迁移到本地已经重构过的结构中，避免直接整文件覆盖。
+- 合并后运行 operator 聚焦测试、默认 pytest、CLI help，以及
+  [性能基线](performance-baseline.md) 中的 profiling smoke 命令。
+- 只有当 fork 相对上游为 `0 behind` 且工作区干净时再 push。
+
 ## 验证命令
 
 ```bash

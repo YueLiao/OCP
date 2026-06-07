@@ -43,11 +43,13 @@ GitHub Actions 会运行：
 
 ```bash
 python -m pip install -e ".[test]"
-python -m compileall agent primitives attacks solving tools operators
+python -m compileall agent primitives attacks solving tools operators web run_agent.py
+ocp-agent --help
 python -m pytest
 ```
 
-CI 有意不安装可选求解器依赖。求解器测试应在后端安装方式稳定后，作为独立 workflow 添加。
+`test` extra 包含默认测试需要导入的轻量 Agent/Web 依赖。CI 有意不安装可选求解器依赖。
+求解器测试应在后端安装方式稳定后，作为独立 workflow 添加。
 
 ## 源码分发包
 

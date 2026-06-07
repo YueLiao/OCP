@@ -190,6 +190,8 @@
 - 为上游新增/修正的 ANDXOR DDT/LAT helper、Shift linear propagation 和 constraint-template 返回值补充回归覆盖。
 - 在 2026-06-07 上游合并后重新运行 profiling 快照，并确认记录中的约束数量保持稳定。
 - 在 S-box 和 matrix cache miss 路径中直接以内存方式实例化刚生成的 constraints，避免生成 template 文件后立刻读回。
+- 增加持久 Web solver-status 面板，并在 solver-backed analysis 前展示 preflight 摘要。
+- 扩展 CI 覆盖：编译 Web/CLI 代码，运行 `ocp-agent --help`，并通过 `test` extra 安装轻量 Agent/Web 依赖。
 
 ## 验证
 
@@ -200,7 +202,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`270 passed, 107 skipped, 1 warning`。
+最新默认 pytest 状态：`271 passed, 107 skipped, 1 warning`。
 
 ## 后续工作
 

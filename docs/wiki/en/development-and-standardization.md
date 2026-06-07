@@ -53,6 +53,31 @@ Potential acceleration points:
 4. Keep optional backend imports lazy.
 5. Prefer text-first extraction over whole-document LLM prompts.
 
+## Upstream Sync Procedure
+
+Use this flow when Open-CP/OCP changes upstream:
+
+```bash
+git status --short
+git fetch origin
+git fetch myfork
+git rev-list --left-right --count origin/main...HEAD
+git log --oneline --left-right --cherry-pick origin/main...HEAD
+git diff --name-status $(git merge-base origin/main HEAD)..origin/main
+```
+
+Recommended merge policy:
+
+- Keep local optimization, Agent, Web, test, and documentation work intact.
+- Merge upstream commits into `main` with an explicit merge commit when the fork
+  is already many commits ahead; do not rewrite local history casually.
+- For conflicts in `operators/`, `primitives/`, `tools/`, or `attacks/`, first
+  identify the upstream semantic change, then port it into the local refactored
+  structure rather than replacing whole files.
+- After merging, run operator-focused tests, default pytest, CLI help, and the
+  profiling smoke commands from [Performance Baseline](performance-baseline.md).
+- Push only after the fork is `0 behind` upstream and the working tree is clean.
+
 ## Validation Commands
 
 ```bash

@@ -31,7 +31,10 @@ jobs:
           python -m pip install -e ".[test]"
 
       - name: Compile modules
-        run: python -m compileall agent primitives attacks solving tools operators
+        run: python -m compileall agent primitives attacks solving tools operators web run_agent.py
+
+      - name: CLI smoke test
+        run: ocp-agent --help
 
       - name: Run default tests
         run: python -m pytest

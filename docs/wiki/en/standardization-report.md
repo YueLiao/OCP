@@ -192,6 +192,8 @@ document, and extend.
 - Added regression coverage for upstream ANDXOR DDT/LAT helpers, Shift linear propagation, and constraint-template return values.
 - Re-ran the profiling snapshot after the upstream merge on 2026-06-07 and confirmed the recorded constraint counts stayed stable.
 - Avoided immediate template-file reloads on S-box and matrix cache misses by instantiating freshly generated constraints in memory.
+- Added a persistent Web solver-status panel and analysis preflight summary before solver-backed jobs.
+- Expanded CI coverage to compile Web/CLI code, run `ocp-agent --help`, and install lightweight Agent/Web dependencies through the `test` extra.
 
 ## Validation
 
@@ -202,7 +204,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `270 passed, 107 skipped, 1 warning`.
+Latest default pytest status: `271 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 

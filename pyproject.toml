@@ -55,6 +55,14 @@ solvers = [
 ]
 test = [
   "pytest",
+  "flask",
+  "openai",
+  "anthropic",
+  "google-genai",
+  "ollama",
+  "PyMuPDF",
+  "pdfplumber",
+  "psutil",
 ]
 dev = [
   "pytest",

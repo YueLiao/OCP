@@ -45,12 +45,15 @@ GitHub Actions runs:
 
 ```bash
 python -m pip install -e ".[test]"
-python -m compileall agent primitives attacks solving tools operators
+python -m compileall agent primitives attacks solving tools operators web run_agent.py
+ocp-agent --help
 python -m pytest
 ```
 
-CI intentionally avoids optional solver dependencies. Solver-backed tests should
-be added as a separate workflow after backend setup is stable.
+The `test` extra includes the lightweight Agent/Web dependencies needed by the
+default tests. CI intentionally avoids optional solver dependencies. Solver-
+backed tests should be added as a separate workflow after backend setup is
+stable.
 
 ## Source Distribution
 

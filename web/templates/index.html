@@ -255,6 +255,7 @@
         </select>
       </div>
       <button class="btn connect-btn" onclick="checkSolvers()">Check Solvers</button>
+      <div class="side-list" id="solverStatus"><div>Solver status not checked.</div></div>
     </div>
 
     <div class="settings-section" id="draftPanel" style="display:none">
@@ -583,11 +584,15 @@ async function uploadFile(event) {
 
 async function runWorkflow(type) {
   hideWelcome();
-  if (!confirm(`Run ${type} analysis now? This may invoke an external solver and write trail artifacts.`)) return;
   const modelType = document.getElementById('analysisModelType').value;
   const solver = document.getElementById('analysisSolver').value.trim();
   const solutionNumber = document.getElementById('solutionNumber').value;
   const objective = document.getElementById('analysisObjective').value;
+  const capabilities = await fetchSolverCapabilities(false);
+  const solverSummary = capabilities
+    ? `\n\nSolver defaults: ${JSON.stringify(capabilities.default || {})}`
+    : '\n\nSolver capabilities could not be checked.';
+  if (!confirm(`Run ${type} analysis now? This may invoke an external solver and write trail artifacts.${solverSummary}`)) return;
   addMessage('user', `[Run ${type} analysis]`);
   showTyping(true);
   try {
@@ -674,16 +679,27 @@ async function generateVisualization() {
 }
 
 async function checkSolvers() {
+  const capabilities = await fetchSolverCapabilities(true);
+  if (capabilities) {
+    addMessage('system', `Solver capabilities:\n\`\`\`json\n${JSON.stringify(capabilities, null, 2)}\n\`\`\``);
+  }
+}
+
+async function fetchSolverCapabilities(reportErrors) {
   try {
     const res = await fetch('/api/solvers');
     const data = await res.json();
     if (!data.success) {
-      addMessage('error', data.error || 'Solver check failed.');
-      return;
+      if (reportErrors) addMessage('error', data.error || 'Solver check failed.');
+      renderSolverStatus(null);
+      return null;
     }
-    addMessage('system', `Solver capabilities:\n\`\`\`json\n${JSON.stringify(data.capabilities, null, 2)}\n\`\`\``);
+    renderSolverStatus(data.capabilities);
+    return data.capabilities;
   } catch (e) {
-    addMessage('error', `Solver check failed: ${e.message}`);
+    if (reportErrors) addMessage('error', `Solver check failed: ${e.message}`);
+    renderSolverStatus(null);
+    return null;
   }
 }
 
@@ -772,6 +788,23 @@ function renderArtifacts(artifacts) {
       : '';
     return `<div><strong>${renderText(a.label || 'artifact')}</strong><br>${renderText(a.type || 'file')} · ${a.exists ? 'exists' : 'missing'}<br><code>${renderText(a.path || '')}</code>${link}</div>`;
   }).join('');
+}
+
+function renderSolverStatus(capabilities) {
+  const list = document.getElementById('solverStatus');
+  if (!capabilities) {
+    list.innerHTML = '<div>Solver status unavailable.</div>';
+    return;
+  }
+  const defaults = capabilities.default || {};
+  const milp = (capabilities.milp || []).join(', ') || 'none';
+  const sat = (capabilities.sat || []).join(', ') || 'none';
+  list.innerHTML = [
+    `<div><strong>Default MILP</strong><br>${renderText(defaults.milp || 'unavailable')}</div>`,
+    `<div><strong>Default SAT</strong><br>${renderText(defaults.sat || 'unavailable')}</div>`,
+    `<div><strong>MILP backends</strong><br>${renderText(milp)}</div>`,
+    `<div><strong>SAT backends</strong><br>${renderText(sat)}</div>`,
+  ].join('');
 }
 
 function renderTrace(trace) {
