@@ -19,6 +19,7 @@ from tools.model_constraints import (
     load_constraints_template,
 )
 from tools.bit_constraints import gen_nxor_constraints, gen_xor_constraints, gen_word_matrix_constraints
+from tools.model_templates import instantiate_constraints_template
 from tools.model_generation_state import (
     build_identity_elision_aliases,
     is_identity_elision_candidate,
@@ -157,6 +158,36 @@ def test_generate_and_save_constraints_returns_generated_template(tmp_path):
     )
     assert facade_constraints == constraints
     assert facade_objective is None
+
+
+def test_in_memory_template_instantiation_matches_loaded_template(tmp_path):
+    model_file = tmp_path / "template.txt"
+    constraints, objective_fun = generate_and_save_constraints(
+        "sat",
+        "minimize_logic",
+        0,
+        "1001",
+        ["a0"],
+        ["b0"],
+        objective_fun="p0",
+        model_filename=model_file,
+    )
+
+    in_memory = instantiate_constraints_template(
+        constraints,
+        objective_fun,
+        ["x_0"],
+        ["y_0"],
+        ["w_0"],
+    )
+    from_file = gen_constraints_obj_func_from_template(
+        model_file,
+        ["x_0"],
+        ["y_0"],
+        ["w_0"],
+    )
+
+    assert in_memory == from_file
 
 
 def test_model_constraints_defers_pysat_cardinality_import():

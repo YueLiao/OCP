@@ -189,6 +189,7 @@
 - 合入上游 Open-CP/OCP `513963a` operator 更新，同时保留本地 agent、文档、identity-elision 和测试改进。
 - 为上游新增/修正的 ANDXOR DDT/LAT helper、Shift linear propagation 和 constraint-template 返回值补充回归覆盖。
 - 在 2026-06-07 上游合并后重新运行 profiling 快照，并确认记录中的约束数量保持稳定。
+- 在 S-box 和 matrix cache miss 路径中直接以内存方式实例化刚生成的 constraints，避免生成 template 文件后立刻读回。
 
 ## 验证
 
@@ -199,7 +200,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-最新默认 pytest 状态：`269 passed, 107 skipped, 1 warning`。
+最新默认 pytest 状态：`270 passed, 107 skipped, 1 warning`。
 
 ## 后续工作
 

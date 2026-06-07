@@ -98,6 +98,12 @@ The 2026-06-07 upstream-merge recheck kept the same constraint counts:
 - `present:1` remains 1,264 SAT constraints, with `PRESENT_Sbox` contributing
   880 constraints.
 
+The template cache-miss path now instantiates freshly generated constraints in
+memory before writing them to disk, instead of generating a template file and
+immediately reading it back. This preserves the same cached file format and
+constraint counts while reducing avoidable I/O for first-time S-box and matrix
+template generation.
+
 ## Optimization Direction
 
 Near-term optimization should focus on preserving graph semantics while

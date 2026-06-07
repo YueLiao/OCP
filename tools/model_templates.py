@@ -154,9 +154,9 @@ def build_template_replacer(*template_var_groups):
     return replace
 
 
-def gen_constraints_obj_func_from_template(filename, var_in, var_out, var_p=None):
+def instantiate_constraints_template(constraints, objective_fun, var_in, var_out, var_p=None):
     """
-    Load template constraints/objective function from file, then instantiate them by replacing template variables:
+    Instantiate template constraints/objective function by replacing template variables:
         a0, a1, ... -> var_in[i]
         b0, b1, ... -> var_out[i]
         p0, p1, ... -> var_p[i] (optional)
@@ -164,11 +164,6 @@ def gen_constraints_obj_func_from_template(filename, var_in, var_out, var_p=None
     Returns:
         tuple[list[str], str]: (mapped_constraints, mapped_objective_fun)
     """
-    constraints, objective_fun = load_constraints_template(filename)
-
-    if constraints is None:
-        raise ValueError(f"Failed to load constraints or objective function from {filename}.")
-
     replace_constraint_vars = build_template_replacer(
         ("a", var_in),
         ("b", var_out),
@@ -180,6 +175,21 @@ def gen_constraints_obj_func_from_template(filename, var_in, var_out, var_p=None
         [replace_constraint_vars(con) for con in constraints],
         replace_objective_vars(objective_fun),
     )
+
+
+def gen_constraints_obj_func_from_template(filename, var_in, var_out, var_p=None):
+    """
+    Load template constraints/objective function from file, then instantiate them.
+
+    Returns:
+        tuple[list[str], str]: (mapped_constraints, mapped_objective_fun)
+    """
+    constraints, objective_fun = load_constraints_template(filename)
+
+    if constraints is None:
+        raise ValueError(f"Failed to load constraints or objective function from {filename}.")
+
+    return instantiate_constraints_template(constraints, objective_fun, var_in, var_out, var_p)
 
 
 def inequality_to_constraint_sat(inequality, variables):

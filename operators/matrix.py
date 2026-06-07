@@ -12,7 +12,11 @@ from operators.operators import (
     raise_unknown_model_type,
 )
 from tools.bit_constraints import gen_matrix_constraints, gen_word_matrix_constraints, gen_word_nxor_constraints
-from tools.model_templates import generate_and_save_constraints, gen_constraints_obj_func_from_template
+from tools.model_templates import (
+    generate_and_save_constraints,
+    gen_constraints_obj_func_from_template,
+    instantiate_constraints_template,
+)
 from tools.paths import get_files_dir
 from itertools import product
 
@@ -781,8 +785,21 @@ class Matrix(Operator):   # Operator of the Matrix multiplication: appplies the 
         ttable = "".join(truth_bits)
 
         input_variables, output_variables = [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
-        generate_and_save_constraints(model_type, tool_type, 0, ttable, input_variables, output_variables, model_filename=self.model_filename)
-        model_list, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
+        constraints, template_obj_fun = generate_and_save_constraints(
+            model_type,
+            tool_type,
+            0,
+            ttable,
+            input_variables,
+            output_variables,
+            model_filename=self.model_filename,
+        )
+        model_list, _ = instantiate_constraints_template(
+            constraints,
+            template_obj_fun,
+            var_in,
+            var_out,
+        )
         return model_list
 
 

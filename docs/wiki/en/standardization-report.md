@@ -191,6 +191,7 @@ document, and extend.
 - Merged upstream Open-CP/OCP `513963a` operator updates while preserving local agent, documentation, identity-elision, and test improvements.
 - Added regression coverage for upstream ANDXOR DDT/LAT helpers, Shift linear propagation, and constraint-template return values.
 - Re-ran the profiling snapshot after the upstream merge on 2026-06-07 and confirmed the recorded constraint counts stayed stable.
+- Avoided immediate template-file reloads on S-box and matrix cache misses by instantiating freshly generated constraints in memory.
 
 ## Validation
 
@@ -201,7 +202,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `269 passed, 107 skipped, 1 warning`.
+Latest default pytest status: `270 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 

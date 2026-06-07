@@ -84,6 +84,10 @@ identity 约束子集。详见 [Identity Elision 设计](identity-elision-design
   `ModAdd` 仍是最大 operator group。
 - `present:1` SAT 仍为 1,264 条约束，其中 `PRESENT_Sbox` 贡献 880 条。
 
+template cache miss 路径现在会直接在内存中实例化刚生成的 constraints，然后再写入磁盘；
+不再先生成 template 文件、再立刻读回解析。这样保持相同的缓存文件格式和约束数量，
+同时减少首次生成 S-box 和 matrix template 时不必要的 I/O。
+
 ## 优化方向
 
 近期优化应在保持图语义不变的前提下减少重复结构工作：

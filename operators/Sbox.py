@@ -8,7 +8,11 @@ from operators.operators import (
     binary_declaration,
     raise_unknown_implementation_type,
 )
-from tools.model_templates import generate_and_save_constraints, gen_constraints_obj_func_from_template
+from tools.model_templates import (
+    generate_and_save_constraints,
+    gen_constraints_obj_func_from_template,
+    instantiate_constraints_template,
+)
 from tools.paths import get_files_dir
 
 
@@ -385,8 +389,24 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                 RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
 
             input_variables, output_variables = self._template_io_vars(var_in, var_out)
-            generate_and_save_constraints(model_type, tool_type, mode, ttable, input_variables, output_variables, pr_variables, objective_fun=objective_fun, model_filename=self.model_filename)
-            model_list, obj_fun = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out, var_p)
+            constraints, template_obj_fun = generate_and_save_constraints(
+                model_type,
+                tool_type,
+                mode,
+                ttable,
+                input_variables,
+                output_variables,
+                pr_variables,
+                objective_fun=objective_fun,
+                model_filename=self.model_filename,
+            )
+            model_list, obj_fun = instantiate_constraints_template(
+                constraints,
+                template_obj_fun,
+                var_in,
+                var_out,
+                var_p,
+            )
         self.weight = [obj_fun]
         return model_list
 
@@ -411,8 +431,21 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             else:
                  RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
             input_variables, output_variables = self._template_io_vars(var_in, var_out)
-            generate_and_save_constraints(model_type, tool_type, mode, ttable, input_variables, output_variables, model_filename=self.model_filename)
-            model_list, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
+            constraints, template_obj_fun = generate_and_save_constraints(
+                model_type,
+                tool_type,
+                mode,
+                ttable,
+                input_variables,
+                output_variables,
+                model_filename=self.model_filename,
+            )
+            model_list, _ = instantiate_constraints_template(
+                constraints,
+                template_obj_fun,
+                var_in,
+                var_out,
+            )
 
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_A", self.__class__.__name__ + "_LINEAR_A"]: # to calculate the minimum number of active S-boxes
             var_At = [self.ID + '_At']
@@ -455,8 +488,21 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                 else:
                     RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
                 input_variables, output_variables = self._template_io_vars(var_in, var_out)
-                generate_and_save_constraints(model_type, tool_type, mode, ttable, input_variables, output_variables, model_filename=self.model_filename)
-                sbox_inequalities, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
+                constraints, template_obj_fun = generate_and_save_constraints(
+                    model_type,
+                    tool_type,
+                    mode,
+                    ttable,
+                    input_variables,
+                    output_variables,
+                    model_filename=self.model_filename,
+                )
+                sbox_inequalities, _ = instantiate_constraints_template(
+                    constraints,
+                    template_obj_fun,
+                    var_in,
+                    var_out,
+                )
 
             for ineq in sbox_inequalities:
                 temp = ineq
