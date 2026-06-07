@@ -22,6 +22,11 @@ python -m tools.profile_model_generation forro:1 chacha:1 salsa:1 --identity-eli
 python -m tools.profile_model_generation present:1 forro:1 --top-limit 3
 ```
 
+Upstream-merge recheck date: 2026-06-07.
+After merging Open-CP/OCP `513963a` (`update operators`), the same profiling
+commands were re-run to confirm that the operator-model updates did not regress
+the existing generation baselines.
+
 ## Baseline
 
 | Case | Constraints | Top Hotspots |
@@ -83,6 +88,15 @@ The 2026-06-02 follow-up confirms the same direction:
   `ModAdd` as the largest remaining operator group.
 - `present:1` remains dominated by `PRESENT_Sbox`: 880 of 1,264 constraints in
   the non-elided SAT snapshot.
+
+The 2026-06-07 upstream-merge recheck kept the same constraint counts:
+
+- `forro:1` SAT remains 16,586 constraints without elision and 5,066 with
+  `--identity-elision`.
+- `chacha:1` and `salsa:1` SAT remain 11,632 constraints with
+  `--identity-elision`; `ModAdd` remains the largest operator group.
+- `present:1` remains 1,264 SAT constraints, with `PRESENT_Sbox` contributing
+  880 constraints.
 
 ## Optimization Direction
 

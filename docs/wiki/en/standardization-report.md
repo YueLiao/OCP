@@ -188,6 +188,9 @@ document, and extend.
 - Centralized generated implementation test-vector execution while preserving legacy `True`/message result entries.
 - Centralized differential/linear attack execution and expected/unexpected analysis failure classification behind one skill helper.
 - Re-ran model-generation profiling for PRESENT, Forro, ChaCha, and Salsa and recorded the 2026-06-02 performance snapshot.
+- Merged upstream Open-CP/OCP `513963a` operator updates while preserving local agent, documentation, identity-elision, and test improvements.
+- Added regression coverage for upstream ANDXOR DDT/LAT helpers, Shift linear propagation, and constraint-template return values.
+- Re-ran the profiling snapshot after the upstream merge on 2026-06-07 and confirmed the recorded constraint counts stayed stable.
 
 ## Validation
 
@@ -198,7 +201,7 @@ conda run -n ocp ocp-agent --help
 git diff --check
 ```
 
-Latest default pytest status: `268 passed, 107 skipped, 1 warning`.
+Latest default pytest status: `269 passed, 107 skipped, 1 warning`.
 
 ## Next Work
 

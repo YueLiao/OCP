@@ -222,6 +222,31 @@ def test_andxor_generates_implementation_and_milp_versions():
         "out_0 - AX_p_0 >= 0",
     ]
 
+    assert ANDXOR.bit_andxor_ddt() == [
+        [8, 0],
+        [0, 8],
+        [4, 4],
+        [4, 4],
+        [4, 4],
+        [4, 4],
+        [4, 4],
+        [4, 4],
+    ]
+    assert ANDXOR.bit_andxor_lat() == [
+        [8, 0],
+        [0, 4],
+        [0, 0],
+        [0, 4],
+        [0, 0],
+        [0, 4],
+        [0, 0],
+        [0, -4],
+    ]
+    assert len(ANDXOR.bit_andxor_diff_truth_table()) == 32
+    assert ANDXOR.bit_andxor_diff_truth_table().count("1") == 14
+    assert len(ANDXOR.bit_andxor_linear_truth_table()) == 32
+    assert ANDXOR.bit_andxor_linear_truth_table().count("1") == 5
+
 
 def test_bitwise_or_as_sbox_has_stable_ddt_and_lat():
     op = Sbox(

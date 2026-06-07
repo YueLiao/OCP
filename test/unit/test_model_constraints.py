@@ -128,6 +128,37 @@ def test_predefined_and_template_helpers_raise_value_errors_for_invalid_options(
         generate_and_save_constraints("milp", "bad", "diff", [], ["x"], ["y"])
 
 
+def test_generate_and_save_constraints_returns_generated_template(tmp_path):
+    ttable = "1001"
+    model_file = tmp_path / "xor_template.txt"
+
+    constraints, objective_fun = generate_and_save_constraints(
+        "sat",
+        "minimize_logic",
+        0,
+        ttable,
+        ["a0"],
+        ["b0"],
+        model_filename=model_file,
+    )
+
+    assert isinstance(constraints, list)
+    assert constraints
+    assert objective_fun is None
+    assert load_constraints_template(model_file) == (constraints, None)
+
+    facade_constraints, facade_objective = model_constraints.generate_and_save_constraints(
+        "sat",
+        "minimize_logic",
+        0,
+        ttable,
+        ["a0"],
+        ["b0"],
+    )
+    assert facade_constraints == constraints
+    assert facade_objective is None
+
+
 def test_model_constraints_defers_pysat_cardinality_import():
     env = os.environ.copy()
     env["PYTHONPATH"] = os.getcwd()

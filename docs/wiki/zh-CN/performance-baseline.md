@@ -21,6 +21,10 @@ python -m tools.profile_model_generation forro:1 chacha:1 salsa:1 --identity-eli
 python -m tools.profile_model_generation present:1 forro:1 --top-limit 3
 ```
 
+上游合并后复测日期：2026-06-07。
+合入 Open-CP/OCP `513963a`（`update operators`）后，重新运行同一组 profiling
+命令，确认 operator model 更新没有破坏现有模型生成基线。
+
 ## 基线
 
 | Case | 约束数量 | 主要热点 |
@@ -71,6 +75,14 @@ identity 约束子集。详见 [Identity Elision 设计](identity-elision-design
   group 仍是 `ModAdd`。
 - `present:1` 仍由 `PRESENT_Sbox` 主导：非 elided SAT 快照中 1,264 条约束里有
   880 条来自 `PRESENT_Sbox`。
+
+2026-06-07 的上游合并后复测保持相同约束数量：
+
+- `forro:1` SAT 未开启 elision 时仍为 16,586 条约束，开启 `--identity-elision`
+  后仍为 5,066 条。
+- `chacha:1` 和 `salsa:1` SAT 开启 `--identity-elision` 后仍为 11,632 条约束；
+  `ModAdd` 仍是最大 operator group。
+- `present:1` SAT 仍为 1,264 条约束，其中 `PRESENT_Sbox` 贡献 880 条。
 
 ## 优化方向
 
