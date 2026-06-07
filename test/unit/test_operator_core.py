@@ -166,14 +166,14 @@ def test_andxor_generates_implementation_and_milp_versions():
         "ANDXOR_XORDIFF": [
             "AX_p_0 - a_0 >= 0",
             "AX_p_0 - b_0 >= 0",
-            "AX_p_0 - a_0 - b_0 <= 0",
+            "a_0 + b_0 - AX_p_0 >= 0",
             "a_0 + b_0 + c_0 - out_0 >= 0",
         ],
         "ANDXOR_XORDIFF_1": [
-            "AX_p_0 = 0 -> a_0 = 0",
-            "AX_p_0 = 0 -> b_0 = 0",
-            "AX_p_0 = 1 -> a_0 + b_0 >= 1",
-            "a_0 + b_0 + c_0 - out_0 >= 0",
+            "AX_p_0 - a_0 >= 0",
+            "AX_p_0 - b_0 >= 0",
+            "a_0 + b_0 - AX_p_0 >= 0",
+            "out_0 - c_0 + AX_p_0 >= 0",
         ],
         "ANDXOR_XORDIFF_2": [
             "AX_p_0 = 0 -> a_0 = 0",
@@ -196,6 +196,31 @@ def test_andxor_generates_implementation_and_milp_versions():
         assert model[:4] == prefix
         assert model[-1] == "Binary\na_0 a_1 b_0 b_1 c_0 c_1 out_0 out_1 AX_p_0 AX_p_1"
         assert op.weight == ["AX_p_0 + AX_p_1"]
+
+    op.model_version = "ANDXOR_XORDIFF"
+    assert op.generate_model("sat")[:5] == [
+        "a_0 b_0 -AX_p_0",
+        "a_0 b_0 -c_0 out_0",
+        "-a_0 AX_p_0",
+        "a_0 b_0 c_0 -out_0",
+        "-b_0 AX_p_0",
+    ]
+
+    op.model_version = "ANDXOR_LINEAR"
+    assert op.generate_model("sat")[:5] == [
+        "-c_0 AX_p_0",
+        "-a_0 AX_p_0",
+        "-b_0 AX_p_0",
+        "c_0 -out_0",
+        "out_0 -AX_p_0",
+    ]
+    assert op.generate_model("milp")[:5] == [
+        "AX_p_0 - a_0 >= 0",
+        "AX_p_0 - b_0 >= 0",
+        "AX_p_0 - c_0 >= 0",
+        "c_0 - out_0 >= 0",
+        "out_0 - AX_p_0 >= 0",
+    ]
 
 
 def test_bitwise_or_as_sbox_has_stable_ddt_and_lat():
@@ -563,7 +588,6 @@ def test_shift_left_and_right_models_are_stable_for_word_size_four():
         "-out_3",
     ]
     assert left_shift.generate_model("milp") == [
-        "in_0 - in_0 = 0",
         "in_1 - out_0 = 0",
         "in_2 - out_1 = 0",
         "in_3 - out_2 = 0",
@@ -589,7 +613,44 @@ def test_shift_left_and_right_models_are_stable_for_word_size_four():
         "in_0 - out_1 = 0",
         "in_1 - out_2 = 0",
         "in_2 - out_3 = 0",
-        "in_3 - in_3 = 0",
+        "Binary\nin_0 in_1 in_2 in_3 out_0 out_1 out_2 out_3",
+    ]
+
+    left_shift.model_version = "Shift_LINEAR"
+    assert left_shift.generate_model("sat") == [
+        "-in_0",
+        "-in_1 out_0",
+        "in_1 -out_0",
+        "-in_2 out_1",
+        "in_2 -out_1",
+        "-in_3 out_2",
+        "in_3 -out_2",
+        "out_3 -out_3",
+    ]
+    assert left_shift.generate_model("milp") == [
+        "in_0 = 0",
+        "in_1 - out_0 = 0",
+        "in_2 - out_1 = 0",
+        "in_3 - out_2 = 0",
+        "Binary\nin_0 in_1 in_2 in_3 out_0 out_1 out_2 out_3",
+    ]
+
+    right_shift.model_version = "Shift_LINEAR"
+    assert right_shift.generate_model("sat") == [
+        "out_0 -out_0",
+        "-in_0 out_1",
+        "in_0 -out_1",
+        "-in_1 out_2",
+        "in_1 -out_2",
+        "-in_2 out_3",
+        "in_2 -out_3",
+        "-in_3",
+    ]
+    assert right_shift.generate_model("milp") == [
+        "in_0 - out_1 = 0",
+        "in_1 - out_2 = 0",
+        "in_2 - out_3 = 0",
+        "in_3 = 0",
         "Binary\nin_0 in_1 in_2 in_3 out_0 out_1 out_2 out_3",
     ]
 

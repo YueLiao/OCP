@@ -91,6 +91,7 @@ def generate_and_save_constraints(
             file.write(f"Tool type: {tool_type}\n")
             file.write(f"Python version: {sys.version.split()[0]}\n")
             file.write(f"Platform: {platform.platform()}\n")
+    return constraints, objective_fun
 
 
 @lru_cache(maxsize=128)

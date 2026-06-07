@@ -370,29 +370,78 @@ class Shift(UnaryOperator):    # Operator for the shift function: shift of the i
     def generate_model(self, model_type='sat'):
         if model_type == 'sat':
             var_in, var_out = (self.get_var_model("in", 0), self.get_var_model("out", 0))
-            if (self.direction =='r' and self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]):
-                model_list = [f"-{var_out[i]}" for i in range(self.amount)]
-                model_list += [clause for i in range(len(var_in)-self.amount) for clause in (f"-{var_in[i]} {var_out[i+self.amount]}", f"{var_in[i]} -{var_out[i+self.amount]}")]
-                model_list += [f"{var_in[i]} -{var_in[i]}" for i in range(len(var_in)-self.amount, len(var_in))]
+            n = len(var_in)
+            s = self.amount
+
+            def eq_clause(a, b):
+                return [f"-{a} {b}", f"{a} -{b}"]
+
+            if self.direction == 'r' and self.model_version == self.__class__.__name__ + "_XORDIFF":
+                model_list = [f"-{var_out[i]}" for i in range(s)]
+                model_list += [
+                    clause
+                    for i in range(n - s)
+                    for clause in eq_clause(var_in[i], var_out[i + s])
+                ]
+                model_list += [f"{var_in[i]} -{var_in[i]}" for i in range(n - s, n)]
                 return model_list
-            elif (self.direction =='l' and self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]):
-                model_list = [f"{var_in[i]} -{var_in[i]}" for i in range(self.amount)]
-                model_list += [clause for i in range(len(var_in) - self.amount) for clause in (f"-{var_in[i+self.amount]} {var_out[i]}", f"{var_in[i+self.amount]} -{var_out[i]}")]
-                model_list += [f"-{var_out[i]}" for i in range(len(var_in)-self.amount, len(var_in))]
+
+            elif self.direction == 'l' and self.model_version == self.__class__.__name__ + "_XORDIFF":
+                model_list = [f"{var_in[i]} -{var_in[i]}" for i in range(s)]
+                model_list += [
+                    clause
+                    for i in range(n - s)
+                    for clause in eq_clause(var_in[i + s], var_out[i])
+                ]
+                model_list += [f"-{var_out[i]}" for i in range(n - s, n)]
+                return model_list
+
+            elif self.direction == 'r' and self.model_version == self.__class__.__name__ + "_LINEAR":
+                model_list = [f"{var_out[i]} -{var_out[i]}" for i in range(s)]
+                model_list += [
+                    clause
+                    for i in range(n - s)
+                    for clause in eq_clause(var_in[i], var_out[i + s])
+                ]
+                model_list += [f"-{var_in[i]}" for i in range(n - s, n)]
+                return model_list
+
+            elif self.direction == 'l' and self.model_version == self.__class__.__name__ + "_LINEAR":
+                model_list = [f"-{var_in[i]}" for i in range(s)]
+                model_list += [
+                    clause
+                    for i in range(n - s)
+                    for clause in eq_clause(var_in[i + s], var_out[i])
+                ]
+                model_list += [f"{var_out[i]} -{var_out[i]}" for i in range(n - s, n)]
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
         elif model_type == 'milp':
             var_in, var_out = (self.get_var_model("in", 0), self.get_var_model("out", 0))
-            if (self.direction =='r' and self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]):
-                model_list = [f'{var_out[i]} = 0' for i in range(self.amount)]
-                model_list += [f'{var_in[i]} - {var_out[i+self.amount]} = 0' for i in range(len(var_in)-self.amount)]
-                model_list += [f"{var_in[i]} - {var_in[i]} = 0" for i in range(len(var_in)-self.amount, len(var_in))]
+            n = len(var_in)
+            s = self.amount
+
+            if self.direction == 'r' and self.model_version == self.__class__.__name__ + "_XORDIFF":
+                model_list = [f'{var_out[i]} = 0' for i in range(s)]
+                model_list += [f'{var_in[i]} - {var_out[i + s]} = 0' for i in range(n - s)]
                 model_list.append(binary_declaration(var_in, var_out))
                 return model_list
-            elif (self.direction =='l' and self.model_version in [self.__class__.__name__ + "_XORDIFF", self.__class__.__name__ + "_LINEAR"]):
-                model_list = [f"{var_in[i]} - {var_in[i]} = 0" for i in range(self.amount)]
-                model_list += [f'{var_in[i+self.amount]} - {var_out[i]} = 0' for i in range(len(var_in)-self.amount)]
-                model_list += [f'{var_out[i]} = 0' for i in range(len(var_in)-self.amount, len(var_in))]
+
+            elif self.direction == 'l' and self.model_version == self.__class__.__name__ + "_XORDIFF":
+                model_list = [f'{var_in[i + s]} - {var_out[i]} = 0' for i in range(n - s)]
+                model_list += [f'{var_out[i]} = 0' for i in range(n - s, n)]
+                model_list.append(binary_declaration(var_in, var_out))
+                return model_list
+
+            elif self.direction == 'r' and self.model_version == self.__class__.__name__ + "_LINEAR":
+                model_list = [f'{var_in[i]} - {var_out[i + s]} = 0' for i in range(n - s)]
+                model_list += [f'{var_in[i]} = 0' for i in range(n - s, n)]
+                model_list.append(binary_declaration(var_in, var_out))
+                return model_list
+
+            elif self.direction == 'l' and self.model_version == self.__class__.__name__ + "_LINEAR":
+                model_list = [f'{var_in[i]} = 0' for i in range(s)]
+                model_list += [f'{var_in[i + s]} - {var_out[i]} = 0' for i in range(n - s)]
                 model_list.append(binary_declaration(var_in, var_out))
                 return model_list
             else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
