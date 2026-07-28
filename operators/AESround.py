@@ -98,6 +98,11 @@ class AESround(Operator): # One full AES round (16-byte state) as a composite op
             for i in range(len(self.layers)):
                 for j in range(len(self.layers[i])):
                     cons = self.layers[i][j]
+                    cons.model_version = self.model_version.replace(self.__class__.__name__, cons.__class__.__name__)
+                    if "Sbox" in cons.__class__.__name__ and cons.model_version == cons.__class__.__name__+"_TRUNCATEDDIFF":
+                        cons.model_version += "_A"
+                    if cons.__class__.__name__ == "Matrix" and ("TRUNCATEDDIFF" in self.model_version or "TRUNCATEDLINEAR" in self.model_version):
+                        model_list += cons.generate_model(model_type, branch_num=5)
                     cons.model_version = self._get_inner_model_version(cons)
                     if cons.__class__.__name__ == "Matrix" and model_type == 'milp' and ("TRUNCATEDDIFF" in self.model_version or "TRUNCATEDLINEAR" in self.model_version):
                         model_list += cons.generate_model(model_type, branch_num=5) # Use the branch_num=5 constraint for the MixColumns layer in the truncated differential/linear models.
