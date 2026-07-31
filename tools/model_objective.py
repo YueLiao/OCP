@@ -23,12 +23,16 @@ def detect_Sbox(cipher): # Detect and return the first Sbox operator in the ciph
 
 def has_Sbox_with_decimal_weights(cipher, goal):
     Sbox = detect_Sbox(cipher)
-    if Sbox and goal in {'DIFFERENTIALPATH_PROB', 'DIFFERENTIAL_PROB'}:
-        if goal in {'DIFFERENTIALPATH_PROB', 'DIFFERENTIAL_PROB'}:
-            table = Sbox.computeDDT()
-        weights = Sbox.gen_weights(table)
-        return any(not float(w).is_integer() for w in weights)
-    return False
+    if not Sbox:
+        return False
+    if goal in {'DIFFERENTIALPATH_PROB', 'DIFFERENTIAL_PROB'}:
+        table = Sbox.computeDDT()   # differential weights from the DDT
+    elif goal in {'LINEARPATH_CORR', 'LINEARHULL_CORR'}:
+        table = Sbox.computeLAT()   # linear weights from the LAT (|corr| = |LAT|/2^n)
+    else:
+        return False
+    weights = Sbox.gen_weights(table)
+    return any(not float(w).is_integer() for w in weights)
 
 def linear_combinations_bounds(weights, upper_bound, lower_bound=-1): # Enumerate all integer linear combinations of weights such that the sum is within (lower_bound, upper_bound].
     n = len(weights)

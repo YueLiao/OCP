@@ -56,51 +56,6 @@ def fill_functions_rounds_layers_positions(cipher, functions=None, rounds=None, 
     return functions, rounds, layers, positions
 
 
-def configure_model_version(cipher, goal, config_model): # Configure the model version for all operators in the cipher based on the attack goal and config_model.
-    functions, rounds, layers, positions = config_model.get("functions"), config_model.get("rounds"), config_model.get("layers"), config_model.get("positions")
-
-    if goal == 'DIFFERENTIAL_SBOXCOUNT':
-        set_model_versions(cipher, "XORDIFF", functions, rounds, layers, positions) # Set model_version = "XORDIFF" for all operators
-        set_model_versions(cipher, "XORDIFF_A", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "XORDIFF_A" for all Sbox operators
-        set_model_versions(cipher, "XORDIFF_A", functions, rounds, layers, positions, operator_name="AESround") # Preserve S-box active-count semantics inside AESround
-
-    elif goal == 'DIFFERENTIALPATH_PROB' or  goal == "DIFFERENTIAL_PROB":
-        set_model_versions(cipher, "XORDIFF", functions, rounds, layers, positions) # Set model_version = "XORDIFF" for all operators
-        set_model_versions(cipher, "XORDIFF_PR", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "XORDIFF_PR" for all Sbox operators
-        set_model_versions(cipher, "XORDIFF_PR", functions, rounds, layers, positions, operator_name="AESround") # Preserve S-box probability semantics inside AESround
-
-    elif goal == 'LINEAR_SBOXCOUNT':
-        set_model_versions(cipher, "LINEAR", functions, rounds, layers, positions) # Set model_version = "LINEAR" for all operators
-        set_model_versions(cipher, "LINEAR_A", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "LINEAR_A" for all Sbox operators
-        set_model_versions(cipher, "LINEAR_A", functions, rounds, layers, positions, operator_name="AESround") # Preserve S-box active-count semantics inside AESround
-
-    elif goal == 'LINEARPATH_CORR' or goal == "LINEARHULL_CORR":
-        set_model_versions(cipher, "LINEAR", functions, rounds, layers, positions) # Set model_version = "LINEAR" for all operators
-        set_model_versions(cipher, "LINEAR_PR", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "LINEAR_PR" for all Sbox operators
-        set_model_versions(cipher, "LINEAR_PR", functions, rounds, layers, positions, operator_name="AESround") # Preserve S-box correlation semantics inside AESround
-
-    elif goal == "TRUNCATEDDIFF_SBOXCOUNT":
-        set_model_versions(cipher, "TRUNCATEDDIFF", functions, rounds, layers, positions) # Set model_version = "TRUNCATEDDIFF" for all operators
-        set_model_versions(cipher, "TRUNCATEDDIFF_A", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "TRUNCATEDDIFF_A" for all Sbox operators
-        set_model_versions(cipher, "TRUNCATEDDIFF_A", functions, rounds, layers, positions, operator_name="AESround") # Preserve S-box active-count semantics inside AESround
-
-    elif goal == "TRUNCATEDLINEAR_SBOXCOUNT":
-        set_model_versions(cipher, "TRUNCATEDLINEAR", functions, rounds, layers, positions) # Set model_version = "TRUNCATEDLINEAR" for all operators
-        set_model_versions(cipher, "TRUNCATEDLINEAR_A", functions, rounds, layers, positions, operator_name="Sbox") # Set model_version = "TRUNCATEDLINEAR_A" for all Sbox operators
-        set_model_versions(cipher, "TRUNCATEDLINEAR_A", functions, rounds, layers, positions, operator_name="AESround") # Preserve S-box active-count semantics inside AESround
-
-    elif goal == "INTEGRAL_TWOSUBSET":
-        set_model_versions(cipher, "INTEGRAL_TWOSUBSET", functions, rounds, layers, positions) # Set model_version = "INTEGRAL_TWOSUBSET" for all selected operators
-
-    else:
-        raise ValueError(f"Invalid goal: {goal}.")
-
-    if "model_version" in config_model: # Set a specific model version for an operator. Example: config_model['model_version'] = {'model_version': 'XOR_XORDIFF_1', 'operator_name': 'XOR'}.
-        version = config_model.get("model_version").get("model_version")
-        operator_name = config_model.get("model_version").get("operator_name", None)
-        set_model_versions(cipher, version, functions, rounds, layers, positions, operator_name=operator_name)
-
-
 def set_model_versions(cipher, version, functions, rounds, layers, positions, operator_name=None): # Assigns a specified model_version to constraints (operators) in the cipher based on specified parameters.
     def _assgn_version(cons):
         if operator_name is None: # Assign model_version to all operators in the cipher.
@@ -122,16 +77,17 @@ def set_model_versions(cipher, version, functions, rounds, layers, positions, op
                     _assgn_version(cons)
 
 
-def gen_round_model_constraint_obj_fun(cipher, goal, model_type, config_model): # Generate constraints for a given cipher based on user-specified parameters.
-    configure_model_version(cipher, goal, config_model)
+def gen_round_model_constraint_obj_fun(cipher, model_type, config_model): # Generate constraints for a given cipher based on user-specified parameters.
     constraint = []
     obj_fun = [[] for _ in range(cipher.functions["PERMUTATION"].nbr_rounds)]
 
     # Generate constraints linking input and output
-    for cons in cipher.inputs_constraints:
-        constraint += cons.generate_model(model_type=model_type)
-    for cons in cipher.outputs_constraints:
-        constraint += cons.generate_model(model_type=model_type)
+    if config_model.get("gen_input_model", True):
+        for cons in cipher.inputs_constraints:
+            constraint += cons.generate_model(model_type=model_type)
+    if config_model.get("gen_output_model", True):
+        for cons in cipher.outputs_constraints:
+            constraint += cons.generate_model(model_type=model_type)
 
     # Generate constraints and objective function for each round/layer/operator
     functions, rounds, layers, positions = config_model.get("functions"), config_model.get("rounds"), config_model.get("layers"), config_model.get("positions")

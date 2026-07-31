@@ -156,19 +156,21 @@ if __name__ == "__main__":
     # import primitives.aes as aes
     # cipher = aes.AES_BLOCKCIPHER(version=[128,256])
 
-    # import primitives.speck as speck
-    # cipher = speck.SPECK_PERMUTATION(version=32)
+    import primitives.speck as speck
+    cipher = speck.SPECK_PERMUTATION(version=32)
     # cipher = speck.SPECK_BLOCKCIPHER(version=[32,64])
 
     # import primitives.simon as simon
     # cipher = simon.SIMON_BLOCKCIPHER(version=[32,64])
 
-    # test_all_implementations(cipher)
-    # test_visualisation(cipher)
-    # test_diff_attack_milp(cipher)
-    # test_diff_attack_sat(cipher)
-    # test_linear_attack_milp(cipher)
-    # test_linear_attack_sat(cipher)
+    test_all_implementations(cipher)
+    test_visualisation(cipher)
+
+    cipher = speck.SPECK_PERMUTATION(r=2, version=32)
+    test_diff_attack_milp(cipher)
+    test_diff_attack_sat(cipher)
+    test_linear_attack_milp(cipher)
+    test_linear_attack_sat(cipher)
 
     # PRESENT integral attack example. This MILP example is slower than the default demos.
     import primitives.present as present
