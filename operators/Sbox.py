@@ -1,63 +1,13 @@
-import hashlib
 import math
 import os
-from functools import lru_cache
-from operators.operators import (
-    Operator,
-    RaiseExceptionVersionNotExisting,
-    binary_declaration,
-    raise_unknown_implementation_type,
-)
-from tools.model_templates import (
-    generate_and_save_constraints,
-    gen_constraints_obj_func_from_template,
-    instantiate_constraints_template,
-)
-from tools.paths import get_files_dir
+from pathlib import Path
+from operators.operators import Operator, RaiseExceptionVersionNotExisting
+from tools.model_constraints import generate_and_save_constraints, gen_constraints_obj_func_from_template
+from tools.sbox_division_trails import two_subset_sbox_truthtable
 
-
-def _truth_table(total_bits, predicate):
-    """Build a compact truth-table string from a boolean predicate."""
-
-    return "".join("1" if predicate(n) else "0" for n in range(1 << total_bits))
-
-
-@lru_cache(maxsize=None)
-def _compute_ddt_cached(table, input_bitsize, output_bitsize):
-    input_size = 1 << input_bitsize
-    output_size = 1 << output_bitsize
-    ddt = [[0] * output_size for _ in range(input_size)]
-    for in_diff in range(input_size):
-        for x in range(input_size):
-            out_diff = table[x] ^ table[x ^ in_diff]
-            ddt[in_diff][out_diff] += 1
-    return tuple(tuple(row) for row in ddt)
-
-
-@lru_cache(maxsize=None)
-def _compute_lat_cached(table, input_bitsize, output_bitsize):
-    input_size = 1 << input_bitsize
-    output_size = 1 << output_bitsize
-    lat = [[0] * output_size for _ in range(input_size)]
-    for a in range(input_size):
-        for b in range(output_size):
-            acc = 0
-            for x in range(input_size):
-                ax = (a & x).bit_count() & 1
-                bs = (b & table[x]).bit_count() & 1
-                acc += 1 if (ax ^ bs) == 0 else -1
-            lat[a][b] = acc
-    return tuple(tuple(row) for row in lat)
-
-
-def _copy_table(table):
-    return [list(row) for row in table]
-
-
-def _table_fingerprint(table):
-    table_bytes = ",".join(str(value) for value in table).encode("ascii")
-    return hashlib.sha256(table_bytes).hexdigest()[:12]
-
+ROOT = Path(__file__).resolve().parents[1]  # this file -> operators -> <ROOT>
+BASE_PATH = ROOT / "files/sbox_modeling"
+BASE_PATH.mkdir(parents=True, exist_ok=True)
 
 class Sbox(Operator):  # Generic operator assigning a Sbox relationship between the input variable and output variable (must be of same bitsize)
     def __init__(self, input_vars, output_vars, input_bitsize, output_bitsize, ID = None):
@@ -70,20 +20,28 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
         self.lat = None
 
     def computeDDT(self): # Compute the differential Distribution Table (DDT) of the Sbox
-        if self.ddt is not None:
-            return self.ddt
-        self.ddt = _copy_table(
-            _compute_ddt_cached(tuple(self.table), self.input_bitsize, self.output_bitsize)
-        )
-        return self.ddt
+        if self.ddt is not None: return self.ddt
+        ddt = [[0]*(2**self.output_bitsize) for _ in range(2**self.input_bitsize)]
+        for in_diff in range(2**self.input_bitsize):
+            for j in range(2**self.input_bitsize):
+                out_diff = self.table[j] ^ self.table[j^in_diff]
+                ddt[in_diff][out_diff] += 1
+        self.ddt = ddt
+        return ddt
 
     def computeLAT(self): # Compute the Linear Approximation Table (LAT) of the S-box.
-        if self.lat is not None:
-            return self.lat
-        self.lat = _copy_table(
-            _compute_lat_cached(tuple(self.table), self.input_bitsize, self.output_bitsize)
-        )
-        return self.lat
+        if self.lat is not None: return self.lat
+        lat = [[0] * 2**self.output_bitsize for _ in range(2**self.input_bitsize)]
+        for a in range(2**self.input_bitsize):
+            for b in range(2**self.output_bitsize):
+                acc = 0
+                for x in range(2**self.input_bitsize):
+                    ax = bin(a & x).count("1") & 1
+                    bs = bin(b & self.table[x]).count("1") & 1
+                    acc += 1 if (ax ^ bs) == 0 else -1
+                lat[a][b] = acc
+        self.lat = lat
+        return lat
 
     def differential_branch_number(self): # Return differential branch number of the S-Box.
         ret = (1 << self.input_bitsize) + (1 << self.output_bitsize)
@@ -92,9 +50,8 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                 if a != b:
                     x = a ^ b
                     y = self.table[a] ^ self.table[b]
-                    w = x.bit_count() + y.bit_count()
-                    if w < ret:
-                        ret = w
+                    w = bin(x).count('1') + bin(y).count('1')
+                    if w < ret: ret = w
         return ret
 
     def linear_branch_number(self):
@@ -104,7 +61,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
         for a in range(1 << m):
             for b in range(1, 1 << n):
                 if lat[a][b] != 0:
-                    w = a.bit_count() + b.bit_count()
+                    w = bin(a).count("1") + bin(b).count("1")
                     if w < ret:
                         ret = w
         return ret
@@ -115,96 +72,116 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
     # ---------------- Truth Table Generation ---------------- #
     def star_ddt_to_truthtable(self): # Convert star-DDT into a truthtable, which encode the differential propagations without probalities
         ddt = self.computeDDT()
-        output_mask = (1 << self.output_bitsize) - 1
-
-        def is_possible(n):
+        ttable = ''
+        for n in range(2**(self.input_bitsize+self.output_bitsize)):
             dx = n >> self.output_bitsize
-            dy = n & output_mask
-            return ddt[dx][dy] > 0
-
-        return _truth_table(self.input_bitsize + self.output_bitsize, is_possible)
+            dy = n & ((1 << self.output_bitsize) - 1)
+            if ddt[dx][dy] > 0: ttable += '1'
+            else: ttable += '0'
+        return ttable
 
     def pddt_to_truthtable(self, p): # Convert p-DDT into a truthtable, which encode the differential propagations with the item in ddt equal to p.
         ddt = self.computeDDT()
-        output_mask = (1 << self.output_bitsize) - 1
-
-        def has_probability_count(n):
+        ttable = ''
+        for n in range(2**(self.input_bitsize+self.output_bitsize)):
             dx = n >> self.output_bitsize
-            dy = n & output_mask
-            return ddt[dx][dy] == p
-
-        return _truth_table(self.input_bitsize + self.output_bitsize, has_probability_count)
+            dy = n & ((1 << self.output_bitsize) - 1)
+            if ddt[dx][dy] == p: ttable += '1'
+            else: ttable += '0'
+        return ttable
 
     def ddt_to_truthtable_milp(self): # Convert the DDT into a truthtable, which encode the differential propagations with probalities.
         ddt = self.computeDDT()
+        ttable = ''
         diff_weights = self.gen_weights(ddt)
-
-        def is_weighted_transition(value, pattern):
-            w = sum(diff_weights[i] * int(pattern[i]) for i in range(len(diff_weights)))
-            return abs(float(math.log(value / (1 << self.input_bitsize), 2))) == w
-
-        return self._weighted_table_to_truthtable(ddt, len(diff_weights), is_weighted_transition)
+        len_diff_weights = len(diff_weights)
+        for n in range(2**(self.input_bitsize+self.output_bitsize+len_diff_weights)):
+            dx = n >> (self.output_bitsize + len_diff_weights)
+            dy = (n >> len_diff_weights) & ((1 << self.output_bitsize) - 1)
+            if ddt[dx][dy] > 0:
+                p = bin(n & ((1 << (len_diff_weights)) - 1))[2:].zfill(len_diff_weights)
+                w = 0
+                for i in range(len_diff_weights):
+                    w += diff_weights[i] * int(p[i])
+                if abs(float(math.log(ddt[dx][dy]/(2**self.input_bitsize), 2))) == w: ttable += '1'
+                else: ttable += '0'
+            else: ttable += '0'
+        return ttable
 
     def ddt_to_truthtable_sat(self): # Convert the DDT, which encode the differential propagations with probalities into a truthtable in sat.
         ddt = self.computeDDT()
+        ttable = ''
         integers_weight, floats_weight = self.gen_integer_float_weight(ddt)
         len_diff_weights = int(max(integers_weight)+len(floats_weight))
-
-        def is_weighted_transition(value, pattern):
-            p = tuple(int(x) for x in pattern)
-            w = abs(float(math.log(value / (1 << self.input_bitsize), 2)))
-            return p == tuple(self.gen_weight_pattern_sat(integers_weight, floats_weight, w))
-
-        return self._weighted_table_to_truthtable(ddt, len_diff_weights, is_weighted_transition)
+        for n in range(2**(self.input_bitsize+self.output_bitsize+len_diff_weights)):
+            dx = n >> (self.output_bitsize + len_diff_weights)
+            dy = (n >> len_diff_weights) & ((1 << self.output_bitsize) - 1)
+            if ddt[dx][dy] > 0:
+                p = tuple(int(x) for x in bin(n & ((1 << len_diff_weights) - 1))[2:].zfill(len_diff_weights))
+                w = abs(float(math.log(ddt[dx][dy]/(2**self.input_bitsize), 2)))
+                pattern = self.gen_weight_pattern_sat(integers_weight, floats_weight, w)
+                if p == tuple(pattern):  ttable += '1'
+                else: ttable += '0'
+            else: ttable += '0'
+        return ttable
 
     def star_lat_to_truthtable(self): # Convert star-LAT into a truthtable, which encode the linear mask propagations without correlations.
         lat = self.computeLAT()
-        output_mask = (1 << self.output_bitsize) - 1
-
-        def is_possible(n):
+        ttable = ''
+        for n in range(2**(self.input_bitsize+self.output_bitsize)):
             lx = n >> self.output_bitsize
-            ly = n & output_mask
-            return lat[lx][ly] != 0
-
-        return _truth_table(self.input_bitsize + self.output_bitsize, is_possible)
+            ly = n & ((1 << self.output_bitsize) - 1)
+            if lat[lx][ly] != 0: ttable += '1'
+            else: ttable += '0'
+        return ttable
 
     def plat_to_truthtable(self, p): # Convert p-LAT into a truthtable, which encode the linear mask propagations with the item in lat equal to p.
         lat = self.computeLAT()
-        output_mask = (1 << self.output_bitsize) - 1
-
-        def has_correlation_count(n):
+        ttable = ''
+        for n in range(2**(self.input_bitsize+self.output_bitsize)):
             lx = n >> self.output_bitsize
-            ly = n & output_mask
-            return lat[lx][ly] == p or lat[lx][ly] == -p
-
-        return _truth_table(self.input_bitsize + self.output_bitsize, has_correlation_count)
+            ly = n & ((1 << self.output_bitsize) - 1)
+            if lat[lx][ly] == p or lat[lx][ly] == -p: ttable += '1'
+            else: ttable += '0'
+        return ttable
 
     def lat_to_truthtable_milp(self): # Convert the LAT into a truthtable, which encode the linear mask propagations with correlations.
         lat = self.computeLAT()
+        ttable = ''
         linear_weights = self.gen_weights(lat)
-
-        def is_weighted_transition(value, pattern):
-            w = sum(linear_weights[i] * int(pattern[i]) for i in range(len(linear_weights)))
-            return abs(float(math.log(abs(value) / (1 << self.input_bitsize), 2))) == w
-
-        return self._weighted_table_to_truthtable(lat, len(linear_weights), is_weighted_transition)
+        len_linear_weights = len(linear_weights)
+        for n in range(2**(self.input_bitsize+self.output_bitsize+len_linear_weights)):
+            lx = n >> (self.output_bitsize + len_linear_weights)
+            ly = (n >> len_linear_weights) & ((1 << self.output_bitsize) - 1)
+            if lat[lx][ly] != 0:
+                p = bin(n & ((1 << (len_linear_weights)) - 1))[2:].zfill(len_linear_weights)
+                w = 0
+                for i in range(len_linear_weights):
+                    w += linear_weights[i] * int(p[i])
+                if abs(float(math.log(abs(lat[lx][ly])/(2**self.input_bitsize), 2))) == w: ttable += '1'
+                else: ttable += '0'
+            else: ttable += '0'
+        return ttable
 
     def lat_to_truthtable_sat(self): # Convert the LAT, which encode the linear mask propagations with correlations into a truthtable in sat.
         lat = self.computeLAT()
+        ttable = ''
         integers_weight, floats_weight = self.gen_integer_float_weight(lat)
         len_linear_weights = int(max(integers_weight)+len(floats_weight))
-
-        def is_weighted_transition(value, pattern):
-            p = tuple(int(x) for x in pattern)
-            w = abs(float(math.log(abs(value) / (1 << self.input_bitsize), 2)))
-            return p == tuple(self.gen_weight_pattern_sat(integers_weight, floats_weight, w))
-
-        return self._weighted_table_to_truthtable(lat, len_linear_weights, is_weighted_transition)
+        for n in range(2**(self.input_bitsize+self.output_bitsize+len_linear_weights)):
+            lx = n >> (self.output_bitsize + len_linear_weights)
+            ly = (n >> len_linear_weights) & ((1 << self.output_bitsize) - 1)
+            if lat[lx][ly] != 0:
+                p = tuple(int(x) for x in bin(n & ((1 << len_linear_weights) - 1))[2:].zfill(len_linear_weights))
+                w = abs(float(math.log(abs(lat[lx][ly])/(2**self.input_bitsize), 2)))
+                pattern = self.gen_weight_pattern_sat(integers_weight, floats_weight, w)
+                if p == tuple(pattern):  ttable += '1'
+                else: ttable += '0'
+            else: ttable += '0'
+        return ttable
 
     def gen_spectrum(self, table):
-        spectrum = sorted(
-            set(abs(value) for row in table for value in row) - {0, 1 << self.input_bitsize}
-        )
+        spectrum = sorted(list(set([abs(table[i][j]) for i in range(2**self.input_bitsize) for j in range(2**self.output_bitsize)]) - {0, 2**self.input_bitsize}))
         return spectrum
 
     def gen_weights(self, table):
@@ -223,102 +200,36 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
         float_w = w - int_w
         return [0] * (max(integers_weight) - int_w) + [1] * int_w + [1 if f == float_w else 0 for f in floats_weight]
 
-    def _weighted_table_to_truthtable(self, table, weight_bits, predicate):
-        output_mask = (1 << self.output_bitsize) - 1
-        weight_mask = (1 << weight_bits) - 1
-
-        def is_weighted_transition(n):
-            input_mask = n >> (self.output_bitsize + weight_bits)
-            output_mask_value = (n >> weight_bits) & output_mask
-            value = table[input_mask][output_mask_value]
-            if value == 0:
-                return False
-            pattern = bin(n & weight_mask)[2:].zfill(weight_bits)
-            return predicate(value, pattern)
-
-        return _truth_table(self.input_bitsize + self.output_bitsize + weight_bits, is_weighted_transition)
-
-    def _bitwise_model_vars(self):
-        var_in, var_out = [], []
-        for i in range(len(self.input_vars)):
-            var_in += self.get_var_model("in", i)
-        for i in range(len(self.output_vars)):
-            var_out += self.get_var_model("out", i)
-        return var_in, var_out
-
-    @staticmethod
-    def _template_io_vars(var_in, var_out):
-        return [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
-
-    def _model_cache_key(self):
-        return (
-            f"{self.__class__.__name__}_{self.input_bitsize}x{self.output_bitsize}_"
-            f"{_table_fingerprint(tuple(self.table))}"
-        )
-
-    def _model_cache_path(self, model_type, model_version, tool_type, mode):
-        filename = (
-            f"constraints_{model_type}_{self._model_cache_key()}_"
-            f"{model_version}_{tool_type}_{mode}.txt"
-        )
-        return str(get_files_dir("sbox_modeling") / filename)
-
-    def _packed_input_expression(self, unroll, terminator=""):
-        x_bits = len(self.input_vars)
-        return (
-            "x = "
-            + " | ".join(
-                f'({self.get_var_ID("in", i, unroll=unroll)} << {x_bits - 1 - i})'
-                for i in range(x_bits)
-            )
-            + terminator
-        )
-
-    def _python_bitwise_assignment(self, unroll):
-        y_bits = len(self.output_vars)
-        y_vars = ", ".join(self.get_var_ID("out", i, unroll=unroll) for i in range(y_bits))
-        y_values = ", ".join(f"(y >> {y_bits - 1 - i}) & 1" for i in range(y_bits))
-        return f"{y_vars} = {y_values}"
-
-    def _c_bitwise_assignments(self, unroll):
-        y_bits = len(self.output_vars)
-        return [
-            f'{self.get_var_ID("out", i, unroll=unroll)} = (y >> {y_bits - 1 - i}) & 1;'
-            for i in range(y_bits)
-        ]
-
     # ---------------- Implementation Code Generation ---------------- #
     def generate_implementation(self, implementation_type='python', unroll=False):
         if implementation_type == 'python':
             if len(self.input_vars) == 1 and len(self.output_vars) == 1:
                 return [self.get_var_ID('out', 0, unroll) + ' = ' + str(self.__class__.__name__) + '[' + self.get_var_ID('in', 0, unroll) + ']']
-            elif len(self.input_vars) > 1 and len(self.output_vars) >= 1:
-                return [
-                    self._packed_input_expression(unroll),
-                    f'y = {self.__class__.__name__}[x]',
-                    self._python_bitwise_assignment(unroll),
-                ]
-            else:
-                raise ValueError(
-                    f"{self.__class__.__name__}: unsupported number of input/output variables "
-                    "for 'python' implementation"
-                )
+            elif len(self.input_vars) > 1 and len(self.output_vars) > 1:
+                x_bits = len(self.input_vars)
+                x_expr = 'x = ' + ' | '.join(f'({self.get_var_ID("in", i, unroll=unroll)} << {x_bits - 1 - i})'for i in range(x_bits))
+                model_list = [x_expr]
+                model_list.append(f'y = {self.__class__.__name__}[x]')
+                y_vars = ', '.join(f'{self.get_var_ID("out", i, unroll=unroll)}' for i in range(x_bits))
+                y_bits = ', '.join(f'(y >> {x_bits - 1 - i}) & 1' for i in range(x_bits))
+                model_list.append(f'{y_vars} = {y_bits}')
+                return model_list
+            else: raise Exception(str(self.__class__.__name__) + ": unsupported number of input/output variables for 'python' implementation")
         elif implementation_type == 'c':
             if len(self.input_vars) == 1 and len(self.output_vars) == 1:
                 return [self.get_var_ID('out', 0, unroll) + ' = ' + str(self.__class__.__name__) + '[' + self.get_var_ID('in', 0, unroll) + '];']
-            elif len(self.input_vars) > 1 and len(self.output_vars) >= 1:
-                return [
-                    self._packed_input_expression(unroll, terminator=";"),
-                    f'y = {str(self.__class__.__name__)}[x];',
-                    *self._c_bitwise_assignments(unroll),
-                ]
-            else:
-                raise ValueError(
-                    f"{self.__class__.__name__}: unsupported number of input/output variables "
-                    "for 'c' implementation"
-                )
-        else:
-            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
+            elif len(self.input_vars) > 1 and len(self.output_vars) > 1:
+                x_bits = len(self.input_vars)
+                x_expr = 'x = ' + ' | '.join(f'({self.get_var_ID("in", i, unroll=unroll)} << {x_bits - 1 - i})'for i in range(x_bits))+ ";"
+                model_list = [x_expr]
+                model_list.append(f'y = {str(self.__class__.__name__)}[x];')
+                for i in range(x_bits):
+                    y_vars = self.get_var_ID("out", i, unroll=unroll)
+                    y_bits = f'(y >> {x_bits - 1 - i}) & 1'
+                    model_list.append(f'{y_vars} = {y_bits};')
+                return model_list
+            else: raise Exception(str(self.__class__.__name__) + ": unsupported number of input/output variables for 'c' implementation")
+        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
 
     def get_header_ID(self):
         return [self.__class__.__name__, self.model_version, self.input_bitsize, self.output_bitsize, self.table]
@@ -328,17 +239,17 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             return [str(self.__class__.__name__) + ' = ' + str(self.table)]
         elif implementation_type == 'c':
             if self.input_bitsize <= 8:
-                if len(self.input_vars) > 1: return ['uint8_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint8_t ' + 'x;'] + ['uint8_t ' + 'y;']
+                if len(self.input_vars) > 1 and len(self.output_vars) > 1: return ['uint8_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint8_t ' + 'x;'] + ['uint8_t ' + 'y;']
                 else: return ['uint8_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};']
             else:
-                if len(self.input_vars) > 1: return ['uint32_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint32_t ' + 'x;'] + ['uint32_t ' + 'y;']
+                if len(self.input_vars) > 1 and len(self.output_vars) > 1: return ['uint32_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint32_t ' + 'x;'] + ['uint32_t ' + 'y;']
                 else: return ['uint32_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};']
         else: return None
 
 
     # ---------------- Modeling Interface ---------------- #
     def generate_model(self, model_type='sat', tool_type="minimize_logic", mode = 0, filename_load=True):
-        self.model_filename = self._model_cache_path(model_type, self.model_version, tool_type, mode)
+        self.model_filename = str(BASE_PATH / f"constraints_{model_type}_{self.model_version}_{tool_type}_{mode}.txt")
         self.filename_load = filename_load
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_PR", self.__class__.__name__ + "_LINEAR_PR"]:
             return self._generate_model_diff_linear_pr(model_type, tool_type, mode)
@@ -348,10 +259,38 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             return self._generate_model_diff_linear_p(model_type, tool_type, mode)
         elif self.model_version in [self.__class__.__name__ + "_TRUNCATEDDIFF", self.__class__.__name__ + "_TRUNCATEDDIFF_A", self.__class__.__name__ + "_TRUNCATEDLINEAR", self.__class__.__name__ + "_TRUNCATEDLINEAR_A"] and (not isinstance(self.input_vars[0], list)):
             return self._generate_model_diff_linear_word_truncated(model_type)
+        elif self.model_version in [self.__class__.__name__ + "_INTEGRAL_TWOSUBSET"]:
+            return self._generate_model_integral_twosubset(model_type, tool_type, mode)
         else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
 
+    def _generate_model_integral_twosubset(self, model_type, tool_type, mode):
+        if model_type != "milp":
+            RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
+        if self.input_bitsize != self.output_bitsize:
+            raise ValueError(f"{self.__class__.__name__}: INTEGRAL_TWOSUBSET requires equal input and output bitsizes")
+
+        var_in, var_out = [], []
+        for i in range(len(self.input_vars)):
+            var_in += self.get_var_model("in", i)
+        for i in range(len(self.output_vars)):
+            var_out += self.get_var_model("out", i)
+
+        if self.filename_load and os.path.exists(self.model_filename):
+            model_list, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
+        else:
+            ttable = two_subset_sbox_truthtable(self.table, self.input_bitsize)
+            input_variables, output_variables = [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
+            generate_and_save_constraints(model_type, tool_type, mode, ttable, input_variables, output_variables, model_filename=self.model_filename)
+            model_list, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
+
+        return model_list
+
     def _generate_model_diff_linear_pr(self, model_type, tool_type, mode):
-        var_in, var_out = self._bitwise_model_vars()
+        var_in, var_out = [], []
+        for i in range(len(self.input_vars)):
+            var_in += self.get_var_model("in", i)
+        for i in range(len(self.output_vars)):
+            var_out += self.get_var_model("out", i)
 
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_PR"]:
             table = self.computeDDT()
@@ -388,38 +327,21 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             else:
                 RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
 
-            input_variables, output_variables = self._template_io_vars(var_in, var_out)
-            constraints, template_obj_fun = generate_and_save_constraints(
-                model_type,
-                tool_type,
-                mode,
-                ttable,
-                input_variables,
-                output_variables,
-                pr_variables,
-                objective_fun=objective_fun,
-                model_filename=self.model_filename,
-            )
-            model_list, obj_fun = instantiate_constraints_template(
-                constraints,
-                template_obj_fun,
-                var_in,
-                var_out,
-                var_p,
-            )
+            input_variables, output_variables = [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
+            generate_and_save_constraints(model_type, tool_type, mode, ttable, input_variables, output_variables, pr_variables, objective_fun=objective_fun, model_filename=self.model_filename)
+            model_list, obj_fun = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out, var_p)
         self.weight = [obj_fun]
         return model_list
 
     def _generate_model_diff_linear(self, model_type, tool_type, mode): # modeling all possible (input difference, output difference). Reference: Siwei Sun, Lei Hu, Peng Wang, Kexin Qiao, Xiaoshuang Ma, and Ling Song. Automatic security evaluation and (related-key) differential characteristic search: Application to SIMON, PRESENT, LBlock, DES(L) and other bit-oriented block ciphers
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_A", self.__class__.__name__ + "_LINEAR_A"]:
-            self.model_filename = self._model_cache_path(
-                model_type,
-                self.model_version.replace("_A", ""),
-                tool_type,
-                mode,
-            )
+            self.model_filename = str(BASE_PATH / f"constraints_{model_type}_{self.model_version.replace('_A', '')}_{tool_type}_{mode}.txt")
 
-        var_in, var_out = self._bitwise_model_vars()
+        var_in, var_out = [], []
+        for i in range(len(self.input_vars)):
+            var_in += self.get_var_model("in", i)
+        for i in range(len(self.output_vars)):
+            var_out += self.get_var_model("out", i)
 
         if self.filename_load and os.path.exists(self.model_filename):
             model_list, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
@@ -430,22 +352,9 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                 ttable = self.star_lat_to_truthtable()
             else:
                  RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-            input_variables, output_variables = self._template_io_vars(var_in, var_out)
-            constraints, template_obj_fun = generate_and_save_constraints(
-                model_type,
-                tool_type,
-                mode,
-                ttable,
-                input_variables,
-                output_variables,
-                model_filename=self.model_filename,
-            )
-            model_list, _ = instantiate_constraints_template(
-                constraints,
-                template_obj_fun,
-                var_in,
-                var_out,
-            )
+            input_variables, output_variables = [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
+            generate_and_save_constraints(model_type, tool_type, mode, ttable, input_variables, output_variables, model_filename=self.model_filename)
+            model_list, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
 
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_A", self.__class__.__name__ + "_LINEAR_A"]: # to calculate the minimum number of active S-boxes
             var_At = [self.ID + '_At']
@@ -453,7 +362,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                 model_list += [f"-{var} {var_At[0]}" for var in var_in] + [" ".join(var_in) + ' -' + var_At[0]]
             elif model_type == "milp":
                 model_list += [f"{var_At[0]} - {var_in[i]} >= 0" for i in range(len(var_in))] + [" + ".join(var_in) + ' - ' + var_At[0] + ' >= 0']
-                model_list.append(binary_declaration(var_At))
+                model_list.append('Binary\n' +  ' '.join(v for v in var_At))
             self.weight = var_At
 
         return model_list
@@ -461,7 +370,11 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
     def _generate_model_diff_linear_p(self, model_type, tool_type, mode): # for large sbox, self.input_bitsize >= 8, e.g., skinny, use the method from: MILP Modeling for (Large) S-boxes to Optimize Probability of Differential Characteristics. (2017). IACR Transactions on Symmetric Cryptology, 2017(4), 99-129.
         model_list = []
 
-        var_in, var_out = self._bitwise_model_vars()
+        var_in, var_out = [], []
+        for i in range(len(self.input_vars)):
+            var_in += self.get_var_model("in", i)
+        for i in range(len(self.output_vars)):
+            var_out += self.get_var_model("out", i)
 
         if self.model_version in [self.__class__.__name__ + "_XORDIFF_P"]:
             table = self.computeDDT()
@@ -476,7 +389,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
 
         for i in range(len(spectrum)):
             self.model_version = model_v + str(spectrum[i])
-            self.model_filename = self._model_cache_path(model_type, self.model_version, tool_type, mode)
+            self.model_filename = str(BASE_PATH / f"constraints_{model_type}_{self.model_version}_{tool_type}_{mode}.txt")
 
             if self.filename_load and os.path.exists(self.model_filename):
                 sbox_inequalities, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
@@ -487,22 +400,9 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
                     ttable = self.plat_to_truthtable(spectrum[i])
                 else:
                     RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-                input_variables, output_variables = self._template_io_vars(var_in, var_out)
-                constraints, template_obj_fun = generate_and_save_constraints(
-                    model_type,
-                    tool_type,
-                    mode,
-                    ttable,
-                    input_variables,
-                    output_variables,
-                    model_filename=self.model_filename,
-                )
-                sbox_inequalities, _ = instantiate_constraints_template(
-                    constraints,
-                    template_obj_fun,
-                    var_in,
-                    var_out,
-                )
+                input_variables, output_variables = [f"a{i}" for i in range(len(var_in))], [f"b{i}" for i in range(len(var_out))]
+                generate_and_save_constraints(model_type, tool_type, mode, ttable, input_variables, output_variables, model_filename=self.model_filename)
+                sbox_inequalities, _ = gen_constraints_obj_func_from_template(self.model_filename, var_in, var_out)
 
             for ineq in sbox_inequalities:
                 temp = ineq
@@ -513,7 +413,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             weight += " + " + "{:0.04f} ".format(abs(float(math.log(spectrum[i]/(2**self.input_bitsize), 2)))) + var_p[i]
         weight = weight[3:]
         model_list += [' + '.join(var_p) + ' = 1\n']
-        model_list.append(binary_declaration(var_p))
+        model_list.append('Binary\n' +  ' '.join(v for v in var_p))
         self.weight = [weight]
         return model_list
 
@@ -524,7 +424,7 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             model_list = [f"-{var_in[0]} {var_out[0]}", f"{var_in[0]} -{var_out[0]}"]
         elif model_type == "milp":
             model_list = [f'{var_in[0]} - {var_out[0]} = 0']
-            model_list.append(binary_declaration(var_in, var_out))
+            model_list.append('Binary\n' +  ' '.join(v for v in var_in + var_out))
         else:
             RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
 
@@ -642,6 +542,72 @@ class PRESENT_Sbox(Sbox):           # Operator of the PRESENT 4-bit Sbox
         self.table = [12, 5, 6, 11, 9, 0, 10, 13, 3, 14, 15, 8, 4, 7, 1, 2]
 
 
+class RECTANGLE_Sbox(Sbox):         # Operator of the RECTANGLE 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [6, 5, 12, 10, 1, 14, 7, 9, 11, 0, 3, 13, 8, 15, 4, 2]
+
+
+class LBlock_Sbox0(Sbox):           # Operator of the LBlock s0 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [14, 9, 15, 0, 13, 4, 10, 11, 1, 2, 8, 3, 7, 6, 12, 5]
+
+
+class LBlock_Sbox1(Sbox):           # Operator of the LBlock s1 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [4, 11, 14, 9, 15, 13, 0, 10, 7, 12, 5, 6, 2, 8, 1, 3]
+
+
+class LBlock_Sbox2(Sbox):           # Operator of the LBlock s2 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [1, 14, 7, 12, 15, 13, 0, 6, 11, 5, 9, 3, 2, 4, 8, 10]
+
+
+class LBlock_Sbox3(Sbox):           # Operator of the LBlock s3 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [7, 6, 8, 11, 0, 15, 3, 14, 9, 10, 12, 13, 5, 2, 4, 1]
+
+
+class LBlock_Sbox4(Sbox):           # Operator of the LBlock s4 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [14, 5, 15, 0, 7, 2, 12, 13, 1, 8, 4, 9, 11, 10, 6, 3]
+
+
+class LBlock_Sbox5(Sbox):           # Operator of the LBlock s5 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [2, 13, 11, 12, 15, 14, 0, 9, 7, 10, 6, 3, 1, 8, 4, 5]
+
+
+class LBlock_Sbox6(Sbox):           # Operator of the LBlock s6 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [11, 9, 4, 14, 0, 15, 10, 13, 6, 12, 5, 7, 3, 8, 1, 2]
+
+
+class LBlock_Sbox7(Sbox):           # Operator of the LBlock s7 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [13, 10, 15, 0, 14, 4, 9, 11, 2, 1, 8, 3, 7, 5, 12, 6]
+
+
+class LBlock_Sbox8(Sbox):           # Operator of the LBlock s8 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [8, 7, 14, 5, 15, 13, 0, 6, 11, 12, 9, 10, 2, 4, 1, 3]
+
+
+class LBlock_Sbox9(Sbox):           # Operator of the LBlock s9 4-bit Sbox
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 4, 4, ID = ID)
+        self.table = [11, 5, 15, 0, 7, 2, 9, 13, 4, 8, 1, 12, 14, 10, 3, 6]
+
+
 class KNOT_Sbox(Sbox):             # Operator of the KNOT 4-bit Sbox
     def __init__(self, input_vars, output_vars, ID = None):
         super().__init__(input_vars, output_vars, 4, 4, ID = ID)
@@ -652,122 +618,3 @@ class PRINCE_Sbox(Sbox):          # Operator of the PRINCE 4-bit Sbox
     def __init__(self, input_vars, output_vars, ID = None):
         super().__init__(input_vars, output_vars, 4, 4, ID = ID)
         self.table = [0xb, 0xf, 0x3, 0x2, 0xa, 0xc, 0x9, 0x1, 0x6, 0x7, 0x8, 0x0, 0xe, 0x5, 0xd, 0x4]
-
-
-class Midori64_Sb0_Sbox(Sbox):  # auto-added by OCP-agent
-    def __init__(self, input_vars, output_vars, ID=None):
-        super().__init__(input_vars, output_vars, 4, 4, ID=ID)
-        self.table = [12, 10, 13, 3, 14, 11, 15, 7, 8, 9, 1, 5, 0, 2, 4, 6]
-
-
-class Midori64_Sb1_Sbox(Sbox):  # auto-added by OCP-agent
-    def __init__(self, input_vars, output_vars, ID=None):
-        super().__init__(input_vars, output_vars, 4, 4, ID=ID)
-        self.table = [1, 0, 5, 3, 14, 2, 15, 7, 13, 10, 9, 11, 12, 8, 4, 6]
-
-
-class FUTURE_Sbox(Sbox):  # auto-added by OCP-agent
-    def __init__(self, input_vars, output_vars, ID=None):
-        super().__init__(input_vars, output_vars, 4, 4, ID=ID)
-        self.table = [1, 3, 0, 2, 7, 14, 4, 13, 9, 10, 12, 6, 15, 5, 8, 11]
-
-
-class Midori128_SSb0_Sbox(Sbox):  # auto-added by OCP-agent: SSb0 = p_i o (Sb1||Sb1) o p_i^-1
-    def __init__(self, input_vars, output_vars, ID=None):
-        super().__init__(input_vars, output_vars, 8, 8, ID=ID)
-        self.table = [
-            17, 16, 81, 80, 180, 48, 244, 112, 89, 88, 25, 24, 252, 120, 188, 56, 1, 0, 19,
-            18, 164, 32, 182, 50, 11, 10, 27, 26, 174, 42, 190, 58, 21, 49, 85, 113, 181,
-            53, 245, 117, 93, 121, 29, 57, 253, 125, 189, 61, 5, 33, 23, 51, 165, 37, 183,
-            55, 15, 43, 31, 59, 175, 47, 191, 63, 75, 74, 91, 90, 238, 106, 254, 122, 73,
-            72, 65, 64, 236, 104, 228, 96, 3, 2, 83, 82, 166, 34, 246, 114, 9, 8, 67, 66,
-            172, 40, 230, 98, 79, 107, 95, 123, 239, 111, 255, 127, 77, 105, 69, 97, 237,
-            109, 229, 101, 7, 35, 87, 115, 167, 39, 247, 119, 13, 41, 71, 99, 173, 45, 231,
-            103, 149, 176, 213, 240, 148, 144, 212, 208, 221, 248, 157, 184, 220, 216, 156,
-            152, 133, 160, 151, 178, 132, 128, 150, 146, 143, 170, 159, 186, 142, 138, 158,
-            154, 145, 177, 209, 241, 20, 52, 84, 116, 217, 249, 153, 185, 92, 124, 28, 60,
-            129, 161, 147, 179, 4, 36, 22, 54, 139, 171, 155, 187, 14, 46, 30, 62, 207, 234,
-            223, 250, 206, 202, 222, 218, 205, 232, 197, 224, 204, 200, 196, 192, 135, 162,
-            215, 242, 134, 130, 214, 210, 141, 168, 199, 226, 140, 136, 198, 194, 203, 235,
-            219, 251, 78, 110, 94, 126, 201, 233, 193, 225, 76, 108, 68, 100, 131, 163, 211,
-            243, 6, 38, 86, 118, 137, 169, 195, 227, 12, 44, 70, 102
-        ]
-
-
-class Midori128_SSb1_Sbox(Sbox):  # auto-added by OCP-agent: SSb1 = p_i o (Sb1||Sb1) o p_i^-1
-    def __init__(self, input_vars, output_vars, ID=None):
-        super().__init__(input_vars, output_vars, 8, 8, ID=ID)
-        self.table = [
-            136, 138, 75, 203, 172, 174, 111, 239, 128, 130, 67, 195, 148, 150, 87, 215,
-            168, 170, 107, 235, 140, 142, 79, 207, 152, 154, 91, 219, 156, 158, 95, 223,
-            180, 182, 119, 247, 164, 166, 103, 231, 144, 146, 83, 211, 132, 134, 71, 199,
-            188, 190, 127, 255, 160, 162, 99, 227, 184, 186, 123, 251, 176, 178, 115, 243,
-            202, 200, 74, 10, 238, 236, 110, 46, 194, 192, 66, 2, 214, 212, 86, 22, 234,
-            232, 106, 42, 206, 204, 78, 14, 218, 216, 90, 26, 222, 220, 94, 30, 246, 244,
-            118, 54, 230, 228, 102, 38, 210, 208, 82, 18, 198, 196, 70, 6, 254, 252, 126,
-            62, 226, 224, 98, 34, 250, 248, 122, 58, 242, 240, 114, 50, 8, 137, 9, 139, 44,
-            173, 45, 175, 0, 129, 1, 131, 20, 149, 21, 151, 40, 169, 41, 171, 12, 141, 13,
-            143, 24, 153, 25, 155, 28, 157, 29, 159, 52, 181, 53, 183, 36, 165, 37, 167, 16,
-            145, 17, 147, 4, 133, 5, 135, 60, 189, 61, 191, 32, 161, 33, 163, 56, 185, 57,
-            187, 48, 177, 49, 179, 73, 201, 72, 11, 109, 237, 108, 47, 65, 193, 64, 3, 85,
-            213, 84, 23, 105, 233, 104, 43, 77, 205, 76, 15, 89, 217, 88, 27, 93, 221, 92,
-            31, 117, 245, 116, 55, 101, 229, 100, 39, 81, 209, 80, 19, 69, 197, 68, 7, 125,
-            253, 124, 63, 97, 225, 96, 35, 121, 249, 120, 59, 113, 241, 112, 51
-        ]
-
-
-class Midori128_SSb2_Sbox(Sbox):  # auto-added by OCP-agent: SSb2 = p_i o (Sb1||Sb1) o p_i^-1
-    def __init__(self, input_vars, output_vars, ID=None):
-        super().__init__(input_vars, output_vars, 8, 8, ID=ID)
-        self.table = [
-            68, 195, 71, 67, 64, 192, 194, 66, 84, 211, 87, 83, 80, 208, 210, 82, 60, 187,
-            63, 59, 56, 184, 186, 58, 124, 251, 127, 123, 120, 248, 250, 122, 116, 243, 119,
-            115, 112, 240, 242, 114, 100, 227, 103, 99, 96, 224, 226, 98, 52, 179, 55, 51,
-            48, 176, 178, 50, 20, 147, 23, 19, 16, 144, 146, 18, 4, 131, 7, 3, 0, 128, 130,
-            2, 76, 203, 79, 75, 72, 200, 202, 74, 12, 139, 15, 11, 8, 136, 138, 10, 92, 219,
-            95, 91, 88, 216, 218, 90, 44, 171, 47, 43, 40, 168, 170, 42, 108, 235, 111, 107,
-            104, 232, 234, 106, 36, 163, 39, 35, 32, 160, 162, 34, 28, 155, 31, 27, 24, 152,
-            154, 26, 69, 199, 70, 65, 196, 197, 198, 193, 85, 215, 86, 81, 212, 213, 214,
-            209, 61, 191, 62, 57, 188, 189, 190, 185, 125, 255, 126, 121, 252, 253, 254,
-            249, 117, 247, 118, 113, 244, 245, 246, 241, 101, 231, 102, 97, 228, 229, 230,
-            225, 53, 183, 54, 49, 180, 181, 182, 177, 21, 151, 22, 17, 148, 149, 150, 145,
-            5, 135, 6, 1, 132, 133, 134, 129, 77, 207, 78, 73, 204, 205, 206, 201, 13, 143,
-            14, 9, 140, 141, 142, 137, 93, 223, 94, 89, 220, 221, 222, 217, 45, 175, 46, 41,
-            172, 173, 174, 169, 109, 239, 110, 105, 236, 237, 238, 233, 37, 167, 38, 33,
-            164, 165, 166, 161, 29, 159, 30, 25, 156, 157, 158, 153
-        ]
-
-
-class Midori128_SSb3_Sbox(Sbox):  # auto-added by OCP-agent: SSb3 = p_i o (Sb1||Sb1) o p_i^-1
-    def __init__(self, input_vars, output_vars, ID=None):
-        super().__init__(input_vars, output_vars, 8, 8, ID=ID)
-        self.table = [
-            34, 43, 32, 41, 162, 171, 38, 47, 75, 11, 73, 9, 203, 139, 79, 15, 178, 187, 52,
-            61, 50, 59, 54, 63, 219, 155, 93, 29, 91, 27, 95, 31, 2, 67, 0, 65, 130, 195, 6,
-            71, 66, 3, 64, 1, 194, 131, 70, 7, 146, 211, 20, 85, 18, 83, 22, 87, 210, 147,
-            84, 21, 82, 19, 86, 23, 42, 35, 40, 33, 170, 163, 46, 39, 107, 10, 105, 8, 235,
-            138, 111, 14, 186, 179, 60, 53, 58, 51, 62, 55, 251, 154, 125, 28, 123, 26, 127,
-            30, 98, 99, 96, 97, 226, 227, 102, 103, 106, 74, 104, 72, 234, 202, 110, 78,
-            242, 243, 116, 117, 114, 115, 118, 119, 250, 218, 124, 92, 122, 90, 126, 94,
-            180, 189, 36, 45, 182, 191, 166, 175, 221, 157, 77, 13, 223, 159, 207, 143, 176,
-            185, 48, 57, 160, 169, 164, 173, 217, 153, 89, 25, 201, 137, 205, 141, 148, 213,
-            4, 69, 150, 215, 134, 199, 212, 149, 68, 5, 214, 151, 198, 135, 144, 209, 16,
-            81, 128, 193, 132, 197, 208, 145, 80, 17, 192, 129, 196, 133, 188, 181, 44, 37,
-            190, 183, 174, 167, 253, 156, 109, 12, 255, 158, 239, 142, 184, 177, 56, 49,
-            168, 161, 172, 165, 249, 152, 121, 24, 233, 136, 237, 140, 244, 245, 100, 101,
-            246, 247, 230, 231, 252, 220, 108, 76, 254, 222, 238, 206, 240, 241, 112, 113,
-            224, 225, 228, 229, 248, 216, 120, 88, 232, 200, 236, 204
-        ]
-
-
-
-class Midori_Sb0_Sbox(Sbox):  # auto-added by OCP-agent
-    def __init__(self, input_vars, output_vars, ID=None):
-        super().__init__(input_vars, output_vars, 4, 4, ID=ID)
-        self.table = [12, 10, 13, 3, 14, 11, 15, 7, 8, 9, 1, 5, 0, 2, 4, 6]
-
-
-class Midori_Sb1_Sbox(Sbox):  # auto-added by OCP-agent
-    def __init__(self, input_vars, output_vars, ID=None):
-        super().__init__(input_vars, output_vars, 4, 4, ID=ID)
-        self.table = [1, 0, 5, 3, 14, 2, 15, 7, 13, 10, 9, 11, 12, 8, 4, 6]
