@@ -167,6 +167,27 @@ class Layered_Function:
             else:
                 self._add_equal_constraint(name, crt_round, crt_layer, j)
 
+    def ShiftLayer(self, name, crt_round, crt_layer, shift):
+        """
+        Apply a layer "name" of Shift, at the round "crt_round", at the layer "crt_layer".
+
+        Parameters follow RotationLayer: "shift" is a shift execution (or a list of them),
+        each composed of [direction, amount, index_in, (index_out)]. Words receiving no
+        shift are applied identity. Unlike rotation, a shift is not bijective (bits shifted
+        out are lost).
+        """
+        if type(shift[0]) is not list: shift = [shift]  # if only one shift is given, transform it into a list of one shift
+        table = [None]*self._total_words()
+        for r in shift:
+            index_in, out_index = r[2], r[2] if len(r)==3 else r[3]
+            table[out_index] = (r[0], r[1], index_in, out_index)
+
+        for j in range(self._total_words()):
+            if table[j] is not None:
+                self.constraints[crt_round][crt_layer].append(op.Shift([self.vars[crt_round][crt_layer][table[j][2]]], [self.vars[crt_round][crt_layer+1][table[j][3]]], table[j][0], table[j][1], ID=generateID(name,crt_round,crt_layer+1,table[j][3])))
+            else:
+                self._add_equal_constraint(name, crt_round, crt_layer, j)
+
     # apply a layer "name" of a simple identity at the round "crt_round", at the layer "crt_layer".
     def AddIdentityLayer(self, name, crt_round, crt_layer):
         for j in range(self._total_words()):

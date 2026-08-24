@@ -80,13 +80,31 @@ class AgentCore:
                     results.append(extraction_result)
                     self._record_result(extraction_result)
 
-        # Generate response
-        response = self.llm.generate_response(
-            results=results,
-            original_intent=intent,
-            conversation_history=self.session.get_history(),
-            session_context=self.session.get_context(),
+        # Store the executed requests so callers (e.g. the web UI) can reconstruct
+        # the equivalent low-level OCP code for this turn.
+        self.session.set_metadata(
+            "last_requests",
+            [{"skill": req.skill.value, "params": req.params} for req in intent.requests],
         )
+
+        # For skill-execution turns, return deterministic summaries (no extra LLM
+        # call, no hallucinated results). Fall back to the LLM only for
+        # conversational turns that ran no skills.
+        if results:
+            lines = []
+            for r in results:
+                if r.success:
+                    lines.append(r.summary or f"{r.skill.value}: done.")
+                else:
+                    lines.append(f"{r.skill.value} failed: {r.error}")
+            response = "\n".join(lines) if lines else "Done."
+        else:
+            response = self.llm.generate_response(
+                results=results,
+                original_intent=intent,
+                conversation_history=self.session.get_history(),
+                session_context=self.session.get_context(),
+            )
 
         self.session.add_message("assistant", response)
         return response

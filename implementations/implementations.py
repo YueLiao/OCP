@@ -330,26 +330,44 @@ def generate_implementation(my_prim, filename, language = 'python', unroll = Fal
             pass  # To be implemented in the future
 
 
+def evaluate(cipher, inputs, cipher_name=None, output_len=None):
+    """Run a cipher's generated Python implementation on concrete inputs.
+
+    Generate the implementation first with generate_implementation(); this only
+    imports and runs it. ``inputs`` is the list of input word-lists in the cipher's
+    input order - e.g. ``[[plaintext_words], [key_words]]`` for a block cipher, or
+    ``[[state_words]]`` for a permutation. Returns the list of output words.
+
+    This is the shared "run a built cipher on an input" primitive: correctness
+    testing (test_implementation_python) and test-vector derivation both build on
+    it, so the run path lives in one place.
+    """
+    cipher_name = cipher_name or cipher.name
+    with open(os.devnull, "w") as devnull, redirect_stdout(devnull):
+        module = importlib.import_module(f"files.{cipher_name}")
+        importlib.reload(module)
+    func = getattr(module, cipher.name)
+    if output_len is None:
+        output_len = sum(len(cipher.outputs[name]) for name in cipher.outputs)
+    result = [0 for _ in range(output_len)]
+    func(*inputs, result)
+    return result
+
+
 def test_implementation_python(cipher, cipher_name, input, output):
     print(f"\n****************TEST PYTHON IMPLEMENTATION of {cipher_name}****************")
-    
+
     # Check if Python implementation file exists
     py_file = f"files/{cipher_name}.py"
     if not os.path.exists(py_file):
         print(f"[INFO] Python implementation file '{py_file}' not found. Skipping Python test.")
         print(f"       The implementation should be generated first using generate_implementation().")
         return None
-    
+
     print("Test input = ", [hex(i2) for i1 in input for i2 in i1])
     print("Test output = ", [hex(i) for i in output])
     try:
-        with open(os.devnull, "w") as f, redirect_stdout(f):
-            imp_cipher = importlib.import_module(f"files.{cipher_name}")
-            importlib.reload(imp_cipher)
-        func = getattr(imp_cipher, f"{cipher.name}")
-        result = [0 for _ in range(len(output))]
-
-        func(*input, result)
+        result = evaluate(cipher, input, cipher_name=cipher_name, output_len=len(output))
         print("Test result = ", [hex(i) for i in result])
 
         if result == output:

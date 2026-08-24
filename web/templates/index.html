@@ -138,6 +138,7 @@
   .typing span:nth-child(2) { animation-delay: 0.2s; }
   .typing span:nth-child(3) { animation-delay: 0.4s; }
   @keyframes bounce { 0%, 80%, 100% { transform: scale(0.6); } 40% { transform: scale(1); } }
+  .typing-label { color: var(--text-secondary); font-size: 14px; margin-left: 4px; }
 
   /* Input area */
   .input-area {
@@ -170,6 +171,8 @@
   .welcome h2 { font-size: 24px; color: var(--text-primary); margin-bottom: 10px; }
   .welcome p { font-size: 15px; max-width: 500px; text-align: center; line-height: 1.6; }
   .welcome .examples { margin-top: 24px; display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 500px; }
+  .welcome .example-cat { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-align: left; margin: 14px 0 2px; }
+  .welcome .example-cat:first-child { margin-top: 0; }
   .welcome .example-btn {
     padding: 12px 16px; background: var(--bg-tertiary); border: 1px solid var(--border);
     border-radius: 8px; cursor: pointer; text-align: left; font-size: 14px;
@@ -199,6 +202,7 @@
     <div class="form-group">
       <label>Provider</label>
       <select id="provider" onchange="onProviderChange()">
+        <option value="none">Direct mode (no LLM · panel only)</option>
         <option value="openai">OpenAI</option>
         <option value="deepseek">DeepSeek</option>
         <option value="openai-compatible">OpenAI-Compatible</option>
@@ -222,40 +226,43 @@
     <button class="btn btn-primary connect-btn" onclick="connect()" id="connectBtn">Connect</button>
 
     <div class="settings-section">
-      <h2>Workflow</h2>
+      <h2>Control panel</h2>
       <div class="form-group">
-        <label>Model Type</label>
-        <select id="analysisModelType">
-          <option value="milp">MILP</option>
-          <option value="sat">SAT</option>
+        <label>Algorithm</label>
+        <select id="cpCipher" onchange="onCipherChange()"></select>
+      </div>
+      <div class="form-group">
+        <label>Type · supported only</label>
+        <select id="cpType" onchange="onTypeChange()"></select>
+      </div>
+      <div class="form-group">
+        <label>Version · valid only</label>
+        <select id="cpVersion" onchange="onVersionChange()"></select>
+      </div>
+      <div class="form-group">
+        <label>Rounds · blank = default</label>
+        <input type="number" id="cpRounds" min="1" step="1" placeholder="default" oninput="autoVerify()">
+      </div>
+      <div class="form-group">
+        <label>Function</label>
+        <select id="cpFunction" onchange="renderFunctionParams()">
+          <option value="differential_analysis">Differential</option>
+          <option value="linear_analysis">Linear</option>
+          <option value="code_generation">Implementation (codegen)</option>
+          <option value="visualization">Visualization</option>
         </select>
       </div>
-      <div class="form-group">
-        <label>Solver</label>
-        <input type="text" id="analysisSolver" placeholder="DEFAULT">
+      <div id="cpParams"></div>
+      <div class="side-list" id="cpVerify"><div>Configure after connect; auto-verified.</div></div>
+      <div class="form-group" id="chatSettingsGroup" style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+        <div style="display:flex; gap:6px;">
+          <button class="btn" id="useSettingsBtn" onclick="applyChatSettings()" style="flex:1;">Use panel settings in chat</button>
+          <button class="btn" id="clearSettingsBtn" onclick="clearChatSettings()" style="display:none;">Off</button>
+        </div>
+        <div id="settingsHint" class="hint" style="margin-top:6px;"></div>
       </div>
-      <div class="form-group">
-        <label>Objective</label>
-        <select id="analysisObjective">
-          <option value="OPTIMAL">OPTIMAL</option>
-          <option value="EXISTENCE">EXISTENCE</option>
-          <option value="AT MOST 1">AT MOST 1</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Solutions</label>
-        <input type="number" id="solutionNumber" min="1" placeholder="1">
-      </div>
-      <div class="form-group">
-        <label>Code Language</label>
-        <select id="codeLanguage">
-          <option value="python">Python</option>
-          <option value="c">C</option>
-          <option value="verilog">SystemVerilog</option>
-        </select>
-      </div>
-      <button class="btn connect-btn" onclick="checkSolvers()">Check Solvers</button>
-      <div class="side-list" id="solverStatus"><div>Solver status not checked.</div></div>
+      <button class="btn btn-primary connect-btn" id="cpRunBtn" onclick="runPanel()">Run</button>
+      <button class="btn connect-btn" id="cpStopBtn" onclick="stopRun()" style="display:none">Stop</button>
     </div>
 
     <div class="settings-section" id="draftPanel" style="display:none">
@@ -264,68 +271,121 @@
         <label>Editable JSON</label>
         <textarea id="draftSpecEditor" spellcheck="false"></textarea>
       </div>
+      <div class="form-group" id="tvPrompt" style="display:none">
+        <label style="color:#d08b28">No test vectors found - add some to verify correctness</label>
+        <div class="hint" style="margin-bottom:6px;">Without a known input/output pair, Build can only check structure, not correctness. Paste test vectors as JSON, or name a JSON file in the <code>files/</code> folder (e.g. <code>knot_test_vectors.json</code>).</div>
+        <textarea id="tvInput" spellcheck="false" rows="3" placeholder='Paste JSON, e.g. {"versions":{"KNOT-256":{"test_vectors":[[[..in..],[..out..]]]}}}  or a bare list [[[..in..],[..out..]]]'></textarea>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <input id="tvFilename" type="text" placeholder="or a JSON file in files/ e.g. knot_test_vectors.json" style="flex:1;padding:6px 8px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg-tertiary);color:var(--text);font-size:12px;">
+          <button class="btn" onclick="addTestVectors()">Add &amp; verify</button>
+        </div>
+      </div>
+      <div class="hint" style="margin-bottom:6px;">Building automatically - the model fixes any issues on its own; watch the progress on the right. If auto-fix can't finish, edit the JSON above and click Apply to build your version.</div>
       <div class="button-row">
-        <button class="btn" onclick="validateDraftSpec()">Validate</button>
-        <button class="btn btn-primary" onclick="confirmCipherDraft()">Build</button>
+        <button class="btn btn-primary" onclick="applyDraftJson()" title="Validate and build the CipherSpec exactly as edited above (the manual override for when auto-fix falls short)">Apply JSON &amp; build</button>
       </div>
       <div class="side-list" id="draftIssueList"><div>No draft issues.</div></div>
     </div>
 
-    <div class="cipher-info" id="cipherInfo" style="display:none">
-      <div><span class="label">Cipher: </span><span class="value" id="cipherName">-</span></div>
-      <div><span class="label">Type: </span><span class="value" id="cipherType">-</span></div>
-      <div><span class="label">Rounds: </span><span class="value" id="cipherRounds">-</span></div>
-    </div>
 
-    <div class="settings-section">
-      <h2>Artifacts</h2>
-      <div class="side-list" id="artifactList"><div>No artifacts yet.</div></div>
-    </div>
 
-    <div class="settings-section">
-      <h2>Trace</h2>
-      <div class="side-list" id="traceList"><div>No trace yet.</div></div>
-    </div>
   </div>
 
   <div class="chat-area">
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
         <h2>OCP Cryptanalysis Agent</h2>
-        <p>Analyze cryptographic algorithms through natural language. Configure your LLM provider in the settings panel, then start chatting.</p>
+        <p>Use the control panel on the left to pick a cipher, function, and parameters, then Run, no LLM needed. Optionally connect an LLM provider to define new ciphers from text or ask questions.</p>
         <div class="examples">
+          <div class="example-cat">Ask what's possible</div>
           <div class="example-btn" onclick="sendExample(this)">
-            Analyze SPECK32/64 with differential cryptanalysis using MILP
-            <div class="hint">Analyze a built-in cipher</div>
+            What can differential cryptanalysis do?
+            <div class="hint">Ask what a feature supports</div>
+          </div>
+
+          <div class="example-cat">Run a built-in analysis</div>
+          <div class="example-btn" onclick="sendExample(this)">
+            Analyze 5-round SPECK-32 permutation with differential cryptanalysis using SAT
+            <div class="hint">Differential / linear trail search, MILP or SAT</div>
           </div>
           <div class="example-btn" onclick="sendExample(this)">
-            I have a new ARX cipher: 32-bit, 2 words of 16 bits, 10 rounds. Each round: rotate word 0 right by 7, modadd words 0 and 1 into word 0, rotate word 1 left by 2, XOR words 0 and 1 into word 1.
-            <div class="hint">Define and analyze a custom cipher</div>
+            Generate Python code for 22-round SPECK-32/64
+            <div class="hint">Python / C / Verilog, rolled or unrolled</div>
           </div>
           <div class="example-btn" onclick="sendExample(this)">
-            Generate Python code for the current cipher
-            <div class="hint">Generate implementation</div>
+            Visualize the structure of 5-round SPECK-32 permutation
+            <div class="hint">Render the cipher as a PDF</div>
+          </div>
+
+          <div class="example-cat">Define a new cipher from text</div>
+          <div class="example-btn" onclick="sendExample(this)">
+            Describe a new ARX cipher: 32-bit, 2 words of 16 bits, 7 rounds. Each round: rotate word 0 right by 7, modadd words 0 and 1 into word 0, rotate word 1 left by 2, XOR words 0 and 1 into word 1. Then analyze it.
+            <div class="hint">Paste pseudocode or LaTeX, or upload a .tex / .md file. PDF works but is experimental (formulas may be lost).</div>
           </div>
         </div>
       </div>
     </div>
-    <div class="typing" id="typing"><span></span><span></span><span></span></div>
-    <div class="workflow-actions">
+    <div class="typing" id="typing"><span></span><span></span><span></span><div class="typing-label" id="typingLabel"></div><button id="stopBtn" onclick="stopProcessing()" title="Cancel the current request to save tokens" style="display:none;margin-left:10px;padding:2px 10px;font-size:11px;border:1px solid var(--border,#888);border-radius:4px;background:var(--bg-secondary,#f2f2f2);color:var(--text,#333);cursor:pointer;">Stop</button></div>
+    <div class="workflow-actions" style="display:none">
       <button class="btn" onclick="runWorkflow('differential')">Differential</button>
       <button class="btn" onclick="runWorkflow('linear')">Linear</button>
       <button class="btn" onclick="generateCode()">Code</button>
       <button class="btn" onclick="generateVisualization()">Visualize</button>
     </div>
+    <div id="cipherGuide" style="display:none; margin:0 16px 8px; padding:12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:10px; font-size:13px; max-height:42vh; overflow:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;">
+        <strong>How to describe your cipher</strong>
+        <span style="display:flex; gap:6px;">
+          <button class="btn" onclick="insertCipherTemplate()">Insert template</button>
+          <button class="btn" onclick="toggleCipherGuide(false)">Close</button>
+        </span>
+      </div>
+      <div class="hint" style="margin-bottom:6px;">Best sources: the arXiv LaTeX source ("Download source" on the paper's abstract page), or the author's reference implementation (it is unambiguous and gives test vectors). PDF works but formulas are often lost, so prefer .tex / .md, or paste just the round-function section.</div>
+      <div class="hint" style="margin-bottom:6px;">Three ways to bring a cipher in (LLM connected), all landing in the same read-back + verify review: (1) upload a .tex/.md with the paperclip; (2) paste the text and click Draft; (3) drop the file in the <code>files/</code> folder, type its name in the box, and click Draft.</div>
+      <details style="margin-bottom:6px;">
+        <summary style="cursor:pointer; font-weight:600;">Only have a PDF? Convert it first</summary>
+        <div class="hint" style="margin-top:4px;">
+          Convert to Markdown (keeps formulas) with an open-source tool, then paste it here or upload the .md:
+          <br>&middot; <code>pip install marker-pdf</code> then <code>marker_single paper.pdf --output_dir out/</code>
+          <br>&middot; or <code>pip install nougat-ocr</code> then <code>nougat paper.pdf -o out/</code>
+          <br>Short paper: paste the .md and click Draft. Long paper: first ask any LLM to pull out only the spec + test vectors (prompt below), then paste that. Always double-check S-box tables and constants.
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin:4px 0;">
+          <button class="btn" onclick="copyGuidePrompt(this)">Copy extraction prompt</button>
+        </div>
+        <pre id="pdfPrompt" style="background:var(--bg-tertiary); border:0.5px solid var(--border); border-radius:8px; padding:8px 10px; margin:0; white-space:pre-wrap; font-size:12px;">Extract ONLY the cipher specification from the attached pages into clean Markdown. Do not summarize or explain. Include, in order: (1) state layout - block size, word size, number of words, number of rounds; (2) the round function as an ordered list of operations (rotate/shift with direction+amount, xor/and/or/not, modular add, S-box, permutation), using 0-based word indices and stating which words each step reads and writes; (3) every S-box and permutation table verbatim (full length, input 0..2^n-1 -> output); (4) the key schedule and which key words form each round subkey (if a block cipher); (5) any test vectors as input -> output (with key). Preserve all tables and constants exactly.</pre>
+      </details>
+      <div class="hint" style="margin-bottom:6px;">Tips: use 0-based word indices; say rotation vs shift and the direction; give the full S-box table (input 0..2^n-1 to output); include at least one test vector so the build can be verified.</div>
+      <pre id="cipherTemplate" style="background:var(--bg-tertiary); border:0.5px solid var(--border); border-radius:8px; padding:8px 10px; margin:0; white-space:pre-wrap; font-size:12px;">Name: MyCipher
+Type: permutation            (or: block cipher)
+State: 32 bits = 2 words x 16 bits    (block_size = nbr_words x word_bitsize; 0-based indices)
+Rounds: 22
+Round function (each step, in order):
+  1. rotate word 0 right by 7
+  2. modular-add words 0 and 1 -> word 0
+  3. rotate word 1 left by 2
+  4. xor words 0 and 1 -> word 1
+S-boxes (if any): S4 = [full 2^n-entry table, input 0..2^n-1 -> output]
+Block cipher only:
+  Key: 64 bits = 4 words x 16 bits
+  Subkey = key words [0, 1]
+  Key schedule (each step): ...
+Test vectors (recommended - enables verification):
+  input [0x6574, 0x694c] -> output [0x689d, 0x44b7]
+  (block cipher: plaintext [...], key [...] -> output [...])</pre>
+    </div>
     <div class="input-area">
-      <textarea id="input" placeholder="Describe a cipher or analysis task..." rows="1"
+      <textarea id="input" placeholder="Define a cipher (paste its spec, or name a file in files/ like knot-spec.md), or ask a question / run analysis." rows="1"
                 onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
       <div class="input-actions">
-        <button class="btn upload-btn" title="Upload text/PDF/Image">
+        <span id="tokenBadge" title="LLM tokens used this session" style="font-size:11px;color:var(--text-secondary,#888);margin-right:auto;align-self:center;"></span>
+        <button class="btn upload-btn" title="Upload .tex or .md (recommended). PDF/image works but is experimental (formulas may be lost).">
           &#128206;
-          <input type="file" accept=".txt,.md,.tex,.rst,.pdf,.png,.jpg,.jpeg" onchange="uploadFile(event)">
+          <input type="file" accept=".tex,.md,.txt,.rst,.pdf,.png,.jpg,.jpeg" onchange="uploadFile(event)">
         </button>
-        <button class="btn" onclick="draftCipherText()">Draft</button>
-        <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+        <button class="btn" onclick="toggleCipherGuide()" title="How to describe a cipher for accurate extraction">Guide</button>
+        <button class="btn btn-primary" id="sendBtn" onclick="sendMessage()" title="Send: define a cipher (paste its spec or name a file in files/), ask questions, or run analysis. Cipher definitions open a review panel to check and build.">Send</button>
+        <button class="btn" id="chatStopBtn" onclick="stopChat()" style="display:none">Stop</button>
       </div>
     </div>
   </div>
@@ -333,6 +393,7 @@
 
 <script>
 const defaults = {
+  none: {model: '', placeholder: '', needsKey: false},
   openai: {model: 'gpt-4o', placeholder: 'sk-...', needsKey: true},
   deepseek: {model: 'deepseek-chat', placeholder: 'sk-...', needsKey: true, baseUrl: 'https://api.deepseek.com'},
   'openai-compatible': {model: 'gpt-4o', placeholder: 'key', needsKey: true, baseUrl: 'http://localhost:8000/v1'},
@@ -341,16 +402,20 @@ const defaults = {
   ollama: {model: 'llama3', placeholder: '', needsKey: false, baseUrl: 'http://localhost:11434'},
 };
 let currentDraftSpec = null;
+let currentDraft = null;
+let _lastVerification = null;
 
 function onProviderChange() {
   const p = document.getElementById('provider').value;
   const d = defaults[p];
+  const direct = (p === 'none');
+  document.getElementById('model').parentElement.style.display = direct ? 'none' : 'block';
   document.getElementById('model').placeholder = d.model;
   document.getElementById('model').value = '';
   document.getElementById('apiKey').placeholder = d.placeholder;
-  document.getElementById('apiKeyGroup').style.display = d.needsKey ? 'block' : 'none';
+  document.getElementById('apiKeyGroup').style.display = (!direct && d.needsKey) ? 'block' : 'none';
   document.getElementById('baseUrlGroup').style.display =
-    (p === 'ollama' || p === 'openai' || p === 'deepseek' || p === 'openai-compatible') ? 'block' : 'none';
+    (!direct && (p === 'ollama' || p === 'openai' || p === 'deepseek' || p === 'openai-compatible')) ? 'block' : 'none';
   document.getElementById('baseUrl').placeholder = d.baseUrl || '';
 }
 
@@ -376,8 +441,11 @@ async function connect() {
     const data = await res.json();
     if (data.success) {
       document.getElementById('statusDot').classList.add('connected');
-      document.getElementById('statusText').textContent = `${provider} / ${data.config.model}`;
-      addMessage('system', `Connected to ${provider} (${data.config.model})`);
+      const direct = (provider === 'none');
+      document.getElementById('statusText').textContent = direct ? 'Direct mode (no LLM)' : `${provider} / ${data.config.model}`;
+      addMessage('system', direct ? 'Direct mode: use the control panel on the left.' : `Connected to ${provider} (${data.config.model})`);
+      setDirectMode(direct);
+      await loadSchema();
       await refreshStatus();
     } else {
       addMessage('error', `Connection failed: ${data.error}`);
@@ -389,78 +457,832 @@ async function connect() {
   btn.disabled = false;
 }
 
+let SCHEMA = null;
+const FUNC_SKILL = { differential_analysis:'differential_analysis', linear_analysis:'linear_analysis', code_generation:'code_generation', visualization:'visualization' };
+const PARAM_SKIP = {
+  differential_analysis:['show_mode'],
+  linear_analysis:['show_mode'],
+  code_generation:['output_dir'], visualization:[]
+};
+
+function setDirectMode(direct) {
+  const input = document.getElementById('input');
+  if (input) {
+    input.disabled = direct;
+    input.placeholder = direct ? 'Direct mode: use the control panel' : 'Describe a cipher or cryptanalysis task...';
+  }
+}
+
+async function loadSchema() {
+  try { const res = await fetch('/api/schema'); SCHEMA = await res.json(); }
+  catch (e) { return; }
+  const sel = document.getElementById('cpCipher');
+  if (!sel || !SCHEMA.ciphers) return;
+  sel.innerHTML = Object.keys(SCHEMA.ciphers).sort().map(c => `<option value="${c}">${c}</option>`).join('');
+  onCipherChange();
+  renderFunctionParams();
+  try {
+    const saved = localStorage.getItem('ocp_chat_settings');
+    if (saved) _chatSettings = JSON.parse(saved);
+  } catch (e) {}
+  renderChatSettingsState();
+}
+
+function onCipherChange() {
+  if (!SCHEMA) return;
+  const c = document.getElementById('cpCipher').value;
+  const types = (SCHEMA.ciphers[c] || {}).types || [];
+  document.getElementById('cpType').innerHTML = types.map(t => `<option value="${t}">${t}</option>`).join('');
+  onTypeChange();
+}
+
+function onTypeChange() {
+  if (!SCHEMA) return;
+  const c = document.getElementById('cpCipher').value;
+  const t = document.getElementById('cpType').value;
+  const entry = SCHEMA.ciphers[c] || {};
+  const versions = (entry.valid_versions || {})[t] || [];
+  const vsel = document.getElementById('cpVersion');
+  vsel.innerHTML = versions.length
+    ? versions.map(v => `<option value='${JSON.stringify(v)}'>${JSON.stringify(v)}</option>`).join('')
+    : `<option value='null'>default</option>`;
+  refreshDefaultRounds();
+  autoVerify();
+}
+
+function onVersionChange() {
+  refreshDefaultRounds();
+  autoVerify();
+}
+
+function solverOptionsFor(mt) {
+  const caps = (SCHEMA.solvers || {})[mt] || {};
+  const set = new Set(['DEFAULT']);
+  Object.keys(caps).forEach(name => {
+    const s = caps[name] || {};
+    if (s.available === false || s.implemented === false) return;
+    (s.solvers || []).forEach(x => set.add(x));
+  });
+  return [...set];
+}
+function onModelTypeChange() {
+  const sel = document.getElementById('cp_solver');
+  if (sel) {
+    const mt = document.getElementById('cp_model_type').value;
+    sel.innerHTML = solverOptionsFor(mt).map(o => `<option>${o}</option>`).join('');
+  }
+  autoVerify();
+}
+
+function onObjectiveChange() {
+  const sel = document.getElementById('cp_objective_target');
+  const n = document.getElementById('cp_atmost_n');
+  if (n) n.style.display = (sel && sel.value === 'AT MOST') ? 'block' : 'none';
+  autoVerify();
+}
+
+function renderFunctionParams() {
+  if (!SCHEMA) return;
+  const fn = document.getElementById('cpFunction').value;
+  const skill = SCHEMA.skills[FUNC_SKILL[fn]];
+  const box = document.getElementById('cpParams');
+  const skip = PARAM_SKIP[fn] || [];
+  if (!skill || !skill.params) { box.innerHTML = ''; autoVerify(); return; }
+  box.innerHTML = Object.entries(skill.params).filter(([k]) => !skip.includes(k)).map(([k, spec]) => {
+    const dv = Array.isArray(spec.default) ? spec.default.join(',') : spec.default;
+    const lbl = `${k}${spec.default !== undefined ? ` · default ${dv}` : ''}`;
+    let ctrl;
+    if (k === 'solver') {
+      const mt = (skill.params.model_type && skill.params.model_type.default) || 'milp';
+      ctrl = `<select id="cp_solver" onchange="autoVerify()">${solverOptionsFor(mt).map(o => `<option>${o}</option>`).join('')}</select>`;
+    }
+    else if (k === 'objective_target') {
+      const opts = ['OPTIMAL', 'EXISTENCE', 'AT MOST'];
+      ctrl = `<select id="cp_objective_target" onchange="onObjectiveChange()">${opts.map(o => `<option${o===spec.default?' selected':''}>${o}</option>`).join('')}</select><input type="number" id="cp_atmost_n" min="1" value="1" placeholder="N" style="display:none;margin-top:6px" oninput="autoVerify()">`;
+    }
+    else if (k === 'model_type' && spec.enum) ctrl = `<select id="cp_model_type" onchange="onModelTypeChange()">${spec.enum.map(o => `<option${o===spec.default?' selected':''}>${o}</option>`).join('')}</select>`;
+    else if (k === 'goal' && spec.enum) ctrl = `<select id="cp_goal" onchange="onGoalChange()">${spec.enum.map(o => `<option${o===spec.default?' selected':''}>${o}</option>`).join('')}</select>`;
+    else if (spec.enum) ctrl = `<select id="cp_${k}" onchange="autoVerify()">${spec.enum.map(o => `<option${o===spec.default?' selected':''}>${o}</option>`).join('')}</select>`;
+    else if (spec.type === 'bool') ctrl = `<select id="cp_${k}" onchange="autoVerify()"><option value="true"${spec.default?' selected':''}>true</option><option value="false"${!spec.default?' selected':''}>false</option></select>`;
+    else if (spec.type === 'list') ctrl = `<input type="text" id="cp_${k}" value="${(spec.default||[]).join(', ')}" oninput="autoVerify()">`;
+    else if (spec.type === 'int') ctrl = `<input type="number" id="cp_${k}" min="1" placeholder="${spec.default != null ? spec.default : ''}" oninput="autoVerify()">`;
+    else ctrl = `<input type="text" id="cp_${k}" placeholder="${spec.default != null ? spec.default : ''}" oninput="autoVerify()">`;
+    return `<div class="form-group" id="pg_${k}"><label>${lbl}</label>${ctrl}</div>`;
+  }).join('');
+  updateGoalDependentParams();
+  autoVerify();
+}
+
+function updateGoalDependentParams() {
+  // input_diff / output_diff only apply to the clustering goal DIFFERENTIAL_PROB
+  // (fix the input and output difference and sum over all trails). Hide them for
+  // single-trail / S-box-count goals, where the solver ignores them anyway.
+  const goalEl = document.getElementById('cp_goal');
+  const showDiff = goalEl && goalEl.value === 'DIFFERENTIAL_PROB';
+  ['input_diff', 'output_diff'].forEach(k => {
+    const pg = document.getElementById('pg_' + k);
+    if (pg) pg.style.display = showDiff ? '' : 'none';
+    if (!showDiff) { const inp = document.getElementById('cp_' + k); if (inp) inp.value = ''; }
+  });
+}
+
+function onGoalChange() {
+  updateGoalDependentParams();
+  autoVerify();
+}
+
+function collectParams(fn) {
+  const skill = SCHEMA.skills[FUNC_SKILL[fn]];
+  const out = {};
+  if (!skill || !skill.params) return out;
+  for (const [k, spec] of Object.entries(skill.params)) {
+    const el = document.getElementById('cp_' + k);
+    if (!el) continue;
+    let v = el.value;
+    if (k === 'solver' && (v === 'DEFAULT' || v === '')) continue;
+    if (k === 'objective_target') {
+      if (v === 'AT MOST') { const n = document.getElementById('cp_atmost_n'); v = 'AT MOST ' + ((n && n.value) || '1'); }
+      if (v === 'OPTIMAL') continue;
+      out[k] = v;
+      continue;
+    }
+    if (spec.type === 'bool') v = (v === 'true');
+    else if (spec.type === 'list') v = v.split(',').map(s => s.trim()).filter(Boolean);
+    else if (spec.type === 'int') v = v ? parseInt(v, 10) : undefined;
+    if (v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)) out[k] = v;
+  }
+  return out;
+}
+
+function panelAction(fn) {
+  return fn === 'code_generation' ? 'code' : fn === 'visualization' ? 'visualize' : 'analyze';
+}
+
+function pyRepr(v) {
+  if (v === null || v === undefined) return 'None';
+  if (typeof v === 'boolean') return v ? 'True' : 'False';
+  if (typeof v === 'number') return String(v);
+  if (Array.isArray(v)) return '[' + v.map(pyRepr).join(', ') + ']';
+  return '"' + String(v) + '"';
+}
+function pyDict(obj) {
+  return '{' + Object.entries(obj).map(([k, v]) => `"${k}": ${pyRepr(v)}`).join(', ') + '}';
+}
+function panelSpec() {
+  const c = document.getElementById('cpCipher').value;
+  const t = document.getElementById('cpType').value;
+  let version = null;
+  try { version = JSON.parse(document.getElementById('cpVersion').value); } catch (e) {}
+  const rRaw = document.getElementById('cpRounds').value;
+  const rounds = rRaw ? parseInt(rRaw, 10) : null;
+  const fn = document.getElementById('cpFunction').value;
+  return {c, t, version, rounds, fn, params: collectParams(fn)};
+}
+let _defaultRounds = null;
+async function refreshDefaultRounds() {
+  if (!SCHEMA) return;
+  const c = document.getElementById('cpCipher').value;
+  const t = document.getElementById('cpType').value;
+  let version = null;
+  try { version = JSON.parse(document.getElementById('cpVersion').value); } catch (e) {}
+  try {
+    const res = await fetch('/api/default_rounds', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({cipher:c, type:t, version})});
+    const d = await res.json();
+    _defaultRounds = (d && d.rounds != null) ? d.rounds : null;
+  } catch (e) { _defaultRounds = null; }
+  const rEl = document.getElementById('cpRounds');
+  if (rEl) rEl.placeholder = _defaultRounds != null ? ('default ' + _defaultRounds) : 'default';
+}
+function panelSettingsPayload() {
+  const s = panelSpec();
+  const p = {};
+  if (s.c) p.cipher = s.c;
+  if (s.t) p.type = s.t;
+  if (s.version !== null && s.version !== undefined) p.version = s.version;
+  const rounds = (s.rounds != null) ? s.rounds : _defaultRounds;
+  if (rounds != null) p.rounds = rounds;
+  if (s.fn) p.fn = s.fn;
+  p.params = s.params || {};
+  return p;
+}
+let _chatSettings = null;
+const FN_TASK = {differential_analysis:'differential cryptanalysis', linear_analysis:'linear cryptanalysis', code_generation:'code generation', visualization:'visualization'};
+function cipherLabel(p) {
+  return (p.cipher || 'current cipher')
+    + (p.version != null ? '-' + (Array.isArray(p.version) ? p.version.join('/') : p.version) : '')
+    + (p.type ? ' ' + p.type : '');
+}
+function summaryFromSettings(p) {
+  if (!p) return '';
+  const fp = p.params || {};
+  const bits = [cipherLabel(p), (p.rounds != null ? p.rounds + ' rounds' : 'default rounds')];
+  if (FN_TASK[p.fn]) bits.push(FN_TASK[p.fn]);
+  if (fp.model_type) bits.push(String(fp.model_type).toUpperCase());
+  return bits.join(', ');
+}
+function settingsPromptText(p) {
+  const fp = p.params || {};
+  const rounds = p.rounds != null ? (p.rounds + '-round ') : '';
+  const task = FN_TASK[p.fn] || 'analysis';
+  const extras = [];
+  if (fp.model_type) extras.push(fp.model_type.toUpperCase() + ' solver');
+  if (fp.goal) extras.push('goal ' + fp.goal);
+  const extra = extras.length ? (' (' + extras.join(', ') + ')') : '';
+  return `**Panel settings applied.** Current: ${rounds}${cipherLabel(p)}, ${task}${extra}.\n\n`
+    + `To run it, tell me in the chat box what to do (for example: "analyze it"). `
+    + `To change a parameter, adjust the panel and click Update, or just say the change in chat. `
+    + `The latest setting or the latest chat message wins.`;
+}
+function renderChatSettingsState() {
+  const btn = document.getElementById('useSettingsBtn');
+  const clr = document.getElementById('clearSettingsBtn');
+  const hint = document.getElementById('settingsHint');
+  if (!btn) return;
+  if (_chatSettings) {
+    btn.classList.add('btn-primary');
+    btn.textContent = 'Update panel settings in chat';
+    if (clr) clr.style.display = '';
+    if (hint) hint.innerHTML = 'Active in chat: <strong>' + summaryFromSettings(_chatSettings) + '</strong>';
+  } else {
+    btn.classList.remove('btn-primary');
+    btn.textContent = 'Use panel settings in chat';
+    if (clr) clr.style.display = 'none';
+    if (hint) hint.textContent = '';
+  }
+}
+async function applyChatSettings() {
+  await refreshDefaultRounds();
+  _chatSettings = panelSettingsPayload();
+  try { localStorage.setItem('ocp_chat_settings', JSON.stringify(_chatSettings)); } catch (e) {}
+  renderChatSettingsState();
+  const btn = document.getElementById('useSettingsBtn');
+  if (btn) { btn.textContent = 'Applied ✓'; setTimeout(renderChatSettingsState, 1100); }
+  hideWelcome();
+  addMessage('assistant', settingsPromptText(_chatSettings));
+}
+function clearChatSettings() {
+  _chatSettings = null;
+  try { localStorage.removeItem('ocp_chat_settings'); } catch (e) {}
+  renderChatSettingsState();
+}
+
+function buildCode(spec) {
+  if (!SCHEMA) return '';
+  spec = spec || panelSpec();
+  const c = spec.c, t = spec.t, version = (spec.version === undefined ? null : spec.version), rounds = (spec.rounds == null ? null : spec.rounds), fn = spec.fn, params = spec.params || {};
+  const entry = SCHEMA.ciphers[c] || {};
+  const module = entry.module || ('primitives.' + c);
+  const alias = module.split('.').pop();
+  const factory = (entry.factories || {})[t] || (c.toUpperCase() + '_' + t.toUpperCase());
+
+  const L = [`import ${module} as ${alias}`];
+  const fargs = [];
+  if (rounds !== null) fargs.push(`r=${rounds}`);
+  if (version !== null) fargs.push(`version=${pyRepr(version)}`);
+  L.push(`cipher = ${alias}.${factory}(${fargs.join(', ')})`);
+
+  if (fn === 'differential_analysis' || fn === 'linear_analysis') {
+    L.push('import attacks.attacks as attacks');
+    const kw = [];
+    if (params.goal) kw.push(`goal=${pyRepr(params.goal)}`);
+    if (params.constraints) kw.push(`constraints=${pyRepr(params.constraints)}`);
+    if (params.objective_target) kw.push(`objective_target=${pyRepr(params.objective_target)}`);
+    const cm = {};
+    if (params.model_type) cm['model_type'] = params.model_type;
+    if (params.input_diff) cm['input_diff'] = params.input_diff;
+    if (params.output_diff) cm['output_diff'] = params.output_diff;
+    if (Object.keys(cm).length) kw.push('config_model=' + pyDict(cm));
+    const cs = {};
+    if (params.solver) cs['solver'] = params.solver;
+    if (params.solution_number) cs['solution_number'] = params.solution_number;
+    if (Object.keys(cs).length) kw.push('config_solver=' + pyDict(cs));
+    const fnName = fn === 'differential_analysis' ? 'diff_attacks' : 'linear_attacks';
+    L.push(`trails = attacks.${fnName}(cipher, ${kw.join(', ')})`);
+  } else if (fn === 'code_generation') {
+    L.push('import implementations.implementations as imp');
+    const lang = params.language || 'python';
+    const ext = lang === 'python' ? 'py' : lang === 'c' ? 'c' : 'sv';
+    const unroll = params.unroll ? 'True' : 'False';
+    L.push(`imp.generate_implementation(cipher, "${c}.${ext}", ${pyRepr(lang)}, unroll=${unroll})`);
+  } else if (fn === 'visualization') {
+    L.push('import visualisations.visualisations as vis');
+    L.push(`vis.generate_figure(cipher, "${c}.pdf")`);
+  }
+  return L.join('\n');
+}
+function updateCode() {
+  const el = document.getElementById('cpCode');
+  if (el && SCHEMA) el.textContent = buildCode();
+}
+
+async function autoVerify() {
+  if (!SCHEMA) return;
+  updateCode();
+  const fnEl = document.getElementById('cpFunction');
+  if (!fnEl) return;
+  const fn = fnEl.value;
+  const strip = document.getElementById('cpVerify');
+  const runBtn = document.getElementById('cpRunBtn');
+  try {
+    const res = await fetch('/api/verify', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action: panelAction(fn), params: collectParams(fn)})});
+    const d = await res.json();
+    const v = d.verification || {};
+    const errs = (v.blocking_errors || []).filter(e => !/no cipher/i.test(e));
+    if (errs.length === 0) {
+      const warn = (v.warnings || []).join('；');
+      strip.innerHTML = `<div style="color:var(--green)">✓ Supported by OCP${warn ? ' · ' + warn : ''}</div>`;
+      if (runBtn) { runBtn.disabled = false; runBtn.style.opacity = ''; }
+    } else {
+      strip.innerHTML = `<div style="color:var(--red)">✗ ${errs.join('；')}</div>`;
+      if (runBtn) { runBtn.disabled = true; runBtn.style.opacity = '0.5'; }
+    }
+  } catch (e) {}
+}
+
+function describeAction(fn, cname, rounds, params) {
+  const r = rounds ? `${rounds} rounds` : 'default rounds';
+  const mt = params.model_type ? ` with ${params.model_type.toUpperCase()}` : '';
+  if (fn === 'differential_analysis') return `Running differential cryptanalysis on ${cname} (${r})${mt}…`;
+  if (fn === 'linear_analysis') return `Running linear cryptanalysis on ${cname} (${r})${mt}…`;
+  if (fn === 'code_generation') return `Generating ${params.language || 'python'} implementation of ${cname} (${r})…`;
+  if (fn === 'visualization') return `Generating structure figure of ${cname} (${r})…`;
+  return `Running ${fn} on ${cname} (${r})…`;
+}
+
+let _runController = null;
+function setRunning(on) {
+  const run = document.getElementById('cpRunBtn');
+  const stop = document.getElementById('cpStopBtn');
+  if (run) run.style.display = on ? 'none' : '';
+  if (stop) stop.style.display = on ? '' : 'none';
+}
+function stopRun() {
+  if (_runController) _runController.abort();
+}
+
+async function runPanel() {
+  if (!SCHEMA) return;
+  const t0 = performance.now();
+  const c = document.getElementById('cpCipher').value;
+  const t = document.getElementById('cpType').value;
+  let version = null;
+  try { version = JSON.parse(document.getElementById('cpVersion').value); } catch (e) {}
+  const rRaw = document.getElementById('cpRounds').value;
+  const rounds = rRaw ? parseInt(rRaw, 10) : null;
+  const fn = document.getElementById('cpFunction').value;
+
+  const controller = new AbortController();
+  _runController = controller;
+  setRunning(true);
+  showTyping(true, 'Loading cipher…');
+  try {
+    const instBody = {cipher_name: c, cipher_type: t};
+    if (version !== null) instBody.version = version;
+    if (rounds !== null) instBody.rounds = rounds;
+    const r1 = await fetch('/api/instantiate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(instBody), signal: currentAbortSignal()});
+    const d1 = await r1.json();
+    if (!d1.success) { showTyping(false); addMessage('error', `Failed to load cipher: ${d1.error || ''}`); return; }
+    updateCipherInfo(d1.context);
+    const cname = (d1.context && d1.context.cipher_name) || c;
+    const params = collectParams(fn);
+    addMessage('assistant', describeAction(fn, cname, rounds, params));
+    addCode(buildCode());
+    let url, body, label;
+    if (fn === 'code_generation') { url = '/api/code'; body = {...params, confirmed: true}; label = 'Code generation'; showTyping(true, 'Generating code…'); }
+    else if (fn === 'visualization') { url = '/api/visualize'; body = {confirmed: true}; label = 'Visualization'; showTyping(true, 'Generating visualization…'); }
+    else { url = '/api/analyze'; body = {...params, analysis_type: fn === 'differential_analysis' ? 'differential' : 'linear', confirmed: true}; label = fn === 'differential_analysis' ? 'Differential' : 'Linear'; showTyping(true, 'Modeling and solving…'); }
+
+    const r2 = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body), signal: currentAbortSignal()});
+    showTyping(false);
+    const d2 = await r2.json();
+    if (d2.success) {
+      const secs = ((performance.now() - t0) / 1000).toFixed(1);
+      if (d2.console && d2.console.trim()) {
+        const body = d2.console.replace(/\s+$/, '').split('\n')
+          .filter(l => !/resource_usage|Solving (SAT|MILP) model with settings/.test(l))
+          .join('\n');
+        addConsole(`Output (done in ${secs}s):`, body);
+      } else {
+        addMessage('assistant', `${label} done in ${secs}s: ${d2.summary || ''}`);
+      }
+      showArtifacts(d2.artifacts || d2.artifact_links || []);
+      await refreshStatus();
+    } else {
+      let msg = d2.error || 'failed';
+      if (d2.verification && d2.verification.blocking_errors) msg += '：' + d2.verification.blocking_errors.join('；');
+      addMessage('error', `${label} failed: ${msg}`);
+    }
+  } catch (e) {
+    showTyping(false);
+    if (e && e.name === 'AbortError') addMessage('system', 'Stopped.');
+    else addMessage('error', `Run failed: ${e.message}`);
+  } finally {
+    setRunning(false);
+    _runController = null;
+  }
+}
+
+function capabilityAnswer(msg) {
+  if (!SCHEMA) return null;
+  const q = (msg || '').toLowerCase();
+  const isQuestion = /\?|\bwhat\b|\bwhich\b|\bhow\b|\bdoes\b|\bcan\b|support|option|available|\blist\b|\bmean|difference|explain|\bhelp\b|参数|功能|区别|什么|哪些|怎么|如何|有哪些|能不能|能否/.test(q);
+  if (!isQuestion) return null;
+
+  if ((/milp/.test(q) && /sat/.test(q)) || (/difference/.test(q) && /solver/.test(q))) {
+    return 'MILP and SAT are two solver backends for the same trail search:\n- MILP (Gurobi / SCIP): mixed-integer linear programming. Strong for S-box / linear-layer ciphers.\n- SAT (PySAT): Boolean satisfiability. Often better for ARX / bit-oriented ciphers like SPECK.\nBoth find the same optimal trail; choose by cipher type and available solver.';
+  }
+  if (/weight/.test(q) || (/probab/.test(q) && /(mean|what)/.test(q))) {
+    return 'Weight = -log2(probability). A total weight of N means the trail holds with probability ~= 2^-N. Per-round weights sum to the total.';
+  }
+  if (/(more|multiple|number of|several|additional).*(trail|solution)/.test(q) || /solution_number/.test(q)) {
+    return 'To get more than one trail, set solution_number = N (find N distinct trails). Increasing the round count does NOT give more trails - it only makes the search harder.';
+  }
+  if (/solver/.test(q) && /(what|which|available|list|有哪些|支持|哪些)/.test(q)) {
+    const milp = Object.keys((SCHEMA.solvers && SCHEMA.solvers.milp) || {});
+    const sat = Object.keys((SCHEMA.solvers && SCHEMA.solvers.sat) || {});
+    return `Available solver backends:\n- MILP: ${milp.join(', ') || 'none'}\n- SAT: ${sat.join(', ') || 'none'}`;
+  }
+
+  const fnMap = [
+    {re:/differential/, skill:'differential_analysis', label:'Differential cryptanalysis'},
+    {re:/linear/, skill:'linear_analysis', label:'Linear cryptanalysis'},
+    {re:/(implement|code|generat)/, skill:'code_generation', label:'Code generation'},
+    {re:/(visuali|figure|diagram|structure)/, skill:'visualization', label:'Visualization'},
+  ];
+  const hit = fnMap.find(f => f.re.test(q));
+  if (hit) {
+    const sk = SCHEMA.skills[hit.skill];
+    if (sk && sk.params) {
+      const lines = Object.entries(sk.params).map(([k, spec]) => {
+        const opts = spec.enum ? ` - options: ${spec.enum.join(', ')}` : '';
+        const dv = Array.isArray(spec.default) ? spec.default.join(',') : spec.default;
+        const def = (spec.default !== undefined) ? ` (default: ${dv})` : '';
+        return `- \`${k}\`${def}${opts}${spec.description ? ' - ' + spec.description : ''}`;
+      }).join('\n');
+      return `**${hit.label}** supports:\n${lines}`;
+    }
+  }
+
+  if (/what can|capabilit|help|能做|功能|怎么用|如何用/.test(q)) {
+    return 'For a chosen cipher this tool can:\n- **Differential / linear cryptanalysis** - search the best trail (goals, MILP/SAT, optimal/bounded, multiple trails).\n- **Implementation** - generate Python / C / Verilog code.\n- **Visualization** - render the cipher structure as a PDF.\nUse the control panel on the left, or describe a new cipher in chat.';
+  }
+  return null;
+}
+
+let _chatController = null;
+function setChatRunning(on) {
+  const send = document.getElementById('sendBtn');
+  const stop = document.getElementById('chatStopBtn');
+  if (send) send.style.display = on ? 'none' : '';
+  if (stop) stop.style.display = on ? '' : 'none';
+}
+function stopChat() {
+  if (_chatController) _chatController.abort();
+}
+
 async function sendMessage() {
   const input = document.getElementById('input');
   const msg = input.value.trim();
   if (!msg) return;
+  const cap = capabilityAnswer(msg);
+  // Route cipher-definition inputs (a named file, or a pasted spec) into the
+  // review flow (read-back + verify + Fix with AI); everything else is chat.
+  if (!cap) {
+    const pdf = msg.match(/([\w./-]+\.(?:pdf|png|jpe?g))\b/i);
+    if (pdf) {
+      input.value = ''; autoResize(input); hideWelcome();
+      addMessage('user', msg);
+      addMessage('assistant', 'For a PDF or image, use the paperclip upload button. Naming a file in the box works for text (.md/.tex/.txt).');
+      return;
+    }
+    const tex = msg.match(/([\w./-]+\.(?:md|tex|txt|rst))\b/i);
+    if (tex) { input.value = ''; autoResize(input); await submitCipherFilename(tex[1]); return; }
+    if (looksLikeCipherSpec(msg)) {
+      input.value = ''; autoResize(input);
+      await submitCipherText(msg, {sourceType: 'direct_text', formatHint: 'mixed'});
+      return;
+    }
+  }
   input.value = '';
   autoResize(input);
   hideWelcome();
   addMessage('user', msg);
-  showTyping(true);
+  if (cap) { addMessage('assistant', cap); return; }
+  const t0 = performance.now();
+  const controller = new AbortController();
+  _chatController = controller;
+  setChatRunning(true);
+  showTyping(true, 'Processing…');
 
   try {
+    const chatBody = {message: msg};
+    if (_chatSettings) chatBody.panel_settings = _chatSettings;
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message: msg}),
+      body: JSON.stringify(chatBody),
+      signal: currentAbortSignal(),
     });
     const data = await res.json();
     showTyping(false);
     if (data.success) {
       addMessage('assistant', data.response);
+      if (data.code_spec) addCode(buildCode(data.code_spec));
       updateCipherInfo(data.context);
-      showArtifacts(data.artifact_links || []);
+      const secs = ((performance.now() - t0) / 1000).toFixed(1);
+      if (data.console && data.console.trim()) {
+        const body = data.console.replace(/\s+$/, '').split('\n')
+          .filter(l => !/resource_usage|Solving (SAT|MILP) model with settings/.test(l))
+          .join('\n');
+        if (body.trim()) addConsole(`Output (done in ${secs}s):`, body);
+      }
+      showArtifacts(data.artifacts || []);
       await refreshStatus();
     } else {
       addMessage('error', data.error);
     }
   } catch (e) {
     showTyping(false);
-    addMessage('error', `Request failed: ${e.message}`);
+    if (e && e.name === 'AbortError') addMessage('system', 'Stopped.');
+    else addMessage('error', `Request failed: ${e.message}`);
+  } finally {
+    setChatRunning(false);
+    _chatController = null;
+  }
+}
+
+function toggleCipherGuide(show) {
+  const el = document.getElementById('cipherGuide');
+  if (!el) return;
+  const makeVisible = (show === undefined) ? (el.style.display === 'none') : show;
+  el.style.display = makeVisible ? 'block' : 'none';
+}
+
+function insertCipherTemplate() {
+  const tpl = document.getElementById('cipherTemplate');
+  const input = document.getElementById('input');
+  if (tpl && input) {
+    input.value = tpl.textContent;
+    autoResize(input);
+    input.focus();
+  }
+  toggleCipherGuide(false);
+}
+
+function copyGuidePrompt(btn) {
+  const pre = document.getElementById('pdfPrompt');
+  if (!pre) return;
+  const text = pre.textContent;
+  const flash = (label) => { const old = btn.textContent; btn.textContent = label; setTimeout(() => { btn.textContent = old; }, 1500); };
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    flash(ok ? 'Copied' : 'Copy failed');
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => flash('Copied')).catch(fallback);
+  } else {
+    fallback();
+  }
+}
+
+function _cipherFormatHint(name) {
+  const n = (name || '').toLowerCase();
+  if (n.endsWith('.tex')) return 'latex';
+  if (n.endsWith('.md')) return 'markdown';
+  return 'mixed';
+}
+
+// Heuristic: does the box content look like a pasted cipher spec (vs a chat
+// message)? Multi-line, mentioning rounds + an operation + a state/word size.
+function looksLikeCipherSpec(text) {
+  if (text.indexOf('\n') < 0) return false;
+  const t = text.toLowerCase();
+  const hasRounds = /round/.test(t);
+  const hasOp = /(rotate|rotation|shift|xor|modadd|modular|s-?box|substitut|permut|\band\b)/.test(t);
+  const hasState = /(bit|word|block|state|nibble)/.test(t);
+  return hasRounds && hasOp && hasState;
+}
+
+function _handleDraftResponse(data) {
+  if (!data.success) { addMessage('error', data.error || 'Draft failed'); return; }
+  setDraftSpec(data.draft);                 // keep the left editor populated for reference
+  showArtifacts(data.artifact_links || []);
+  if (data.input_warnings && data.input_warnings.length) {
+    addMessage('assistant', 'Input tips (improve accuracy / verifiability):\n' + data.input_warnings.map(w => '- ' + w).join('\n'));
+  }
+
+  // Stage-1 architecture classification: which structural template the extractor targeted.
+  const c = data.classification;
+  if (c && c.archetype) {
+    let cm = `Classified as ${c.archetype}` + (c.confidence != null ? ` (confidence ${c.confidence})` : '');
+    if (c.reason) cm += `\n  ${c.reason}`;
+    addMessage('assistant', cm);
+  }
+
+  // Auto-build progress: each repair attempt = one build round the model tried and fixed.
+  const log = (data.draft && data.draft.repair_log) || [];
+  log.forEach((e) => {
+    if (e.cancelled) { addMessage('assistant', `Build attempt ${e.attempt}: cancelled.`); return; }
+    if (e.error) { addMessage('assistant', `Build attempt ${e.attempt}: auto-fix failed (${e.error}).`); return; }
+    const before = e.problems_before || [], resolved = e.resolved || [], after = e.problems_after || [];
+    let msg = `Build attempt ${e.attempt}: found ${before.length} issue(s)` + (before[0] ? ` - ${before[0]}` : '') + '. Fixing…';
+    if (resolved.length || after.length) {
+      msg += `\n  → fixed ${resolved.length}` + (after.length ? `, ${after.length} still open` : ', all resolved');
+    }
+    addMessage('assistant', msg);
+  });
+
+  // Show the read-back ("What I understood") in the right box, above the spec JSON.
+  const rb = data.draft && data.draft.readback;
+  if (rb) addCode(rb, 'What I understood (check this matches your cipher)');
+  // Show the final CipherSpec JSON in the big box on the right.
+  const spec = (data.draft && data.draft.spec) || {};
+  addCode(JSON.stringify(spec, null, 2), 'CipherSpec (auto-built)');
+
+  // Auto-build result (built without a manual confirmation step).
+  const b = data.build;
+  if (b && b.success) {
+    addMessage('assistant', '✅ ' + (b.summary || 'Built and verified.'));
+  } else if (b && !b.success) {
+    addMessage('error', 'Auto-build failed: ' + (b.error || 'unknown error'));
+  } else {
+    const errs = (data.draft && data.draft.validation_errors) || [];
+    addMessage('assistant', errs.length
+      ? ('The model could not auto-fix every issue in the allotted attempts. Remaining:\n' + errs.map(x => '- ' + x).join('\n') + '\nTweak the JSON on the left and re-send, or paste a corrected spec.')
+      : 'CipherSpec draft is ready but has no test vectors, so it was not built (add known input/output pairs to verify).');
+  }
+}
+
+// All three ways to bring a cipher in (paste, upload, or name a file in files/)
+// funnel through /api/text/draft, so they share one review: read-back + input
+// linter + verify + Fix with AI.
+async function submitCipherText(text, opts) {
+  opts = opts || {};
+  if (!text || !text.trim()) return;
+  hideWelcome();
+  const label = opts.sourceName ? `[Draft from ${opts.sourceName}]` : '[Draft cipher]';
+  const preview = text.length > 500 ? text.slice(0, 500) + `\n... (${text.length} characters)` : text;
+  addMessage('user', `${label}\n${preview}`);
+  if (text.length > 60000) {
+    addMessage('assistant', 'This file is large. If extraction is slow or the model hits its context limit, trim it to the specification section plus test vectors (see the Guide).');
+  }
+  showTyping(true);
+  try {
+    const res = await fetch('/api/text/draft', {
+      method: 'POST',
+      signal: currentAbortSignal(),
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        text,
+        source_type: opts.sourceType || 'direct_text',
+        format_hint: opts.formatHint || 'mixed',
+        source_name: opts.sourceName || null,
+      }),
+    });
+    const data = await res.json();
+    showTyping(false);
+    _handleDraftResponse(data);
+  } catch (e) {
+    showTyping(false);
+    if (isAbortError(e)) return;
+    addMessage('error',`Draft failed: ${e.message}`);
+  }
+}
+
+// Draft from a file the user dropped in the files/ folder and named in the box.
+async function submitCipherFilename(name) {
+  hideWelcome();
+  addMessage('user', `[Draft from files/${name}]`);
+  showTyping(true);
+  try {
+    const res = await fetch('/api/text/draft', {
+      method: 'POST',
+      signal: currentAbortSignal(),
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        filename: name,
+        source_type: 'uploaded_text',
+        format_hint: _cipherFormatHint(name),
+        source_name: name,
+      }),
+    });
+    const data = await res.json();
+    showTyping(false);
+    _handleDraftResponse(data);
+  } catch (e) {
+    showTyping(false);
+    if (isAbortError(e)) return;
+    addMessage('error',`Draft failed: ${e.message}`);
   }
 }
 
 async function draftCipherText() {
   const input = document.getElementById('input');
-  const text = input.value.trim();
-  if (!text) return;
+  const value = input.value.trim();
+  if (!value) return;
   input.value = '';
   autoResize(input);
-  hideWelcome();
-  addMessage('user', `[Draft cipher]\n${text}`);
-  showTyping(true);
-
-  try {
-    const res = await fetch('/api/text/draft', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({text, source_type: 'direct_text', format_hint: 'mixed'}),
-    });
-    const data = await res.json();
-    showTyping(false);
-    if (!data.success) {
-      addMessage('error', data.error || 'Draft failed');
-      return;
-    }
-    setDraftSpec(data.draft);
-    showArtifacts(data.artifact_links || []);
-    addMessage('assistant', 'CipherSpec draft is ready. Review or edit it in the sidebar, then validate and build.');
-  } catch (e) {
-    showTyping(false);
-    addMessage('error', `Draft failed: ${e.message}`);
+  // A bare text filename -> read it from the files/ folder; a bare PDF/image name
+  // -> point to upload; otherwise treat the box content as the cipher description.
+  if (/^[\w./-]+\.(md|tex|txt|rst)$/i.test(value)) {
+    await submitCipherFilename(value);
+  } else if (/^[\w./-]+\.(pdf|png|jpe?g)$/i.test(value)) {
+    addMessage('assistant', 'For a PDF or image, use the paperclip upload button. Naming a file in the box works for text (.md/.tex/.txt).');
+  } else {
+    await submitCipherText(value, {sourceType: 'direct_text', formatHint: 'mixed'});
   }
 }
 
 function setDraftSpec(draft) {
+  currentDraft = draft;
   currentDraftSpec = draft.spec || {};
   document.getElementById('draftPanel').style.display = 'block';
+  // The read-back ("What I understood") is shown in the right output box (see _handleDraftResponse),
+  // not the left panel; the left panel keeps only the editable JSON for manual overrides.
   document.getElementById('draftSpecEditor').value = JSON.stringify(currentDraftSpec, null, 2);
+  const tvp = document.getElementById('tvPrompt');
+  if (tvp) tvp.style.display = specHasTestVectors(currentDraftSpec) ? 'none' : 'block';
   renderDraftIssues(draft);
+}
+
+function specHasTestVectors(spec) {
+  if (!spec) return false;
+  if (Array.isArray(spec.test_vectors) && spec.test_vectors.length) return true;
+  const versions = spec.versions;
+  if (versions && typeof versions === 'object') {
+    for (const name in versions) {
+      const tv = versions[name] && versions[name].test_vectors;
+      if (Array.isArray(tv) && tv.length) return true;
+    }
+  }
+  return false;
+}
+
+async function addTestVectors() {
+  const text = document.getElementById('tvInput').value.trim();
+  const filename = document.getElementById('tvFilename').value.trim();
+  if (!text && !filename) {
+    addMessage('error', 'Paste test vectors JSON, or name a JSON file in the files/ folder.');
+    return;
+  }
+  showTyping(true);
+  try {
+    const res = await fetch('/api/text/draft/testvectors', {
+      method: 'POST',
+      signal: currentAbortSignal(),
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, filename}),
+    });
+    const data = await res.json();
+    showTyping(false);
+    if (data.draft) setDraftSpec(data.draft);
+    if (data.success) {
+      addMessage('assistant', 'Test vectors added. Click Build to verify the definition against them.');
+    } else {
+      addMessage('error', data.error || 'Could not add the test vectors.');
+    }
+  } catch (e) {
+    showTyping(false);
+    if (isAbortError(e)) return;
+    addMessage('error','Failed to add test vectors: ' + e.message);
+  }
 }
 
 function renderDraftIssues(draft) {
   const list = document.getElementById('draftIssueList');
+  let html = '';
+
+  // Show the AI's own self-repair rounds so the user sees what was found and fixed.
+  const log = draft.repair_log || [];
+  if (log.length) {
+    html += `<div style="margin-bottom:8px;padding:8px;border-left:3px solid #6aa;">`
+          + `<strong>AI self-repair (${log.length} round${log.length > 1 ? 's' : ''})</strong>`;
+    log.forEach(r => {
+      if (r.source === 'deterministic') {
+        html += '<div>Auto-fixed (no AI needed):<ul style="margin:2px 0 4px 16px;">'
+              + (r.fixes || []).map(f => `<li>${renderText(f)}</li>`).join('') + '</ul></div>';
+      } else if (r.error) {
+        html += `<div>Round ${r.attempt}: could not auto-fix (${renderText(r.error)})</div>`;
+      } else {
+        const before = (r.problems_before || []).length;
+        const after = (r.problems_after || []).length;
+        const resolved = r.resolved || [];
+        html += `<div>Round ${r.attempt}: found ${before} problem${before !== 1 ? 's' : ''}, `
+              + `fixed ${resolved.length}, ${after} remaining`;
+        if (resolved.length) {
+          html += '<ul style="margin:2px 0 4px 16px;">'
+                + resolved.map(p => `<li>fixed: ${renderText(p)}</li>`).join('') + '</ul>';
+        }
+      }
+    });
+    html += '</div>';
+  }
+
   const issues = [
     ...(draft.validation_errors || []).map(x => ({kind: 'Error', text: x})),
     ...(draft.warnings || []).map(x => ({kind: 'Warning', text: x})),
@@ -468,10 +1290,12 @@ function renderDraftIssues(draft) {
     ...(draft.clarification_questions || []).map(x => ({kind: 'Question', text: x})),
   ];
   if (!issues.length) {
-    list.innerHTML = '<div>No draft issues.</div>';
-    return;
+    html += log.length ? '<div>All problems resolved by AI. Draft is ready.</div>'
+                       : '<div>No draft issues.</div>';
+  } else {
+    html += issues.map(item => `<div><strong>${item.kind}</strong><br>${renderText(item.text)}</div>`).join('');
   }
-  list.innerHTML = issues.map(item => `<div><strong>${item.kind}</strong><br>${renderText(item.text)}</div>`).join('');
+  list.innerHTML = html;
 }
 
 function parseDraftEditor() {
@@ -480,29 +1304,64 @@ function parseDraftEditor() {
   return JSON.parse(text);
 }
 
-async function validateDraftSpec() {
-  showTyping(true);
+// Escape hatch: validate + auto-build the JSON exactly as edited (for when auto-fix falls short).
+async function applyDraftJson() {
+  let spec;
+  try { spec = parseDraftEditor(); }
+  catch (e) { addMessage('error', `Draft JSON invalid: ${e.message}`); return; }
+  showTyping(true, 'Building your edited spec…');
   try {
-    const spec = parseDraftEditor();
     const res = await fetch('/api/text/draft/spec', {
       method: 'POST',
+      signal: currentAbortSignal(),
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({spec}),
     });
     const data = await res.json();
     showTyping(false);
-    if (data.draft) {
-      setDraftSpec(data.draft);
-      showArtifacts(data.artifact_links || []);
-    }
-    if (data.success) {
-      addMessage('assistant', 'Edited CipherSpec draft is valid.');
-    } else {
-      addMessage('error', data.error || 'Edited CipherSpec draft is invalid.');
-    }
+    // /api/text/draft/spec returns the same {success, draft, build} shape as /api/text/draft
+    _handleDraftResponse(data.draft ? {...data, success: true} : data);
   } catch (e) {
     showTyping(false);
-    addMessage('error', `Draft validation failed: ${e.message}`);
+    if (isAbortError(e)) return;
+    addMessage('error', `Build failed: ${e.message}`);
+  }
+}
+
+async function repairDraftSpec() {
+  let spec;
+  try { spec = parseDraftEditor(); }
+  catch (e) { addMessage('error', `Draft JSON invalid: ${e.message}`); return; }
+  const problems = [];
+  if (currentDraft) {
+    (currentDraft.validation_errors || []).forEach(x => problems.push(x));
+    (currentDraft.clarification_questions || []).forEach(x => problems.push(x));
+  }
+  if (_lastVerification && _lastVerification.failures) {
+    _lastVerification.failures.forEach(f => {
+      if (f.error) problems.push(`Test vector input ${JSON.stringify(f.input)} raised an error: ${f.error}`);
+      else problems.push(`Test vector input ${JSON.stringify(f.input)}: expected ${JSON.stringify(f.expected)} but the definition computed ${JSON.stringify(f.computed)}`);
+    });
+  }
+  if (!problems.length) problems.push('The definition may not match the intended cipher; review the round structure, word indices, and layer order.');
+  showTyping(true, 'Repairing…');
+  try {
+    const res = await fetch('/api/text/repair', {
+      method: 'POST',
+      signal: currentAbortSignal(),
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({spec, problems}),
+    });
+    const data = await res.json();
+    showTyping(false);
+    if (!data.success) { addMessage('error', data.error || 'AI repair failed'); return; }
+    _lastVerification = null;
+    setDraftSpec(data.draft);
+    addMessage('assistant', 'Applied an AI fix to the draft. Review the read-back above, then Build again to re-verify.');
+  } catch (e) {
+    showTyping(false);
+    if (isAbortError(e)) return;
+    addMessage('error',`AI repair failed: ${e.message}`);
   }
 }
 
@@ -529,15 +1388,31 @@ async function confirmCipherDraft() {
   if (!confirm('Build this cipher from the validated draft?')) return;
   showTyping(true);
   try {
+    // Round count is user-specified via the control panel; blank builds the
+    // design's full rounds (the family/version default).
+    const rRaw = document.getElementById('cpRounds').value;
+    const rounds = rRaw ? parseInt(rRaw, 10) : null;
     const res = await fetch('/api/text/confirm', {
       method: 'POST',
+      signal: currentAbortSignal(),
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({confirmed: true}),
+      body: JSON.stringify({confirmed: true, rounds}),
     });
     const data = await res.json();
     showTyping(false);
     if (data.success) {
       addMessage('assistant', data.summary || `Built cipher: ${data.data?.cipher_name || 'custom cipher'}`);
+      const v = data.data && data.data.verification;
+      if (v && v.tested && !v.all_passed) {
+        _lastVerification = v;
+        addMessage('error', `Test vectors failed: only ${v.passed}/${v.total} passed. Click "Fix with AI" to correct it, or edit the JSON. (Analysis on a mismatching definition would be unreliable.)`);
+      } else {
+        _lastVerification = null;
+      }
+      const impl = data.data && data.data.implementation;
+      if (impl && impl.code) {
+        addCode(impl.code, `${impl.language === 'c' ? 'C' : 'Python'} implementation (${(data.data.cipher_name) || 'cipher'}):`);
+      }
       updateCipherInfo(data.context);
       showArtifacts(data.artifact_links || []);
       await refreshStatus();
@@ -546,7 +1421,8 @@ async function confirmCipherDraft() {
     }
   } catch (e) {
     showTyping(false);
-    addMessage('error', `Build failed: ${e.message}`);
+    if (isAbortError(e)) return;
+    addMessage('error',`Build failed: ${e.message}`);
   }
 }
 
@@ -554,8 +1430,23 @@ async function uploadFile(event) {
   const file = event.target.files[0];
   if (!file) return;
   event.target.value = '';
-  hideWelcome();
 
+  // Text files (.md/.tex/.txt/.rst) -> the enhanced text-first draft path
+  // (read-back + input linter + verify + Fix with AI). Read client-side, so large
+  // files upload without pasting. PDF/images still use the extraction pipeline.
+  if (/\.(md|tex|txt|rst)$/i.test(file.name)) {
+    let text = '';
+    try { text = await file.text(); }
+    catch (e) { addMessage('error', `Could not read ${file.name}: ${e.message}`); return; }
+    await submitCipherText(text, {
+      sourceType: 'uploaded_text',
+      formatHint: _cipherFormatHint(file.name),
+      sourceName: file.name,
+    });
+    return;
+  }
+
+  hideWelcome();
   const focus = prompt('Focus on a specific cipher or section? (leave empty for auto-detect)', '');
   addMessage('user', `[Uploaded: ${file.name}]${focus ? ' Focus: ' + focus : ''}`);
   showTyping(true);
@@ -578,7 +1469,8 @@ async function uploadFile(event) {
     }
   } catch (e) {
     showTyping(false);
-    addMessage('error', `Upload failed: ${e.message}`);
+    if (isAbortError(e)) return;
+    addMessage('error',`Upload failed: ${e.message}`);
   }
 }
 
@@ -594,7 +1486,7 @@ async function runWorkflow(type) {
     : '\n\nSolver capabilities could not be checked.';
   if (!confirm(`Run ${type} analysis now? This may invoke an external solver and write trail artifacts.${solverSummary}`)) return;
   addMessage('user', `[Run ${type} analysis]`);
-  showTyping(true);
+  showTyping(true, 'Modeling and solving…');
   try {
     const payload = {
       analysis_type: type,
@@ -621,7 +1513,8 @@ async function runWorkflow(type) {
     }
   } catch (e) {
     showTyping(false);
-    addMessage('error', `Analysis failed: ${e.message}`);
+    if (isAbortError(e)) return;
+    addMessage('error',`Analysis failed: ${e.message}`);
   }
 }
 
@@ -630,7 +1523,7 @@ async function generateCode() {
   if (!confirm('Generate implementation code now? This will write an artifact file.')) return;
   const language = document.getElementById('codeLanguage').value;
   addMessage('user', '[Generate Python code]');
-  showTyping(true);
+  showTyping(true, 'Generating code…');
   try {
     const res = await fetch('/api/code', {
       method: 'POST',
@@ -648,7 +1541,8 @@ async function generateCode() {
     }
   } catch (e) {
     showTyping(false);
-    addMessage('error', `Code generation failed: ${e.message}`);
+    if (isAbortError(e)) return;
+    addMessage('error',`Code generation failed: ${e.message}`);
   }
 }
 
@@ -656,7 +1550,7 @@ async function generateVisualization() {
   hideWelcome();
   if (!confirm('Generate visualization now? This will write a PDF artifact.')) return;
   addMessage('user', '[Generate visualization]');
-  showTyping(true);
+  showTyping(true, 'Generating visualization…');
   try {
     const res = await fetch('/api/visualize', {
       method: 'POST',
@@ -674,7 +1568,8 @@ async function generateVisualization() {
     }
   } catch (e) {
     showTyping(false);
-    addMessage('error', `Visualization failed: ${e.message}`);
+    if (isAbortError(e)) return;
+    addMessage('error',`Visualization failed: ${e.message}`);
   }
 }
 
@@ -711,14 +1606,14 @@ function sendExample(el) {
 
 async function resetSession() {
   await fetch('/api/reset', {method: 'POST'});
-  document.getElementById('messages').innerHTML = '';
-  document.getElementById('cipherInfo').style.display = 'none';
+  [...document.querySelectorAll('#messages .message')].forEach(m => m.remove());
+  const w = document.getElementById('welcome');
+  if (w) w.style.display = '';
   currentDraftSpec = null;
   document.getElementById('draftPanel').style.display = 'none';
   document.getElementById('draftSpecEditor').value = '';
   renderArtifacts([]);
   renderTrace([]);
-  addMessage('system', 'Session reset.');
 }
 
 function addMessage(type, text) {
@@ -730,10 +1625,65 @@ function addMessage(type, text) {
   messages.scrollTop = messages.scrollHeight;
 }
 
-function showArtifacts(links) {
-  if (!links || !links.length) return;
-  const text = links.map(link => `- ${link.label}: \`${link.path}\``).join('\n');
-  addMessage('system', `Artifacts:\n${text}`);
+function addCode(code, label) {
+  const messages = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'message assistant';
+  const esc = String(code).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  div.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;"><span>${label || 'Equivalent code:'}</span><button class="btn" style="font-size:12px;padding:2px 10px;" onclick="copyCode(this)">Copy</button></div><pre style="background:var(--bg-tertiary);border:0.5px solid var(--border);border-radius:8px;padding:8px 10px;margin:0;font-size:12px;overflow-x:auto;white-space:pre;max-height:340px;overflow-y:auto;">${esc}</pre>`;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.message').querySelector('pre');
+  if (!pre) return;
+  const text = pre.textContent;
+  const flash = (label) => { btn.textContent = label; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); };
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    flash(ok ? 'Copied' : 'Copy failed');
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => flash('Copied')).catch(fallback);
+  } else {
+    fallback();
+  }
+}
+
+function addConsole(header, body) {
+  const messages = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'message system';
+  const esc = String(body).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  div.innerHTML = `${header}<pre style="max-height:300px; overflow:auto; background:var(--bg-tertiary); border:0.5px solid var(--border); border-radius:8px; padding:8px 10px; margin:6px 0 0; font-size:12px; white-space:pre; line-height:1.4;">${esc}</pre>`;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function showArtifacts(items) {
+  if (!items || !items.length) return;
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const rows = items.map(a => {
+    const dl = (a.id && a.exists)
+      ? ` · <a href="/api/artifacts/${encodeURIComponent(a.id)}/download" target="_blank" rel="noopener" style="color:var(--green);font-weight:700;text-decoration:none;">Download</a>`
+      : '';
+    return `<div style="margin-top:4px"><strong>${esc(a.label || 'artifact')}</strong>${dl}<br><code>${esc(a.path || '')}</code></div>`;
+  }).join('');
+  const messages = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'message system';
+  div.innerHTML = `Artifacts:${rows}`;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
 }
 
 function renderText(text) {
@@ -747,8 +1697,73 @@ function renderText(text) {
   return html;
 }
 
-function showTyping(show) {
+let _typingTimer = null;
+// One AbortController per in-flight LLM request, so the Stop button can cancel it (and
+// stop consuming tokens on any follow-up calls). LLM fetches pass currentAbortSignal().
+let _activeController = null;
+function currentAbortSignal() {
+  return _activeController ? _activeController.signal : undefined;
+}
+function stopProcessing() {
+  // Tell the backend to stop any multi-step LLM work (the draft auto-repair loop) between
+  // calls, then abort the in-flight fetch and restore the UI.
+  try { fetch('/api/stop', {method: 'POST'}).catch(() => {}); } catch (e) {}
+  if (_activeController) { try { _activeController.abort(); } catch (e) {} _activeController = null; }
+  showTyping(false);
+  addMessage('info', 'Stopped. Cancelled the request to avoid using more tokens.');
+}
+// True when an error is just the user pressing Stop - callers should swallow it silently.
+function isAbortError(e) {
+  return e && (e.name === 'AbortError' || e.code === 20);
+}
+let _tokenUsage = null;       // {total, last} from /api/status, updated by refreshStatus
+let _lastRequestTokens = 0;   // tokens the most recent API request spent (from request_tokens)
+function updateTokenBadge() {
+  const badge = document.getElementById('tokenBadge');
+  if (!badge) return;
+  const parts = [];
+  if (_lastRequestTokens) parts.push(`${_lastRequestTokens.toLocaleString()} last request`);
+  if (_tokenUsage && _tokenUsage.total) parts.push(`${_tokenUsage.total.toLocaleString()} session`);
+  badge.textContent = parts.join(' · ');
+}
+// Capture the per-request token usage the server injects into every JSON response.
+const _origFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const res = await _origFetch(...args);
+  try {
+    const data = await res.clone().json();
+    if (data && typeof data.request_tokens === 'number' && data.request_tokens > 0) {
+      _lastRequestTokens = data.request_tokens;
+      updateTokenBadge();
+    }
+  } catch (e) { /* non-JSON response */ }
+  return res;
+};
+function showTyping(show, label) {
   document.getElementById('typing').classList.toggle('active', show);
+  const lbl = document.getElementById('typingLabel');
+  const stopBtn = document.getElementById('stopBtn');
+  if (_typingTimer) { clearInterval(_typingTimer); _typingTimer = null; }
+  if (show) {
+    if (!_activeController) _activeController = new AbortController();
+    if (stopBtn) stopBtn.style.display = 'inline-block';
+    const base = label || 'Processing…';
+    const t0 = Date.now();
+    const render = () => {
+      const s = Math.floor((Date.now() - t0) / 1000);
+      let txt = s > 0 ? `${base} (${s}s)` : base;
+      if (_tokenUsage && _tokenUsage.total) {
+        txt += ` · ${_tokenUsage.total.toLocaleString()} tokens so far`;
+      }
+      if (lbl) lbl.textContent = txt;
+    };
+    render();
+    _typingTimer = setInterval(render, 1000);
+  } else {
+    if (stopBtn) stopBtn.style.display = 'none';
+    _activeController = null;
+    if (lbl) lbl.textContent = '';
+  }
 }
 
 function hideWelcome() {
@@ -758,7 +1773,9 @@ function hideWelcome() {
 
 function updateCipherInfo(ctx) {
   if (!ctx || !ctx.has_cipher) return;
-  document.getElementById('cipherInfo').style.display = 'block';
+  const el = document.getElementById('cipherInfo');
+  if (!el) return;
+  el.style.display = 'block';
   document.getElementById('cipherName').textContent = ctx.cipher_name || '-';
   document.getElementById('cipherType').textContent = ctx.cipher_type || '-';
   document.getElementById('cipherRounds').textContent = ctx.cipher_rounds || '-';
@@ -771,6 +1788,10 @@ async function refreshStatus() {
     updateCipherInfo(data.context);
     renderArtifacts(data.artifacts || []);
     renderTrace(data.trace || []);
+    if (data.token_usage) {
+      _tokenUsage = data.token_usage;
+      updateTokenBadge();
+    }
   } catch (e) {
     addMessage('error', `Status refresh failed: ${e.message}`);
   }
@@ -778,13 +1799,14 @@ async function refreshStatus() {
 
 function renderArtifacts(artifacts) {
   const list = document.getElementById('artifactList');
+  if (!list) return;
   if (!artifacts || !artifacts.length) {
     list.innerHTML = '<div>No artifacts yet.</div>';
     return;
   }
   list.innerHTML = artifacts.slice(-6).reverse().map(a => {
     const link = a.exists && a.id
-      ? `<br><a href="/api/artifacts/${encodeURIComponent(a.id)}/download" target="_blank" rel="noopener">Download</a>`
+      ? `<br><a href="/api/artifacts/${encodeURIComponent(a.id)}/download" target="_blank" rel="noopener" style="color:var(--green); font-weight:700; text-decoration:none;">Download</a>`
       : '';
     return `<div><strong>${renderText(a.label || 'artifact')}</strong><br>${renderText(a.type || 'file')} · ${a.exists ? 'exists' : 'missing'}<br><code>${renderText(a.path || '')}</code>${link}</div>`;
   }).join('');
@@ -792,13 +1814,26 @@ function renderArtifacts(artifacts) {
 
 function renderSolverStatus(capabilities) {
   const list = document.getElementById('solverStatus');
+  if (!list) return;
   if (!capabilities) {
     list.innerHTML = '<div>Solver status unavailable.</div>';
     return;
   }
   const defaults = capabilities.default || {};
-  const milp = (capabilities.milp || []).join(', ') || 'none';
-  const sat = (capabilities.sat || []).join(', ') || 'none';
+  const asNames = (v) => {
+    if (!v) return 'none';
+    if (Array.isArray(v)) return v.length ? v.join(', ') : 'none';
+    if (typeof v === 'object') {
+      const parts = Object.keys(v).map(n => {
+        const s = v[n];
+        return (s && typeof s === 'object' && 'available' in s) ? `${n} ${s.available ? '✓' : '✗'}` : n;
+      });
+      return parts.length ? parts.join(', ') : 'none';
+    }
+    return String(v);
+  };
+  const milp = asNames(capabilities.milp);
+  const sat = asNames(capabilities.sat);
   list.innerHTML = [
     `<div><strong>Default MILP</strong><br>${renderText(defaults.milp || 'unavailable')}</div>`,
     `<div><strong>Default SAT</strong><br>${renderText(defaults.sat || 'unavailable')}</div>`,
@@ -809,6 +1844,7 @@ function renderSolverStatus(capabilities) {
 
 function renderTrace(trace) {
   const list = document.getElementById('traceList');
+  if (!list) return;
   if (!trace || !trace.length) {
     list.innerHTML = '<div>No trace yet.</div>';
     return;

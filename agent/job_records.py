@@ -47,7 +47,8 @@ def _provider_metadata(provider):
     }
 
 
-def create_text_job_record(cipher_input, prompt, raw_response, facts, errors, warnings, provider=None):
+def create_text_job_record(cipher_input, prompt, raw_response, facts, errors, warnings,
+                           provider=None, classification=None):
     """Create a replayable record for text-first cipher extraction."""
 
     created_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -77,6 +78,7 @@ def create_text_job_record(cipher_input, prompt, raw_response, facts, errors, wa
         },
         "prompt": prompt,
         "raw_response": raw_response,
+        "classification": classification,
         "facts": facts,
         "validation": {
             "errors": errors,

@@ -1,0 +1,1167 @@
+# KNOT: Algorithm Specifications and Supporting Document
+
+KNOT is a family of bit-slice lightweight authenticated encryption algorithms and hash functions, which is well-suited for both hardware and software environments. Chinese knot is an ancient art of weaving. In Chinese, “ knot” has the meaning of connection, reunion and harmony, which is the origin of our submission name $ { { } ^ { 6 6 } } \mathrm { K N O T } ^ { \mathfrak { G } }$ 
+
+## 1 Notation
+
+The following table summarizes the notation used throughout this document. 
+
+<table><tr><td>Notation</td><td>Meaning</td></tr><tr><td><eq>y \parallel x</eq></td><td>Concatenation of two bitstrings <eq>x</eq> and <eq>y</eq></td></tr><tr><td><eq>0^{l}</eq></td><td>All-zero bitstring of length <eq>l</eq></td></tr><tr><td><eq>|x|</eq></td><td>Length in bits of the bitstring <eq>x</eq></td></tr><tr><td><eq>x \oplus y</eq></td><td>XOR of bitstrings <eq>x</eq> and <eq>y</eq></td></tr><tr><td><eq>x_{m-1} \parallel \cdots \parallel x_{1} \parallel x_{0}</eq></td><td><eq>x_{0}</eq> is the least significant bit (or block), <eq>x_{m-1}</eq> is the most significant bit(or block).</td></tr><tr><td><eq>\lfloor x \rfloor_{l}</eq></td><td>Truncation of bitstring <eq>x</eq> to its first (least significant)<eq>l</eq> bits</td></tr><tr><td><eq>\lceil x \rceil_{l}</eq></td><td>Truncation of bitstring <eq>x</eq> to its last (most significant)<eq>l</eq> bits</td></tr><tr><td><eq>\{0,1\}^{k}</eq></td><td>The set of bit strings of length <eq>k</eq></td></tr><tr><td><eq>\{0,1\}^{*}</eq></td><td>The set of bit strings of all lengths</td></tr><tr><td><eq>S</eq></td><td>A <eq>b</eq>-bit state of the Sponge/Duplex construction</td></tr><tr><td><eq>S_{r}, S_{c}</eq></td><td>The <eq>r</eq>-bit rate and <eq>c</eq>-bit capacity part of a state <eq>S</eq></td></tr><tr><td><eq>nr</eq> (or <eq>nr_{0}, nr_{f}, nr_{h}</eq>)</td><td>The number of rounds for an underlying permutation</td></tr><tr><td><eq>p_{b}</eq></td><td>A round transformation with a width of <eq>b</eq> bits</td></tr><tr><td><eq>p_{b}[nr]</eq></td><td>A permutation consisting of <eq>nr</eq>-round <eq>p_{b}</eq></td></tr><tr><td>KNOT-AEAD(<eq>k,b,r</eq>)</td><td>A KNOT AE member with <eq>k</eq>-bit key, <eq>b</eq>-bit state and <eq>r</eq>-bit rate</td></tr><tr><td>KNOT-Hash(<eq>n,b,r,r&#x27;</eq>)</td><td>A KNOT hash member with <eq>n</eq>-bit hash output, <eq>b</eq>-bit state, <eq>r</eq>-bit absorbing rate and <eq>r&#x27;</eq>-bit squeezing rate</td></tr></table>
+
+## 2 The KNOT Permutations
+
+The underlying permutations of each KNOT member iteratively apply an SP-network round transformation. KNOT uses 3 diferent round transformations, which are defined by the width b (b=256, 384 or 512). Each of the rounds consists of the following 3 steps: AddRoundConstan $^ { ; t _ { b } , }$ SubColumn<sub>b</sub>, Shif tRow<sub>b</sub>. Let $p _ { b }$ denote a round transformation, the following is a pseudo C code for $p _ { b }$ : 
+
+$\{ \begin{array}{l} AddRoundConstant_b(STATE, RC) \\ SubColumn_b(STATE) \\ ShiftRow_b(STATE) \end{array} \}$ where $RC$ denotes a round constant. 
+
+We use nr $( \mathrm { o r } \ n r _ { 0 } , n r _ { f } , n r _ { h } )$ to denote the number of rounds for an underlying permutation. The concrete values of nr (or $n r _ { 0 } , n r _ { h } )$ for each KNOT member are given afterwards. 
+
+## 2.1 The State
+
+A b-bit state is pictured as a $4 \times { \frac { b } { 4 } }$ rectangular array of bits. Let $W = w _ { b - 1 } \parallel \cdots \parallel w _ { 1 } \parallel$ w<sub>0</sub> denote a state, the first $\frac { b } { 4 }$ bits $\boldsymbol { w } _ { \frac { b } { 4 } - 1 } \parallel \cdot \cdot \cdot \parallel \boldsymbol { w } _ { 1 } \parallel$ w<sub>0</sub> are arranged in row 0, the next $\frac { b } { 4 }$ bits $w _ { \frac { b } { 2 } - 1 } \parallel \cdot \cdot \cdot \parallel w _ { \frac { b } { 4 } + 1 } \parallel w _ { \frac { b } { 4 } }$ are arranged in row 1, and so on, as illustrated in Fig. 1. In the following, for convenience of description, a cipher state is described in a two-dimensional way, as illustrated in Fig. 2. 
+
+![image](https://cdn-mineru.openxlab.org.cn/result/2026-08-16/d8418eb5-5f72-47b5-ad89-a8057e04fb11/449a2ca8b8020cdf2c389262510d4af08efe918570196a2ebaead4a0c1d7c34f.jpg)
+
+
+
+Fig. 1. A b-bit State
+
+
+![image](https://cdn-mineru.openxlab.org.cn/result/2026-08-16/d8418eb5-5f72-47b5-ad89-a8057e04fb11/ef1d350c53e12078db0c6d1456bbb1798c061816db137dfecfd1eb67dbfdbd46.jpg)
+
+
+
+Fig. 2. Two-dimensional Way
+
+
+## 2.2 The AddRoundConstant<sub>b</sub> Transformation
+
+A simple bitwise XOR of a d-bit round constant to the first d bits of the intermediate state, with d = 6, 7 or 8. 
+
+KNOT uses 3 diferent binary linear feedback shift registers (LFSR) to generate 3 different sets of constants. For each LFSR, the initial value is defined as $\mathrm { R C } [ 0 ] : = 0 x 1$ . Each set of round constants $\{ \mathrm { R C [ i ] } , 0 \leq i \leq 2 ^ { d } - 1 \} )$ are generated by a d-bit maximal-length LFSR: 
+
+1. $d = 6$ . At each round, the 6 bits $\left( r c _ { 5 } , r c _ { 4 } , r c _ { 3 } , r c _ { 2 } , r c _ { 1 } , r c _ { 0 } \right)$ are left shifted over 1 bit, with the new value to $r c _ { 0 }$ being computed as rc<sub>5</sub> ⊕ rc<sub>4</sub>. 
+
+2. $d = 7 .$ . At each round, the 7 bits $\left( r c _ { 6 } , r c _ { 5 } , r c _ { 4 } , r c _ { 3 } , r c _ { 2 } , r c _ { 1 } , r c _ { 0 } \right)$ are left shifted over 1 bit, with the new value to $r c _ { 0 }$ being computed as $r c _ { 6 }$ ⊕ rc<sub>5</sub>. 
+
+3. $d = 8$ . At each round, the 8 bits $\left( r c _ { 7 } , r c _ { 6 } , r c _ { 5 } , r c _ { 4 } , r c _ { 3 } , r c _ { 2 } , r c _ { 1 } , r c _ { 0 } \right)$ are left shifted over 1 bit, with the new value to $r c _ { 0 }$ being computed as $r c _ { 7 } \oplus r c _ { 5 } \oplus r c _ { 4 } \oplus r c _ { 3 }$ 
+
+For convenience, we use $C O N S T _ { d }$ to denote the set of constants generated by the d-bit LFSR. For a KNOT member, the choice of d depends on the total number of rounds. 
+
+## 2.3 The SubColumn Transformation
+
+Parallel application of S-boxes to the 4 bits in the same column. The operation of SubColumn<sub>b</sub> is illustrated in Fig. 3. The input of an S-box is $C o l ( j ) = a _ { 3 , j } \parallel a _ { 2 , j } \parallel a _ { 1 , j } \parallel a _ { 0 , j }$ for $\begin{array} { r } { 0 \leq j \leq \frac { b } { 4 } - 1 } \end{array}$ , and the output is $S ( C o l ( j ) ) = b _ { 3 , j } \parallel b _ { 2 , j } \parallel b _ { 1 , j } \parallel b _ { 0 , j }$ 
+
+The S-box used in KNOT is a 4-bit to 4-bit S-box $S : F _ { 2 } ^ { 4 }  F _ { 2 } ^ { 4 }$ . The action of this S-box in hexadecimal notation is given by the following table. 
+
+<table><tr><td>x</td><td>0</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td>A</td><td>B</td><td>C</td><td>D</td><td>E</td><td>F</td></tr><tr><td>S(x)</td><td>4</td><td>0</td><td>A</td><td>7</td><td>B</td><td>E</td><td>1</td><td>D</td><td>9</td><td>F</td><td>6</td><td>8</td><td>5</td><td>2</td><td>C</td><td>3</td></tr></table>
+
+![image](https://cdn-mineru.openxlab.org.cn/result/2026-08-16/d8418eb5-5f72-47b5-ad89-a8057e04fb11/560874241494163c1229f38e34852a5b7542c69f56a87704f3b8c54b98a9295c.jpg)
+
+
+
+Fig. 3. SubColumn Operates on the Columns of the State
+
+
+## 2.4 The ShiftRow<sub>b</sub> Transformation
+
+A left rotation to each row over diferent ofsets. Row 0 is not rotated, row 1 is left rotated over $c _ { 1 }$ bit, row 2 is left rotated over $c _ { 2 }$ bits, row 3 is left rotated over $c _ { 3 }$ bits. The parameters $( c _ { 1 } , c _ { 2 } , c _ { 3 } )$ only depend on $b ,$ Table 1 gives the concrete values of $\left( c _ { 1 } , c _ { 2 } , c _ { 3 } \right)$ for the 3 diferent state width b. 
+
+Let ≪ x denote left rotation over x bits, the operation $S h i f t R o w _ { b }$ is illustrated in Fig.4. 
+
+$$
+\begin{array}{c c c c} \left(a _ {0, \frac {b}{4} - 1} \dots a _ {0, 1} a _ {0, 0}\right) \xrightarrow {\lll 0} \left(a _ {0, \frac {b}{4} - 1} \dots a _ {0, 1} a _ {0, 0}\right) \\ \left(a _ {1, \frac {b}{4} - 1} \dots a _ {1, 1} a _ {1, 0}\right) \xrightarrow {\lll c _ {1}} \left(a _ {1, \frac {b}{4} - c _ {1} - 1} \dots a _ {1, \frac {b}{4} - c _ {1} + 1} a _ {1, \frac {b}{4} - c _ {1}}\right) \\ \left(a _ {2, \frac {b}{4} - 1} \dots a _ {2, 1} a _ {2, 0}\right) \xrightarrow {\lll c _ {2}} \left(a _ {2, \frac {b}{4} - c _ {2} - 1} \dots a _ {2, \frac {b}{4} - c _ {2} + 1} a _ {2, \frac {b}{4} - c _ {2}}\right) \\ \left(a _ {3, \frac {b}{4} - 1} \dots a _ {3, 1} a _ {3, 0}\right) \xrightarrow {\lll c _ {3}} \left(a _ {3, \frac {b}{4} - c _ {3} - 1} \dots a _ {3, \frac {b}{4} - c _ {3} + 1} a _ {3, \frac {b}{4} - c _ {3}}\right) \end{array}
+$$
+
+Fig. 4. Shif tRow<sub>b</sub> Operates on the Rows of the State 
+
+## 3 A Bit-slice Description of the KNOT Permutations
+
+In the following, we present an equivalent description of SubColumn<sub>b</sub> and ShiftRow<sub>b</sub> transformations. Based on them, one can easily write a code for a software implementation of KNOT-AEAD and KNOT-Hash, i.e., a bit-slice implementation. Our software implementation of each KNOT member is just based on these results. 
+
+
+Table 1. ShitRow ofsets for the 3 state width
+
+
+<table><tr><td>b</td><td><eq>c_1</eq></td><td><eq>c_2</eq></td><td><eq>c_3</eq></td></tr><tr><td>256</td><td>1</td><td>8</td><td>25</td></tr><tr><td>384</td><td>1</td><td>8</td><td>55</td></tr><tr><td>512</td><td>1</td><td>16</td><td>25</td></tr></table>
+
+## 3.1 The SubColumn<sub>b</sub> Transformation
+
+As shown in Fig. 2, a b-bit state is described as a $4 \times { \frac { b } { 4 } }$ array. Let $A _ { b , i } = a _ { i , \frac { b } { 4 } - 1 } | | \cdot \cdot \cdot | | a _ { i , 1 } | | a _ { i , 0 }$ denote the i-th row, $i = 0 , 1 , 2 , 3 . \ A _ { b , i }$ can be regarded as a ${ \frac { b } { 4 } } .$ -bit word. 
+
+Let $A _ { b , 0 } , A _ { b , 1 } , A _ { b , 2 } , A _ { b , 3 }$ be 4 inputs of SubColumn<sub>b</sub>, $B _ { b , 0 } , B _ { b , 1 } , B _ { b , 2 } , B _ { b , 3 }$ be the 4 outputs, where $A _ { b , i }$ and $B _ { b , i }$ denote the i-th row of the state. Let $T _ { b , i }$ denote ${ \frac { b } { 4 } } .$ -bit temporary variables, $i = 1 , 2 , 3 , 5 , 6 , 8 , 9 .$ , 11. The SubColumn<sub>b</sub> transformation can be computed in the following 12 steps: 
+
+$$
+1. T _ {b, 1} = \sim A _ {b, 0};
+$$
+
+$$
+4. B _ {b, 3} = A _ {b, 3} \oplus T _ {b, 3};
+$$
+
+$$
+2. T _ {b, 2} = A _ {b, 1} \& T _ {b, 1};
+$$
+
+$$
+3. T _ {b, 3} = A _ {b, 2} \oplus T _ {b, 2};
+$$
+
+5. $T _ { b , 5 } = A _ { b , 1 } | A _ { b , 2 } ;$ 
+
+$$
+6. T _ {b, 6} = A _ {b, 3} \oplus T _ {b, 1};
+$$
+
+7. $B _ { b , 2 } = T _ { b , 5 } \oplus T _ { b , 6 } ;$ 
+
+$$
+8. T _ {b, 8} = A _ {b, 1} \oplus A _ {b, 3};
+$$
+
+$$
+9. T _ {b, 9} = T _ {b, 3} \& T _ {b, 6};
+$$
+
+10. $B _ { b , 0 } = T _ { b , 8 } \oplus T _ { b , 9 } ;$ 
+
+$$
+1 1. T _ {b, 1 1} = B _ {b, 2} \& T _ {b, 8};
+$$
+
+$$
+1 2. B _ {b, 1} = T _ {b, 3} \oplus T _ {b, 1 1};
+$$
+
+where $^ { 6 6 } \sim ^ { 9 9 }$ denotes NOT, “&” bitwise $\mathrm { A N D } , \ ^ { * } | \ ^ { * }$ bitwise $\mathrm { O R } , \ ^ { 6 } \oplus ^ { 3 }$ bitwise XOR. 
+
+## 3.2 The Shif tRow<sub>b</sub> Transformation
+
+Let $B _ { b , 0 } , B _ { b , 1 } , B _ { b , 2 } , B _ { b , 3 }$ be 4 inputs of $S h i f t R o w _ { b }$ transformation, $D _ { b , 0 } , D _ { b , 1 } , D _ { b , 2 } , D _ { b , 3 }$ be the 4 outputs. Then: 
+
+$$
+D _ {b, 0} = B _ {b, 0}; \quad D _ {b, 1} = B _ {b, 1} \ll c _ {1}; \quad D _ {b, 2} = B _ {b, 2} \ll c _ {2}; \quad D _ {b, 3} = B _ {b, 3} \ll c _ {3}.
+$$
+
+where ${ } ^ { \left. i \right. } B \ll x ^ { \prime \prime }$ denotes a left rotation over x bits within a <sup>b</sup><sub>4</sub> -bit word $B ; c _ { i } ( \mathrm { i } { = } 1 , 2 , 3 )$ are the rotation ofsets, which are specified in Table 1. 
+
+## 4 KNOT AEAD
+
+An authenticated encryption with associated data (AEAD) algorithm is a function with four inputs and one output. The four inputs are a variable-length plaintext, variable-length associated data, a fixed-length nonce, and a fixed-length key. The output is a variable-length ciphertext. 
+
+From a security point of view, an AEAD algorithm should ensure both the confidentiality of the plaintexts (under adaptive chosen-plaintext attacks) and the integrity of the ciphertexts (under adaptive forgery attempts). 
+
+## 4.1 Parameter Sets of KNOT AEAD
+
+The mode of operation of KNOT is based on Duplex mode MonkeyDuplex, which is proposed in [19] and utilized in Ascon [24] and Ketje [13]. Let S denote a b-bit state, $S _ { r }$ and $S _ { c }$ denote the rate and capacity parts of S. For the initialization, the number of rounds is nr<sub>0</sub>; for the processing of the associated data and plaintext blocks, the number of rounds is $n r ;$ for the finalization, the number of rounds is $n r _ { f }$ . The concrete values of $n r _ { 0 }$ , nr and $n r _ { f }$ for each KNOT AEAD member are given in Table 2. 
+
+
+Table 2. Parameters for the 4 members of KNOT-AEAD(k, b, r) Family
+
+
+<table><tr><td rowspan="2">Name</td><td colspan="4">Bit Size</td><td rowspan="2">Constants</td><td colspan="3">Rounds</td></tr><tr><td>k</td><td>b</td><td>r</td><td>c</td><td><eq>nr_0</eq></td><td>nr</td><td><eq>nr_f</eq></td></tr><tr><td>KNOT-AEAD(128, 256, 64)</td><td>128</td><td>256</td><td>64</td><td>192</td><td><eq>CONST_6</eq></td><td>52</td><td>28</td><td>32</td></tr><tr><td>KNOT-AEAD(128, 384, 192)</td><td>128</td><td>384</td><td>192</td><td>192</td><td><eq>CONST_7</eq></td><td>76</td><td>28</td><td>32</td></tr><tr><td>KNOT-AEAD(192, 384, 96)</td><td>192</td><td>384</td><td>96</td><td>288</td><td><eq>CONST_7</eq></td><td>76</td><td>40</td><td>44</td></tr><tr><td>KNOT-AEAD(256, 512, 128)</td><td>256</td><td>512</td><td>128</td><td>384</td><td><eq>CONST_7</eq></td><td>100</td><td>52</td><td>56</td></tr></table>
+
+
+where KNOT-AEAD(128, 256, 64) is the primary AEAD member. 
+
+
+The KNOT AEAD family has 4 members. For each member, the key length, the nonce length and the tag length are all equal to k bits. Let KNOT-AEAD(k, b, r) denote a KNOT-AEAD member with k-bit key, b-bit state and r-bit rate. Table 2 presents the parameter sets of the 4 AEAD members. The followings are some additional remarks: 
+
+1. The first KNOT-AEAD (i.e., KNOT-AEAD(128, 256, 64)) is the primary AEAD member. It needs the lowest hardware area and software memory, due to its 256-bit state size. 
+
+2. The first KNOT-AEAD has a security strength of 125 bits, the fourth KNOT-AEAD has a security strength of 253 bits. The security of the third KNOT-AEAD is in-between the first and the fourth one (see Section 7.1 for the security bounds). 
+
+3. The second KNOT-AEAD has almost the same security level with the first one, but it uses a higher bitrate due to its bigger permutation width, hence it has a higher throughput than the first AEAD. 
+
+For a b-bit KNOT permutation $p _ { b } [ n _ { r } ]$ , consider its bit-slice description (see Section 3), let $A _ { b , 0 } , A _ { b , 1 } , A _ { b , 2 } , A _ { b , 3 }$ denote the 4 subblocks of the b-bit input of $p _ { b } [ n _ { r } ]$ , then: 
+
+1. For KNOT-AEAD(128, 384, 192), $S _ { r } = A _ { b , 1 } \parallel A _ { b , 0 } , S _ { c } = A _ { b , 3 } \parallel A _ { b , 2 } .$ 
+
+2. For the other 3 KNOT-AEAD members, $S _ { r } = A _ { b , 0 } , S _ { c } = A _ { b , 3 } \parallel A _ { b , 2 } \parallel A _ { b , 1 }$ 
+
+Similarly, the tag (or hash ouptput) extraction from a b-bit state also starts from $A _ { b , 0 }$ 
+
+## 4.2 Padding
+
+The padding function $p a d _ { r } ( X )$ returns a bit string obtained by appending a single 1 and the smallest number of 0s to the bit string X such that the length of the padded bit string is a multiple of r bits. 
+
+The associated data AD is firstly padded by applying the $p a d _ { r } ( X )$ function, then the padded associated data is divided into u blocks of r bits: $A D _ { u - 1 } \parallel \cdot \cdot \cdot \parallel A D _ { 0 }$ . If the length of the associated data is zero, then no padding is applied and no associated data is processed. 
+
+$$
+p a d _ {r} (A D) = \left\{ \begin{array}{l l} 0 ^ {r - 1 - (| A D | \bmod r)} \parallel 1 \parallel A D = A D _ {u - 1} \parallel \dots \parallel A D _ {0} & \text { if } | A D | > 0, \\ \varnothing & \text { if } | A D | = 0. \end{array} \right.\tag{1}
+$$
+
+The same padding process is applied to divide the plaintext P into v blocks of r bits: $P _ { v - 1 } \parallel \cdots \parallel P _ { 0 }$ . Similarly, if the length of the plaintext is zero, no padding is applied and no plaintext is processed. 
+
+$$
+p a d _ {r} (P) = \left\{ \begin{array}{l l} 0 ^ {r - 1 - (| P | \bmod r)} \parallel 1 \parallel P = P _ {v - 1} \parallel \dots \parallel P _ {0} & \text {if} | P | > 0, \\ \varnothing & \text {if} | P | = 0. \end{array} \right.\tag{2}
+$$
+
+An Example - When AD and P are represented as Byte Arrays When AD and $P$ are represented as byte arrays, we present an example for clarity. The following is a 12-byte associated data: 
+
+$$
+A D a r r a y [ 1 2 ] = \{0 X 0 1, 0 X 0 2, 0 X 0 3, 0 X 0 4, 0 X 0 5, 0 X 0 6, 0 X 0 7, 0 X 0 8, 0 X 0 9, 0 X 0 A, 0 X 0 B, 0 X 0 C \}.
+$$
+
+where 0X01 is the 0th byte, and 0X0C is the 11th byte. Let $r \ = \ 6 4$ , then the padded associated data has 16 bytes $( \mathrm { i . e . , 2 }$ blocks of 64 bits each): 
+
+$$
+\begin{array}{c} p a d _ {r} (A D a r r a y [ 1 2 ]) = \{0 X 0 1, 0 X 0 2, 0 X 0 3, 0 X 0 4, 0 X 0 5, 0 X 0 6, 0 X 0 7, 0 X 0 8, \\ 0 X 0 9, 0 X 0 A, 0 X 0 B, 0 X 0 C, 0 X 0 1, 0 X 0 0, 0 X 0 0, 0 X 0 0 \}. \end{array}
+$$
+
+After the dividing, we have: 
+
+$$
+\begin{array}{c} A D _ {0} = 0 X 0 8 \parallel 0 X 0 7 \parallel 0 X 0 6 \parallel 0 X 0 5 \parallel 0 X 0 4 \parallel 0 X 0 3 \parallel 0 X 0 2 \parallel 0 X 0 1, \\ A D _ {1} = 0 X 0 0 \parallel 0 X 0 0 \parallel 0 X 0 0 \parallel 0 X 0 1 \parallel 0 X 0 C \parallel 0 X 0 B \parallel 0 X 0 A \parallel 0 X 0 9. \end{array}
+$$
+
+## 4.3 Initialization
+
+The authenticated encryption process is initialized by loading the key K and the nonce N (both k bits). The b-bit state is initialized as: 
+
+$$
+S = \left\{ \begin{array}{l l} (0 ^ {1 2 8} \parallel K \parallel N) \oplus (1 \parallel 0 ^ {3 8 3}) & \text { for   KNOT - AEAD(128,384,192),} \\ K \parallel N & \text { for   the   other   3   AEAD   members.} \end{array} \right.\tag{3}
+$$
+
+Then $n r _ { 0 }$ rounds of the round transformation $p _ { b } [ n r _ { 0 } ]$ are applied to the initial state: 
+
+$$
+S \leftarrow p _ {b} [ n r _ {0} ] (S)\tag{4}
+$$
+
+## 4.4 Processing Associated Data
+
+Each padded associated data block $A _ { i } \ ( i = 0 , \cdots , u - 1 )$ is processed as follows. The block $A _ { i }$ is XORed to the first r bits of the internal state $S _ { ; }$ , then the state $S$ is updated by the nr-round permutation $p _ { b } [ n r ]$ : 
+
+$$
+S \leftarrow p _ {b} [ n r ] (S _ {c} \parallel (S _ {r} \oplus A _ {i})), \quad 0 \leq i \leq u - 1.\tag{5}
+$$
+
+After the last associated data block has been processed or $\operatorname { i f } \left| A \right| = 0$ , a single-bit domain separation constant is XORed to the internal state S: 
+
+$$
+S \leftarrow S \oplus (1 \| 0 ^ {b - 1})\tag{6}
+$$
+
+## 4.5 Encryption
+
+Each padded plaintext block $P _ { i } ~ ( i = 0 , \cdots , v - 1 )$ is processed as follows. The ciphertext block $C _ { i }$ is equal to the XOR of the plaintext block $P _ { i }$ with the first $r$ bits of the internal state S. For each block except the last one, the state S is updated by the nr-round permutation $p _ { b } [ n r ]$ 
+
+$$
+C _ {i} \leftarrow S _ {r} \oplus P _ {i}\tag{7}
+$$
+
+$$
+S \leftarrow \left\{ \begin{array}{l l} p _ {b} [ n r ] (S _ {c} \parallel C _ {i}), & \text { if } 0 \leq i <   v - 1, \\ S _ {c} \parallel C _ {i}, & \text { if } i = v - 1. \end{array} \right.\tag{8}
+$$
+
+For the last ciphertext $C _ { v - 1 }$ with a length of $0 \leq l < r$ bits, $l = | P |$ mod r: 
+
+$$
+C _ {v - 1} \leftarrow \lfloor C _ {v - 1} \rfloor_ {l}\tag{9}
+$$
+
+Then, the ciphertext $C = C _ { v - 1 } \parallel \cdots \parallel C _ { 0 }$ 
+
+## 4.6 Decryption
+
+For each ciphertext block except the last one, the plaintext block $P _ { i }$ is computed by XORing the ciphertext block $C _ { i }$ with the first $r$ bits $S _ { r }$ of the internal state. Then, S is replaced by $C _ { i }$ . For each ciphertext block except the last one, the internal state is updated by nr rounds of the permutation $p _ { b } [ n r ]$ 
+
+$$
+P _ {i} \leftarrow S _ {r} \oplus C _ {i}\tag{10}
+$$
+
+$$
+S \leftarrow p _ {b} [ n r ] (S _ {c} \parallel C _ {i}) \quad , 1 \leq i <   v - 1.\tag{11}
+$$
+
+For the last ciphertext block $C _ { v - 1 }$ with a length of $0 \leq l < r$ bits: 
+
+$$
+P _ {v - 1} \leftarrow \lfloor S _ {r} \rfloor_ {l} \oplus C _ {v - 1}\tag{12}
+$$
+
+$$
+S \leftarrow S _ {c} \parallel (\lceil S _ {r} \rceil_ {r - l} \oplus (0 ^ {r - 1 - l} \parallel 1)) \parallel C _ {v - 1}\tag{13}
+$$
+
+## 4.7 Finalization
+
+In the finalization, the state is firstly updated by $n r _ { f }$ rounds of the permutation $p _ { b } [ n r _ { f } ]$ Then the tag consists the first k bits of the state. 
+
+$$
+S \leftarrow p _ {b} [ n r _ {f} ] (S)\tag{14}
+$$
+
+$$
+T \leftarrow \lfloor S \rfloor_ {k}\tag{15}
+$$
+
+The encryption process returns the concatenation of the ciphertext blocks and the tag as its output. To avoid any ambiguity, note that we have used two variables C and $T$ to denote the ciphertext and the tag respectively. However, the encryption process returns only one output by appending the tag T to the ciphertext C: 
+
+$$
+\text { Output: } T \parallel C
+$$
+
+We emphasize that the decryption process shall not return the plaintext if the verification fails, that is to say, the decryption process returns the plaintext only if the calculated tag value matches the received tag value. 
+
+## 4.8 Procedures for KNOT-AEAD
+
+Algorithm 1 specifies the procedures of authenticated encryption and decryption-verification for KNOT-AEAD. 
+
+## 5 KNOT Hash
+
+A hash function is a function with one input and one output. The input is a variable-length message, and the output is a fixed-length hash value. It should be computationally infeasible to find a collision or a (second) preimage for a hash function. A hash function should also be resistant against length extension attacks. 
+
+Guo et al. extended the Sponge construction [26] by allowing a diferent squeezing bit rate $r ^ { \prime }$ to ofer a tradeof between eficiency and preimage security. Increasing $r ^ { \prime }$ will directly reduce the time spent in the squeezing process, but might reduce the preimage security. On the other hand, decreasing $r ^ { \prime }$ will increase the time spent in the squeezing process, but might improve the preimage security. The work from Andreeva et al. also independently proposed a similar extension [3]. In our design of each KNOT-Hash member, a diferent squeezing bit rate $r ^ { \prime } > r$ is used to improve the squeezing eficiency at the cost of a reduction for preimage security. 
+
+Algorithm 1 Procedures of Authenticated Encryption and Decryption-Verification for KNOT-AEAD(k, b, r)
+
+Authenticated Encryption
+INPUT:
+key $K \in \{0, 1\}^{k}$ ,
+nonce $N \in \{0, 1\}^{k}$ ,
+associated data $AD \in \{0, 1\}^{*}$ ,
+plaintext $P \in \{0, 1\}^{*}$ .
+
+OUTPUT:
+T || C, (with ciphertext $C \in \{0, 1\}^{*}$ and tag $T \in \{0, 1\}^{k}$ ).
+
+Padding: $AD_{u-1} \parallel \cdots \parallel AD_{0} \leftarrow pad_{r}(AD)$ $P_{v-1} \parallel \cdots \parallel P_{0} \leftarrow pad_{r}(P)$ Initialization:
+if b = 384 and r = 192, then $S = (K \parallel N) \oplus (1 \parallel 0^{383})$ else $S = K \parallel N$ $S \leftarrow p_{b}[nr_{0}](S)$ Processing Associated Data:
+c = b - r
+
+for i = 0, $\cdots$ , u - 1, do $S \leftarrow p_{b}[nr](S_{c} \parallel (S_{r} \oplus A_{i}))$ $S \leftarrow S \oplus (1 \parallel 0^{b-1})$ Encryption:
+for i = 0, $\cdots$ , v - 2, do $\{C_{i} \leftarrow S_{r} \oplus P_{i}$ $S \leftarrow p_{b}[nr](S_{c} \parallel C_{i})\}$ $S_{r} \leftarrow S_{r} \oplus P_{v-1}$ l = |P| mod r $C_{v-1} \leftarrow \lfloor S_{r} \rfloor_{l}$ Finalization: $S \leftarrow p_{b}[nr_{f}](S)$ $T \leftarrow \lfloor S \rfloor_{k}$ return $T \parallel C_{v-1} \parallel \cdots \parallel C_{0}$ Decryption-Verification
+INPUT:
+key $K \in \{0, 1\}^{k}$ ,
+nonce $N \in \{0, 1\}^{k}$ ,
+associated data $AD \in \{0, 1\}^{*}$ , $T \parallel C$ , (with ciphertext $C \in \{0, 1\}^{*}$ and tag $T \in \{0, 1\}^{k}$ ).
+OUTPUT:
+plaintext $P \in \{0, 1\}^{*}$ or ⊥.
+
+Padding: $AD_{u-1} \parallel \cdots \parallel AD_{0} \leftarrow pad_{r}(AD)$ Initialization:
+if b = 384 and r = 192, then $S = (K \parallel N) \oplus (1 \parallel 0^{383})$ else $S = K \parallel N$ $S \leftarrow p_{b}[nr_{0}](S)$ Processing Associated Data:
+c = b - r
+
+for i = 0, $\cdots$ , u - 1, do $S \leftarrow p_{b}[nr](S_{c} \parallel (S_{r} \oplus A_{i}))$ $S \leftarrow S \oplus (1 \parallel 0^{b-1})$ Decryption:
+for i = 0, $\cdots$ , v - 2, do $P_{i} \leftarrow S_{r} \oplus C_{i}$ $S \leftarrow p_{b}[nr](S_{c} \parallel C_{i})\}$ l = |C| mod r $P_{v-1} \leftarrow \lfloor S_{r} \rfloor_{l} \oplus C_{v-1}$ $S_{r} \leftarrow (\lceil S_{r} \rceil_{r-l} \oplus (0^{r-1-l} \| 1)) \| C_{v-1}$ Finalization: $S \leftarrow p_{b}[nr_{f}](S)$ $T' \leftarrow \lfloor S \rfloor_{k}$ if $T = T'$ , then
+
+return $P_{v-1} \| \cdots \| P_{0}$ else return ⊥ 
+
+
+Table 3. Parameters for the 4 members of KNOT-Hash $( n , b , r , r ^ { \prime } )$ Family
+
+
+<table><tr><td rowspan="2">Name</td><td colspan="5">Bit Size</td><td rowspan="2">Constants</td><td>Rounds</td></tr><tr><td>n</td><td>b</td><td>c</td><td>r</td><td>r&#x27;</td><td><eq>nr_h</eq></td></tr><tr><td>KNOT-Hash(256,256,32,128)</td><td>256</td><td>256</td><td>224</td><td>32</td><td>128</td><td><eq>CONST_7</eq></td><td>68</td></tr><tr><td>KNOT-Hash(256,384,128,128)</td><td>256</td><td>384</td><td>256</td><td>128</td><td>128</td><td><eq>CONST_7</eq></td><td>80</td></tr><tr><td>KNOT-Hash(384,384,48,192)</td><td>384</td><td>384</td><td>336</td><td>48</td><td>192</td><td><eq>CONST_7</eq></td><td>104</td></tr><tr><td>KNOT-Hash(512,512,64,256)</td><td>512</td><td>512</td><td>448</td><td>64</td><td>256</td><td><eq>CONST_8</eq></td><td>140</td></tr></table>
+
+
+where KNOT-Hash(256, 256, 32, 128) is the primary hash member. 
+
+
+## 5.1 Parameter Sets of KNOT Hash
+
+The KNOT hash family has 4 members. Let $\mathrm { K N O T - H a s h } ( n , b , r , r ^ { \prime } )$ denote a KNOT hash member with n-bit hash output, b-bit state, r-bit absorbing rate and r<sup>′</sup>-bit squeezing rate. Table 3 presents the parameter sets of the 4 members of the KNOT hash family, KNOT-Hash(256, 256, 32, 128) is the primary hash member. 
+
+Like the cases in the KNOT-AEAD members, similarly, the first KNOT-Hash needs the lowest hardware area and software memory, and has a security strength of 112 bits. The fourth KNOT-Hash has a security level which is around 224 bits, the security of the third KNOT-Hash is in-between the first and the fourth one. The second KNOT-Hash has almost the same security level with the first one, but has a higher throughput. 
+
+## 5.2 Padding
+
+The input message M (including the empty string) is padded by applying the $p a d _ { r } ( X )$ function, then the padded message is divided into v blocks of r bits: $M _ { v - 1 } \parallel \cdots \parallel M _ { 0 }$ 
+
+$$
+p a d _ {r} (M) = 0 ^ {r - 1 - (| M | \bmod r)} \parallel 1 \parallel M = M _ {v - 1} \parallel \dots \parallel M _ {0}.\tag{16}
+$$
+
+## 5.3 Initialization
+
+The b-bit state is initialized as: 
+
+$$
+S = \left\{ \begin{array}{l l} 1 \parallel 0 ^ {3 8 3} & \text { for   KNOT - Hash(256, 384, 128, 128), } \\ 0 ^ {b} & \text { for   the   other   3   hash   members. } \end{array} \right.\tag{17}
+$$
+
+## 5.4 Absorbing
+
+Each padded message block $M _ { i } \ ( i = 0 , \cdot \cdot \cdot , v - 1 )$ is processed as follows. The block $M _ { i }$ is XORed to the first r bits of the internal state $S ,$ then the state $S$ is updated by the $n r _ { h }$ rounds of the round transformation $p _ { b } [ n r _ { h } ]$ : 
+
+$$
+S \leftarrow p _ {b} [ n r _ {h} ] (S _ {c} \parallel (S _ {r} \oplus M _ {i})), \quad 0 \leq i \leq v - 1.\tag{18}
+$$
+
+## 5.5 Squeezing
+
+After the last message block has been processed, the n-bit output is extracted from the $S _ { r ^ { \prime } }$ part of the state at a time, until a total of $\frac { n } { r ^ { \prime } }$ extractions are completed. 
+
+for $i = 0$ to $\frac{n}{r'} - 2$ , do $\{H_i \leftarrow S_{r'}$ $S \leftarrow p_b[nr_h](S)$ $\}$ $H_{\frac{n}{r'} - 1} \leftarrow S_{r'}$ $H \leftarrow H_{\frac{n}{r'} - 1} \parallel \dots \parallel H_0$ 
+
+## 5.6 Procedures for KNOT-Hash
+
+```txt
+Algorithm 2 Procedures for KNOT-Hash(n, b, r, r')
+INPUT:
+message M ∈ {0,1}^*.
+OUTPUT:
+hash value H ∈ {0,1}^n.
+Padding:
+M_{v-1} || ⋯ || M_0 ← pad_r(M)
+Initialization:
+if b = 384 and r = 192, then
+    S ← 1 || 0^{383}
+else S ← 0^b
+Absorbing:
+c = b - r
+for i = 0, ⋯ , v - 1, do
+    S ← p_b[nr_h](S_c || (S_r ⊕ M_i))
+Squeezing:
+for i = 0, ⋯ , n/r' - 2, do
+{H_i ← S_r'
+    S ← p_b[nr_h](S)}
+H_{\frac{n}{r'} - 1} ← S_r'
+return H ← H_{\frac{n}{r'} - 1} || ⋯ || H_0 
+```
+
+Algorithm 2 specifies the procedures for KNOT-Hash. 
+
+## 6 Pairs of KNOT-AEAD and KNOT-Hash Members
+
+We group KNOT-AEAD and KNOT-Hash members into pairs according to their parameters. As listed in Table 4, there are four KNOT-Pairs, where KNOT-Pair I is the primary pair. For each KNOT-Pair, the corresponding KNOT-AEAD and KNOT-Hash use identical round transformations $p _ { b }$ (ignoring the constant addition) in the underlying permutation-${ \mathrm { s } } ,$ which leads to a unified hardware implementation and a reduced ROM utilization in implementing the software 
+
+
+Table 4. List of Pairs of KNOT-AEAD and KNOT-Hash Members
+
+
+<table><tr><td></td><td>AEAD Member</td><td>Hash Member</td></tr><tr><td>KNOT-Pair I</td><td>KNOT-AEAD(128, 256, 64)</td><td>KNOT-Hash(256, 256, 32, 128)</td></tr><tr><td>KNOT-Pair II</td><td>KNOT-AEAD(128, 384, 192)</td><td>KNOT-Hash(256, 384, 128, 128)</td></tr><tr><td>KNOT-Pair III</td><td>KNOT-AEAD(192, 384, 96)</td><td>KNOT-Hash(384, 384, 48, 192)</td></tr><tr><td>KNOT-Pair IV</td><td>KNOT-AEAD(256, 512, 128)</td><td>KNOT-Hash(512, 512, 64, 256)</td></tr></table>
+
+
+where KNOT-Pair I is the primary pair. 
+
+
+## 7 Security Model
+
+## 7.1 Security of AEAD Modes
+
+Let Π be an authenticated encryption scheme, $P \mathrm { \ a }$ list of idealized permutations (which Π may depend on), and $ an ideal version of $\mathcal { E } _ { K }$ . Define the advantage of an adversary A in breaking the privacy of Π as follows: 
+
+$$
+A d v _ {\Pi} ^ {\mathrm{priv}} (\mathcal {A}) = | P r _ {p, K} (\mathcal {A} ^ {p ^ {\pm}, \mathcal {E} _ {K}} = 1) - P r _ {p, \S} (\mathcal {A} ^ {p ^ {\pm}, \S} = 1) |
+$$
+
+where the probabilities are taken over the random choices of $p , \ S , K ,$ , and A, if any. The fact that the adversary has access to both the forward and inverse permutations in $p$ is denoted by $p ^ { \pm }$ . The adversary A is nonce-respecting, which means that it never makes two queries to $\mathcal { E } _ { K }$ or $\$ 1$ with the same nonce. Let $A d v _ { \pi } ^ { \bar { p } r i v } ( q _ { p } , q \varepsilon , \lambda \varepsilon )$ denote the maximum advantage taken over all adversaries that query $p ^ { \pm }$ at most $q _ { p }$ times, and that make at most $q \varepsilon$ queries of total length (over all queries) at most $\lambda _ { \mathcal { E } }$ blocks to $\mathcal { E } _ { K }$ or $. This privacy notion is also known as the indistinguishability under chosen plaintext attack (IND-CPA) security of an (authenticated) encryption scheme. 
+
+As above, let P denote the list of underlying idealized permutations of Π. Define the advantage of an adversary A in breaking the integrity of Π as follows: 
+
+$$
+A d v _ {\Pi} ^ {\mathrm{auth}} (\mathcal {A}) = P r _ {p, K} (\mathcal {A} ^ {p ^ {\pm}, \mathcal {E} _ {K}, \mathcal {D} _ {K}} \text { forges })
+$$
+
+where the probability is taken over the random choices of $p , \ S , K$ , and A, if any. If $\mathcal { D } _ { K }$ ever returns a message other than ⊥ on input of $( N ; H , C , T ; A )$ where $( C , A )$ has never been output by $\mathcal { E } _ { K }$ on input of a query $( N ; H , M ; T )$ for some M, then we say that adversary A forges. Adversary A is nonce-respecting, which means that it never makes two queries to $\mathcal { E } _ { K }$ with the same nonce. Nevertheless, A is allowed to repeat nonces in decryption queries. Let $A d v _ { I I } ^ { \mathrm { a u t h } } ( q _ { p } , q \varepsilon , \lambda \varepsilon , q _ { D } , \lambda _ { \mathcal { D } } )$ denote the maximum advantage taken over all adversaries that query $p ^ { \pm }$ at most $q _ { p }$ times, and that make at most $q \varepsilon$ queries of total length (over all queries) at most $\lambda _ { \mathcal { E } }$ blocks to $\mathcal { E } _ { K }$ , and at most $q _ { \mathcal { D } }$ queries of total length at most $\lambda _ { \mathcal { D } }$ blocks to $\mathcal { D } _ { K }$ 
+
+The constant $\rho$ is defined by r and c as follows: 
+
+$$
+\rho = \left\{ \begin{array}{l l} 3. 4 \times 2 ^ {\frac {c - r}{2}} & \text {if} \quad \frac {c}{5} <   r \leq c - 2 l o g _ {2} c, \\ \frac {1 . 4 r}{l o g _ {2} r + r - c - 2} & \text {if} \quad c \leq r \leq c + e l o g _ {2} c - e \beta \end{array} \right.\tag{19}
+$$
+
+where $\beta = l o g _ { 2 } e + l o g _ { 2 } l o g _ { 2 } e$ 
+
+Theorem 1 ([35]). Let $\boldsymbol { \varPi } = ( \boldsymbol { \mathcal { E } } , \boldsymbol { \mathcal { D } } )$ be KNOT-AEAD based on an ideal underlying primitive p. Then, 
+
+$$
+A d v _ {\Pi} ^ {p r i v} (q _ {p}, q _ {\mathcal {E}}, \lambda_ {\mathcal {E}}) \leq \frac {3 (q _ {p} + \sigma_ {\mathcal {E}}) ^ {2}}{2 ^ {b + 1}} + \frac {\sigma_ {\mathcal {E}}}{\min \{2 ^ {b / 2} , 2 ^ {c} \}} + \frac {2 \rho q _ {p}}{2 ^ {c}} + \frac {q _ {p} + \sigma_ {\mathcal {E}}}{2 ^ {k}}
+$$
+
+where $\sigma _ { \mathcal { E } }$ denotes the number of primitive evaluations via the encryption queries. 
+
+Theorem 2 ([35]). Let $\boldsymbol { \varPi } = ( \boldsymbol { \mathcal { E } } , \boldsymbol { \mathcal { D } } )$ be KNOT-AEAD based on an ideal underlying primitive p. Then, 
+
+$$
+\begin{array}{r} A d v _ {\Pi} ^ {a u t h} (q _ {p}, q _ {\mathcal {E}}, \lambda_ {\mathcal {E}}, q _ {\mathcal {D}}, \lambda_ {\mathcal {D}}) \leq \frac {(q _ {p} + \sigma_ {\mathcal {E}} + \sigma_ {\mathcal {D}}) ^ {2}}{2 ^ {b}} + \frac {\sigma_ {\mathcal {E}}}{\min \{2 ^ {b / 2} , 2 ^ {c} \}} + \frac {2 \rho q _ {p}}{2 ^ {c}} \\ + \frac {q _ {p} + \sigma_ {\mathcal {E}} + \sigma_ {\mathcal {D}}}{2 ^ {k}} + \frac {(q _ {p} + \sigma_ {\mathcal {E}} + \sigma_ {\mathcal {D}}) \sigma_ {\mathcal {D}}}{2 ^ {c}} + \frac {q _ {\mathcal {D}}}{2 ^ {\tau}} \end{array}
+$$
+
+where $\sigma \varepsilon \ \left( \sigma _ { \mathscr D } \right)$ denotes the number of primitive evaluations via the encryption (decryption) queries. 
+
+## 7.2 Security of Hash Modes
+
+For an extended Sponge hash function with a diferent squeezing bitrate $r ^ { \prime } { _ { ; } }$ , the following theorem presents its security against generic attacks. 
+
+Theorem 3 ([10, 26]). For a Sponge hash function with hash size $n ,$ absorbing bitrate r, capacity c and squeezing bitrate $r ^ { \prime }$ , the best known generic attacks require the following amount of computations when the underlying permutation is modeled as a random permutation: 
+
+1. Preimage attacks: min $\{ 2 ^ { \operatorname* { m i n } \{ n , b \} } , \operatorname* { m a x } \{ 2 ^ { \operatorname* { m i n } \{ n , b \} - r ^ { \prime } } , 2 ^ { c / 2 } \} \}$ 
+
+2. Second-preimage attacks: min $\{ 2 ^ { n } , 2 ^ { c / 2 } \}$ 
+
+3. Collision attack: min $\{ 2 ^ { n / 2 } , 2 ^ { c / 2 } \}$ 
+
+## 8 Expected Security Strength of Each KNOT-AEAD and KNOT-Hash Members
+
+## 8.1 KNOT-AEAD
+
+The KNOT-AEAD algorithms maintain security as long as the nonce is unique (not repeated under the same key), Table 5 presents the security goals for the 4 KNOT-AEAD members. 
+
+The AEAD algorithm lose the plaintext confidentiality if the same nonce N is used to encrypt two diferent plaintexts under the same key $K .$ . In this case, the attacker can 
+
+
+Table 5. Claimed Security Strength and Data Limit for the 4 KNOT-AEAD Members
+
+
+<table><tr><td></td><td>Plaintext Confidentiality</td><td>Ciphertext Integrity</td><td>Data Limit</td></tr><tr><td>KNOT-AEAD(128, 256, 64)</td><td>125</td><td>125</td><td><eq>2^{64}</eq></td></tr><tr><td>KNOT-AEAD(128, 384, 192)</td><td>128</td><td>128</td><td><eq>2^{64}</eq></td></tr><tr><td>KNOT-AEAD(192, 384, 96)</td><td>189</td><td>189</td><td><eq>2^{96}</eq></td></tr><tr><td>KNOT-AEAD(256, 512, 128)</td><td>253</td><td>253</td><td><eq>2^{128}</eq></td></tr></table>
+
+Note: The security strength is indicated by the logarithm base 2 of the attack cost, and the unit is the underlying KNOT permutation P [nr] used by the KNOT-AEAD member. 
+
+detect the first difering block of the two plaintexts and calculate the XOR diference of the corresponding plaintext block. 
+
+Plaintexts can not be returned by the decryption-verification process if the ciphertext is invalid. Release of unverified decrypted ciphertexts also has an impact on the plaintext confidentiality as it allows an attacker to collect data which may be useful at a later attack. 
+
+Note that nonce violation and release of unverified decrypted ciphertext have no influences on integrity. 
+
+For each KNOT-AEAD member, Table 5 also presents the upper limit M on the data complexity, i.e., the number of processed plaintext and associated data blocks is limited to M blocks under one key. For example, KNOT-AEAD(128, 256, 64) has a message length limit of $2 ^ { 6 7 }$ bytes, and KNOT-AEAD(192, 384, 96) has a limit of $3 \times 2 ^ { 6 6 }$ bytes. 
+
+The security strength and the message length limit for each KNOT-AEAD member are mainly determined by Theorem 1 and Theorem 2 in Section 7.1. According to Theorem 1, a Duplex-based AEAD algorithm can ofer confidentiality as long as the total complexity $q _ { p } + \sigma \varepsilon$ does not exceed $\mathrm { { \bar { m i n } \{ 2 ^ { b / 2 } , 2 ^ { k } \} } }$ and the total number of primitive queries $q _ { p }$ does not exceed $2 ^ { c } / \rho ,$ where $\rho$ denotes a constant. According to Theorem 2, a Duplex-based AEAD algorithm can ofer integrity as long as the total complexity $q _ { p } + \sigma \varepsilon + \sigma _ { \mathcal D }$ does not exceed $2 ^ { c } / \sigma _ { \mathscr D }$ , where $\sigma \varepsilon \left( \sigma _ { \mathscr D } \right)$ denotes the number of primitive evaluations via the encryption (decryption) queries. 
+
+For each KNOT-AEAD member, the underlying permutations used in the processing of associated data/plaintexts and the finalization are not ideal, but we emphasize that the number of rounds is suficient for the claimed security strength. Non-random properties for these permutations are known, but it do not violate the claimed security. 
+
+## 8.2 KNOT-Hash
+
+Table 6 presents the security of each KNOT-Hash member against the 3 generic attacks, which is based on Theorem 3 in Section 7.2. The message length limit is simply in accordance with the corresponding KNOT-AEAD member. The AEAD and the corresponding hash (with close security strength and the same round transformation) can be put together. Note that the message length limit on each KNOT-Hash member does not violate the claimed security listed in Table 6. 
+
+Length extension means that an attacker tries to predict the value of $H ( X \parallel M )$ for some string X, given the hash value $H ( M )$ for an unknown input M [10]. For a Sponge function, length extension is successful if one can recover the inner state at the end of the squeezing of M, which comes down to state recovery. If a hash function is secure against state recovery attacks, then it can resist length extension attacks. 
+
+
+Table 6. Claimed Security Strength and Data Limit for the 4 KNOT-Hash Members
+
+
+<table><tr><td rowspan="2">Name</td><td colspan="3">Security (bit)</td><td rowspan="2">Data limit</td></tr><tr><td>pre.</td><td>2nd pre.</td><td>col.</td></tr><tr><td>KNOT-Hash(256, 256, 32, 128)</td><td>128</td><td>112</td><td>112</td><td><eq>2^{64}</eq></td></tr><tr><td>KNOT-Hash(256, 384, 128, 128)</td><td>128</td><td>128</td><td>128</td><td><eq>2^{64}</eq></td></tr><tr><td>KNOT-Hash(384, 384, 48, 192)</td><td>192</td><td>168</td><td>168</td><td><eq>2^{96}</eq></td></tr><tr><td>KNOT-Hash(512, 512, 64, 256)</td><td>256</td><td>224</td><td>224</td><td><eq>2^{128}</eq></td></tr></table>
+
+
+Table 7. Diference Distribution Table of the KNOT S-box
+
+
+![image](https://cdn-mineru.openxlab.org.cn/result/2026-08-16/d8418eb5-5f72-47b5-ad89-a8057e04fb11/8b87ae2b31aa56de179b5691f3f922f8bcefb9dd7266289a9f2906c0b611f7ca.jpg)
+
+
+
+where ∆I is the input diference, ∆O is the output diference.
+
+
+## 9 Security Analysis
+
+In this section, we present the results of our security analysis of the KNOT permutations. The round constant addition is ignored, which has no impact on the results. For a fixed permutation width b and a fixed number of rounds, we regard the permutations parameterized by diferent round constants as the same permutation. 
+
+## 9.1 Properties of the KNOT S-box
+
+Let $x _ { 0 } , x _ { 1 } , x _ { 2 } , x _ { 3 }$ and y<sub>0</sub>, y<sub>1</sub>, y<sub>2</sub>, y<sub>3</sub> respectively denote the input and output of the KNOT S-box, where $x _ { 0 }$ is the least significant bit. The following is the algebraic normal form (ANF) of the S-box: 
+
+$$
+\begin{array}{l} y _ {0} = x _ {0} x _ {1} + x _ {2} + x _ {0} x _ {2} + x _ {3} + x _ {1} x _ {3} + x _ {0} x _ {1} x _ {3} + x _ {2} x _ {3} \\ y _ {1} = x _ {1} + x _ {2} + x _ {0} x _ {3} + x _ {2} x _ {3} + x _ {1} x _ {2} x _ {3} \\ y _ {2} = 1 + x _ {0} + x _ {1} + x _ {2} + x _ {1} x _ {2} + x _ {3} \\ y _ {3} = x _ {1} + x _ {0} x _ {1} + x _ {2} + x _ {3} \end{array}
+$$
+
+The algebraic degree of the KNOT S-box is 2. In Table 7 and Table 8, we present the diference distribution table and linear distribution table of the KNOT S-box respectively. 
+
+## 9.2 Diferential Cryptanalysis
+
+Diferential [12] and linear [31] cryptanalysis are among the most powerful techniques available for block ciphers. A block cipher is a set of $2 ^ { k }$ permutations operating on b-bit vectors, where k is the key length and b the block length. To distinguish a b-bit KNOT permutation from a random permutation using diferential cryptanalysis (DC), there must be a predictable diference propagation with a probability significantly larger than $2 ^ { 1 - b }$ . A difference propagation is composed of a set of diferential trails, where its probability is the sum of the probabilities of all diferential trails that have the specified input diference and output diference [22]. The weight of a diferential trail (or a diference propagation) is the negative of the binary logarithm of its probability. 
+
+
+Table 8. Linear Distribution Table of the KNOT S-box
+
+
+![image](https://cdn-mineru.openxlab.org.cn/result/2026-08-16/d8418eb5-5f72-47b5-ad89-a8057e04fb11/6e08d896ba7a2cce392daf059f34962c80aa51337928622a06d0c995696b5d23.jpg)
+
+
+
+where Γ I is the input selection pattern, Γ O is the output selection pattern.
+
+
+M.Matsui has presented a search algorithm for the best diferential/linear trail of DES in [32], which uses branch-and-bound methods. Based on the improved search algorithm [6], we have written a program to search for the best diferential trails for each of the 3 KNOT permutations. Let $\bar { W } _ { b , i } ^ { D }$ denote the weight of the best i-round diferential trail $( i = 1 , 2 , 3 , \dots )$ for the b-bit KNOT permutation. The followings are our experimental results: 
+
+1. $W _ { 2 5 6 , i } ^ { D } = W _ { 3 8 4 , i } ^ { D } = W _ { 5 1 2 , i } ^ { D } \mathrm { ~ f o r ~ } 1 \leq i \leq 1 1 .$ 
+
+2. $W _ { 2 5 6 , i } ^ { D } = W _ { 2 5 6 , i - 3 } ^ { D } + 1 6$ for 12 ≤ i ≤ 49; $W _ { 3 8 4 , i } ^ { D } = W _ { 3 8 4 , i - 3 } ^ { D } + 1 6$ for $1 2 \leq i \leq 7 3 ;$ $W _ { 5 1 2 , i } ^ { D } = W _ { 5 1 2 , i - 3 } ^ { D } + 1 6$ for 12 ≤ i ≤ 97. 
+
+Our search results from 1 round to 14 rounds are presented in Table 9. Using the above results, one can easily calculate the weight of the best diferential trail for a given number of rounds of a KNOT permutation. Especially, we have: 
+
+1. For the 256-bit KNOT permutation, the probability of the best 49-round diferential trail is $2 ^ { - 2 5 8 }$ ; 
+
+2. For the 384-bit KNOT permutation, the probability of the best 73-round diferential trail is $2 ^ { - 3 8 6 }$ 
+
+3. For the 512-bit KNOT permutation, the probability of the best 97-round diferential trail is $2 ^ { - 5 1 4 }$ 
+
+For RECTANGLE, we have investigated the clustering of diferential trails. The probability of the best 15-round diferential trail is $2 ^ { - 6 6 }$ . Based on the branch-and-bound algorithm, we have searched for all the diferential trails of 15-round RECTANGLE with probability between $2 ^ { - 6 6 }$ and $2 ^ { - 7 6 }$ (up to a rotation equivalence) and examined all the diference propagations made up of the investigated trails. The followings are the experimental results [41]: 
+
+
+Table 9. Probabilities of the Best Diferential Trails of the 3 KNOT permutations
+
+
+<table><tr><td># R</td><td>Prob.</td><td># R</td><td>Prob.</td><td># R</td><td>Prob.</td></tr><tr><td>1</td><td><eq>2^{-2}</eq></td><td>6</td><td><eq>2^{-18}</eq></td><td>11</td><td><eq>2^{-55}</eq></td></tr><tr><td>2</td><td><eq>2^{-4}</eq></td><td>7</td><td><eq>2^{-25}</eq></td><td>12</td><td><eq>2^{-60}</eq></td></tr><tr><td>3</td><td><eq>2^{-7}</eq></td><td>8</td><td><eq>2^{-32}</eq></td><td>13</td><td><eq>2^{-66}</eq></td></tr><tr><td>4</td><td><eq>2^{-10}</eq></td><td>9</td><td><eq>2^{-40}</eq></td><td>14</td><td><eq>2^{-71}</eq></td></tr><tr><td>5</td><td><eq>2^{-14}</eq></td><td>10</td><td><eq>2^{-49}</eq></td><td>⋮</td><td>⋮</td></tr></table>
+
+
+where ♯ R denotes the number of rounds, and Prob. denotes the probability of the best diferential trail.
+
+
+1. There are 32 best diference propagations with probability $1 3 0 0 \times 2 ^ { - 7 6 } \approx 2 ^ { - 6 5 . 6 6 }$ each. Each is composed of 7 diferential trails. 
+
+2. Among all the diference propagations, the maximum number of trails of a diference propagation is 131, i.e., a diference propagation is composed of at most 131 diferent diferential trails. 
+
+From the above results, it can be seen that the clustering of diferential trails of RECT-ANGLE is very limited, which can not be used to construct an efective diference propagation with more than 14 rounds. 
+
+For the KNOT permutations, due to their bigger widths, it seems very time-consuming (or unpractical) to investigate the clustering of the diferential trails. However, due to the great similarity between the KNOT permutations and RECTANGLE, it can be deduced that the clustering of diferential trails is also limited for the KNOT permutations. 
+
+## 9.3 Linear Cryptanalysis
+
+Assume a linear trail hold with probability $p$ , define the bias ϵ as $\left( p - { \frac { 1 } { 2 } } \right)$ , the correlation contribution Cor as 2ϵ. To distinguish a b-bit KNOT permutation from a random permutation using linear cryptanalysis (LC), there must be a predictable linear propagation with an amplitude (i.e., |Cor|) significantly larger than $2 ^ { - { \frac { n } { 2 } } }$ . A linear propagation is composed of a set of linear trails, where its amplitude is the sum of the correlation contributions of all linear trails that have the specified input and output selection patterns [22]. The correlation contributions of the linear trails are signed and their sign depends on the value of the round keys. The weight of a linear trail/propagation is the negative of the binary logarithm of its amplitude. 
+
+Since the strong round key dependence of interference makes locating the input and output selection patterns for which high correlations occur practically infeasible [22], we have to use the following theorem for an estimation. 
+
+Theorem 4 ([22]). The square of a correlation (or correlation contribution) is called correlation potential. The average correlation potential between an input and an output selection pattern is the sum of the correlation potentials of all linear trails between the input and output selection patterns: 
+
+$$
+E (C _ {t} ^ {2}) = \sum_ {i} (C _ {i}) ^ {2}
+$$
+
+where $C _ { t }$ is the overall correlation, and $C _ { i }$ the correlation coeficient of a linear trail. 
+
+
+Table 10. Correlation Amplitude of the Best Linear Trails of the 3 KNOT Permutations
+
+
+<table><tr><td><eq>\sharp</eq> R</td><td><eq>|Cor|</eq></td><td><eq>\sharp</eq> R</td><td><eq>|Cor|</eq></td><td><eq>\sharp</eq> R</td><td><eq>|Cor|</eq></td></tr><tr><td>1</td><td><eq>2^{-1}</eq></td><td>6</td><td><eq>2^{-10}</eq></td><td>11</td><td><eq>2^{-26}</eq></td></tr><tr><td>2</td><td><eq>2^{-2}</eq></td><td>7</td><td><eq>2^{-13}</eq></td><td>12</td><td><eq>2^{-29}</eq></td></tr><tr><td>3</td><td><eq>2^{-4}</eq></td><td>8</td><td><eq>2^{-17}</eq></td><td>13</td><td><eq>2^{-32}</eq></td></tr><tr><td>4</td><td><eq>2^{-6}</eq></td><td>9</td><td><eq>2^{-20}</eq></td><td>14</td><td><eq>2^{-35}</eq></td></tr><tr><td>5</td><td><eq>2^{-8}</eq></td><td>10</td><td><eq>2^{-23}</eq></td><td><eq>\vdots</eq></td><td><eq>\vdots</eq></td></tr></table>
+
+We have searched for the best linear trails for each of the 3 KNOT permutations. Let $W _ { b , i } ^ { L }$ denote the weight of the best i-round linear trail $( i = 1 , 2 , 3 , \dots )$ for the b-bit KNOT permutation. The followings are our experimental results: 
+
+1. $W _ { 2 5 6 , i } ^ { L } = W _ { 3 8 4 , i } ^ { L } = W _ { 5 1 2 , i } ^ { L } \mathrm { ~ f o r ~ } 1 \leq i \leq 8 .$ 
+
+$2 . \ W _ { 2 5 6 , i } ^ { L } = W _ { 2 5 6 , i - 1 } ^ { L } + 3 \ \mathrm { f o r } \ 9 \leq i \leq 4 0 ; \ W _ { 3 8 4 , i } ^ { L } = W _ { 3 8 4 , i - 1 } ^ { L } + 3 \ \mathrm { f o r } \ 9 \leq i \leq 4 0 ; \ W _ { 5 1 2 , i } ^ { L } = 1$ $W _ { 5 1 2 , i - 1 } ^ { L } + 3 \mathrm { f o r } 9 \leq i \leq 4 0 .$ 
+
+Our search results from 1 round to 14 rounds are presented in Table 10. Using the above results, one can easily calculate the weight of the best linear trail for a given number of rounds of a KNOT permutation. Especially, we have: 
+
+1. For the 256-bit KNOT permutation, the probability of the best 40-round linear trail is $2 ^ { - 1 1 3 }$ , and it can be deduced that the probability of the best 49-round linear trail is $2 ^ { - 1 4 0 } \colon$ ; 
+
+2. For the 384-bit KNOT permutation, the probability of the best 40-round linear trail is $2 ^ { - 1 1 3 }$ , and it can be deduced that the probability of the best 73-round linear trail is $2 ^ { - 2 1 2 }$ ; 
+
+3. For the 512-bit KNOT permutation, the probability of the best 40-round linear trail is $2 ^ { - 1 1 3 }$ , it can be deduced that the probability of the best 97-round linear trail is $2 ^ { - 2 8 4 }$ 
+
+For RECTANGLE, we have investigated the clustering of linear trails. The correlation potential of the best 15-round linear trail is $2 ^ { - 7 4 }$ . Also based on the branch-and-bound algorithm, we have searched for all the linear trails of 15-round RECTANGLE with correlation potential between $2 ^ { - 7 4 }$ and $2 ^ { - 8 0 }$ (up to a rotation equivalence) and examined all the linear propagations made up of the investigated trails. The followings are the experimental results [41]: 
+
+1. There are 128 best linear propagations with an average correlation potential $1 8 6 0 \times$ $2 ^ { - 8 0 } \approx 2 ^ { - 6 9 . 1 4 }$ each, which is lower than $2 ^ { - 6 4 }$ . Each is composed of 891 linear trails. 
+
+2. Among all the linear propagations, the maximum number of trails of a linear propagation is 891. Actually, the best linear propagations have the maximum number of trails. 
+
+From the above results, it can be seen that the clustering of linear trails of RECTANGLE is limited, which can not be used to construct an efective linear propagation with more than 14 rounds. 
+
+For the KNOT permutations, it also seems very time-consuming (or unpractical) to investigate the clustering of the linear trails. Due to the great similarity between the KNOT permutations and RECTANGLE, it can also be deduced that clustering of linear trails is limited for the KNOT permutations. 
+
+## 9.4 Integral and Division Cryptanalysis
+
+Integral cryptanalysis (or square attack) [20, 27] considers the propagation of sums of a set of carefully chosen data. Division property [36] is a new extension of integral cryptanalysis. In this subsection, we adopt the MILP-based search strategy presented in [38] to analyze the underlying permutations of KNOT. 
+
+We have found 17-, 17- and 19-round integral distinguishers for the KNOT permutations with state size b =256, 384 and 512 bits respectively. All of the three distinguishers take a constant value in the single bit at the bottom left corner of the state and take all possibilities in the other b − 1 bits. This set of input values will result in balancedness at the bottom left corner bit of the state for all the three distinguishers. The program ran for several days, and could not return useful information for 18, 18 and 20 rounds with state size 256, 394 and 512 bits respectively. However, according to the known results of division cryptanalysis against other ciphers, we believe that the longest division-based integral distinguishers for the 3 state sizes are around 17, 17, and 19 rounds (at most 1-3 rounds are added) respectively. 
+
+## 9.5 Impossible Diferential Cryptanalysis
+
+Impossible diferential cryptanalysis [9] exploits diferential trails with probability 0. Impossible diferential distinguishers are usually constructed by meet-in-the-middle approach, that is to say, one diferential trail with probability one along the forward direction and one diferential trail with probability one along the backward direction, whose conditions cannot be met in the middle. 
+
+For a b-bit permutation, let $n u m f d _ { b }$ denote the minimal number of rounds for full dependency. According to the state of art of impossible cryptanalysis, the longest impossible diferential distinguisher for a b-bit permutation is around 2num $f d _ { b }$ rounds. For the 256-, 384- and 512-bit KNOT permutation, num $f d _ { b }$ is 8, 9 and 10 respectively. Take the KNOT Sbox into account, we estimate that the longest impossible diferential distinguisher is around 17, 19 and 21 rounds for the 256-, 384- and 512-bit KNOT permutation respectively. 
+
+## 9.6 Algebraic Attacks
+
+The KNOT S-box does not exhibit any special algebraic structure. Furthermore, it seems that successful applications of algebraic attacks [18] on block ciphers/permutations can only reach a very limited number of rounds [34, 29]. Therefore, we do not expect that algebraic attacks form a danger for any KNOT member. 
+
+## 9.7 Summary
+
+Table 11 summarizes the maximal lengths of distinguishers that have been found or estimated for various cryptanalytic methods. According to the results in this section, we can estimate the security of KNOT-AE and KNOT-Hash against various attacks. In Section 10.6, we will justify the choices of number of rounds for the KNOT permutations based on our security evaluations against known attacks. 
+
+## 10 Design Rationale
+
+In this section, we justify the choices we took during the design of KNOT-AEAD and KNOT-Hash. 
+
+
+Table 11. Distinguisher Length of KNOT Permutations for Various Attacks
+
+
+<table><tr><td></td><td>Distinguisher Length for b = 256</td><td>Distinguisher Length for b = 384</td><td>Distinguisher length for b = 512</td></tr><tr><td>differential cryptanalysis</td><td>48</td><td>72</td><td>96</td></tr><tr><td>linear cryptanalysis</td><td>44*</td><td>66*</td><td>87*</td></tr><tr><td>division cryptanalysis</td><td>17</td><td>17</td><td>19</td></tr><tr><td>imp. differential cryptanalysis</td><td>17*</td><td>19*</td><td>21*</td></tr></table>
+
+
+Note: the length of linear distinguisher is deduced from our known experimental results; the length of impossible diferential distinguisher is estimated based on the state-of-art results on other ciphers. 
+
+
+## 10.1 Sponge and Duplex Constructions
+
+The mode of KNOT-AEAD is based on the Monkey-Duplex construction [19, 13], and the mode of KNOT-Hash is based on the extended Sponge construction [10, 26]. The two constructions are provably secure against generic attacks and extended in many publications, here are a small part [13, 24, 35, 10, 26]. The Sponge construction is used in the design of the SHA-3 winner Keccak [11] and several lightweight hash functions, e.g. Photon and Spongent [26, 15]. A significant fraction of the CAESAR competition submissions use Sponge/Duplexbased modes for AEAD schemes, including Ascon, Ketje, Keyak, NORX, PRIMATEs [24, 13, 14, 4, 2] and so on. Besides AEAD and hash functions, the two constructions can also be used for constructing MACs, stream ciphers, Pseudo-random generators. In addition, the fundamental cryptographic primitive underlying the two constructions is a fixed-length permutation, which has the advantages that it does not have a key schedule and that its inverse does not need to be implemented. 
+
+Compared with classical Merkle-Damgard hash constructions, the Sponge-based design generally has a smaller footprint, mainly due to the smaller state size. The lightweight hash functions PHOTON and SPONGENT are both based on the Sponge construction. Similarly, several lightweight AEADs are built on the Duplex construction, including Ascon, Ketje and Beetle [16]. 
+
+Based on the two mode constructions and RECTANGLE-like permutations, in this submission, we demonstrate that we can build lightweight AEAD and hash primitives that can be well-suited for both hardware and software environments. 
+
+## 10.2 Bit-Slice Technique and Lightweight Primitives
+
+The bit-slice technique was introduced by Biham in 1997 for speeding up the software speed of DES [8], and was used in the design of the Serpent block cipher [1]. In a bit-slice implementation, one software logical instruction corresponds to simultaneous execution of m hardware logical gates, where m is the length of a subblock. Ascon[24], JH [39], Keccak(SHA-3) [11], Noekeon [21] and Trivium [23] are 5 other primitives that can benefit from the bitslice technique for their software performance. It is worth noticing that these primitives not only perform well in hardware but also in software. Furthermore, a bit-slice implementation is safe against implementation attacks such as cache and timing attacks compared with a table-based implementation [33]. When it comes to a dedicated lightweight AEAD/Hash with bit-slice style, there is plenty of room for improvement on tradeof between security, performance and resource requirements. 
+
+The KNOT permutations are extensions of the lightweight block cipher RECTANGLE. Consider a b-bit SP-network permutation, the S-layer consists of $\frac { b } { 4 }$ 4-bit S-boxes in parallel, thus the subblock length is $\frac { b } { 4 }$ for a bit-slice implementation. Let a b-bit state be arranged as a $4 \times { \frac { b } { 4 } }$ array. First, apply the same S-box to each column independently. Then, the P-layer should make each column dependent on some other columns, aiming to provide simple wirings in hardware implementation; they can achieve the goal of mixing up diferent columns; they can be easily implemented in software using bit-slice technique. So far, we got the framework of KNOT permutations. 
+
+
+Table 12. Choice of the Rotation Ofsets of ShiftRow transformation
+
+
+<table><tr><td>Permutation width b</td><td>Number of candidates</td><td>Minimal number of rounds for full dependency</td></tr><tr><td>256</td><td>11</td><td>8</td></tr><tr><td>384</td><td>1</td><td>9</td></tr><tr><td>256</td><td>24</td><td>10</td></tr></table>
+
+## 10.3 The ShiftRow Transformation
+
+Let $c _ { i } \ ( i = 0 , 1 , 2 , 3 )$ denote the left rotation ofset of the i-th row. For each permutation width b, the choice criteria of $c _ { i }$ are as follows: 
+
+1. The four ofsets are diferent; 
+
+2. $c _ { 0 } = 0 , c _ { 1 } = 1 , c _ { 2 } \equiv 0$ (mod 8), c<sub>3</sub> ≡ 1 or 7 (mod 8), and $c _ { 1 } < c _ { 2 } < c _ { 3 } ;$ 
+
+3. Full dependency after a minimal number of rounds. 
+
+Table 12 gives our experimental results. For each of the candidates satisfying the above criteria, after the minimal number of rounds for full dependency, each of the b input bits influences each of the b output bits. For each $b ,$ we choose one candidate as the rotation ofsets of the ShiftRow transformation. 
+
+## 10.4 Design Criteria of the S-box
+
+Let S denote a $4 \times 4 ~ \mathrm { S } \mathrm { - }$ box. Let $\triangle I , \triangle O \in F _ { 2 } ^ { 4 }$ , define $N D _ { S } ( \triangle I , \triangle O )$ as: 
+
+$$
+N D _ {S} (\triangle I, \triangle O) = \sharp \{x \in F _ {2} ^ {4} | S (x) \oplus S (x \oplus \triangle I) = \triangle O \}.
+$$
+
+Let $T I , T O \in F _ { 2 } ^ { 4 }$ , define the imbalance $I m b _ { S } ( T I , T O )$ as: 
+
+$$
+I m b _ {S} (\Gamma I, \Gamma O) = | \sharp \{x \in F _ {2} ^ {4} | \Gamma I \bullet x = \Gamma O \bullet S (x) \} - 8 |.
+$$
+
+where • denotes the inner product on $F _ { 2 } ^ { 4 }$ . The design criteria of the S-box of KNOT are as follows: 
+
+1. Bijective, i.e., $S ( x ) \neq S ( x ^ { \prime } )$ for any x ̸= $x ^ { \prime } .$ 
+
+2. For any non-zero input diference $\triangle I \in F _ { 2 } ^ { 4 }$ and any non-zero output diference $\triangle O \in F _ { 2 } ^ { 4 }$ , we require: 
+
+$$
+N D _ {S} (\triangle I, \triangle O) \leq 4.
+$$
+
+3. Let $\triangle I \in F _ { 2 } ^ { 4 }$ be a non-zero input diference and $\triangle O \ \in \ F _ { 2 } ^ { 4 }$ a non-zero output diference. Let $w t ( x )$ denote the Hamming weight of x. Define $S e t D 1 _ { S }$ as: 
+
+$$
+\operatorname{Set} D 1 _ {S} = \left\{\left(\triangle I, \triangle O\right) \in F _ {2} ^ {4} \times F _ {2} ^ {4} \mid w t (\triangle I) = w t (\triangle O) = 1 \text {and} N D _ {S} (\triangle I, \triangle O) \neq 0 \right\}
+$$
+
+Let $C a r D 1 _ { S }$ denote the cardinality of $S e t D 1 _ { S } ,$ , we require $C a r D 1 _ { S } = 2$ 
+
+4. For any non-zero input selection pattern $T I \in F _ { 2 } ^ { 4 }$ and any non-zero output selection pattern $T O \in F _ { 2 } ^ { 4 }$ , we require: 
+
+$$
+I m b _ {S} (\Gamma I, \Gamma O) \leq 4.
+$$
+
+5. Let $T I \in F _ { 2 } ^ { 4 }$ be a non-zero input selection pattern and $T O \in F _ { 2 } ^ { 4 }$ a non-zero output selection pattern, define $S e t L 1 _ { S }$ as: 
+
+$S e t L 1 _ { S } = \{ ( I I , T O ) \in F _ { 2 } ^ { 4 } \times F _ { 2 } ^ { 4 } | w t ( I I ) = w t ( I O ) = 1$ and $I m b _ { S } ( T I , T O ) \neq 0 \}$ 
+
+Let CarL1 denote the cardinality of $S e t L 1 _ { S }$ , we require $C a r L 1 _ { S } = 2$ 
+
+6. No fixed point, ${ \mathrm { i . e . , ~ } } S ( x ) \neq x$ for any $x \in F _ { 2 } ^ { 4 }$ 
+
+## 10.5 Selection of the S-box of KNOT
+
+In the following, an S-box means a $4 \times 4$ S-box. 
+
+Definition 1 ([28]). Two S-boxes S and $S ^ { \prime }$ are called permutation-then-XOR equivalent if there exist $4 \times 4$ permutation matrices $P _ { 0 } , P _ { 1 }$ and constants $a , b \in F _ { 2 } ^ { 4 }$ such that $S ^ { \prime } ( x ) = P _ { 1 } ( S ( P _ { 0 } ( x ) + a ) ) + b$ . The equivalence is called PE equivalence for short. 
+
+If an S-box satisfies criteria 1-5 (see Section 9.4), then any of its PE equivalent S-boxes also satisfies criteria 1-5. In [41], we have shown that there are only 4 PE classes fulfilling criteria 1-5. We list a representative for each PE class in Table 13. In each row of Table 13, the first integer represents the image of 0, the second the image of 1, and so on. 
+
+Up to adding constants before and after an S-box, which does not change any of the criteria 1-5 and furthermore does not change the probability of the best diferential/linear trail for a specific number of rounds, there are $4 \times 4 ! \times 4 ! = 2 3 0 4$ S-boxes that can be generated from the 4 representatives in Table 13. After discarding a part of the S-box candidates which can result in a diferential (or linear) trail with a single active S-box in each round, there remained only 528 S-boxes, see [41] for details. 
+
+Next, we create a further filtering by considering the security of the underlying permutation against diferential and linear cryptanalysis. Fix the $\mathrm { S h i f t R o w { 2 5 6 } }$ transformation, for each choice of the remained 528 S-boxes, by checking the probability of the best diferential trail and the correlation coeficient of the best linear trail up to 20 rounds, we have chosen 96 S-boxes with good performance in this filtering. By further checking the best diferential and linear trails with $b = 3 8 4$ and 512, we finally choose one S-box with the best performance from the 96 S-boxes. Finally, by adding constants before and after the S-box, we can get 256 diferent S-boxes. Among the 256 S-boxes, we choose one with no fixed point, low area requirement and good software performance as the S-box for KNOT. 
+
+## 10.6 The Number of Rounds nr<sub>0</sub>, nr, nr<sub>f</sub> and $\mathbf { \Omega } ^ { n r } \mathbf { \Sigma } _ { h }$
+
+During the initialization, the key and nonce are firstly loaded to the b-bit state; then, after the $p _ { b } [ n r _ { 0 } ]$ transformation, it shall destroy all structures an attacker can apply in choosing 
+
+
+Table 13. Representatives for all the 4 PE classes fulfilling criteria 1-5
+
+
+<table><tr><td><eq>PE_0</eq></td><td></td><td>6,0,8,15,12,3,7,13,11,14,1,4,5,9,10,2</td></tr><tr><td><eq>PE_1</eq></td><td></td><td>3,2,8,13,15,5,6,10,9,14,4,7,0,12,11,1</td></tr><tr><td><eq>PE_2</eq></td><td></td><td>6,8,15,4,12,7,9,3,11,1,0,14,5,10,2,13</td></tr><tr><td><eq>PE_3</eq></td><td></td><td>8,1,6,12,5,15,10,3,7,11,13,2,0,14,9,4</td></tr></table>
+
+K ∥ N [13]. Based on our security analysis of the KNOT permutations, we selected $n r _ { 0 } =$ 52, 76, 76 and 100 for the 4 KNOT-AEAD members respectively. 
+
+During the processing of associated data and plaintexts, an attacker can not have access to the inner state. Based on our security analysis of the KNOT permutations, diferential cryptanalysis is the most efective approach. Moreover, taking the security strength of each KNOT-AEAD into account, it requires that, for the permutation $p _ { b } [ n r ]$ , there is no efective diferential propagation with probability above $2 ^ { - k }$ . As a result, we selected $n r = 2 8 , 2 8$ 2 40 and 52 for the 4 KNOT-AEAD members respectively. 
+
+As for forgery attacks, the success probability of correctly predicting the output of the final permutation $p _ { b } [ n r _ { f } ]$ from its input diference should not be better than a random guess. Hence, it requires that there is no efective diferential propagation with probability above $2 ^ { - k }$ for $p _ { b } [ n r _ { f } ]$ . Adding an extra redundancy, we selected $n r _ { f } = 3 2 $ , 32, 44 and 56 for the 4 $\mathrm { K N O T - A E A D }$ members respectively. 
+
+Rebound attack [37] is one of the most efective cryptanalysis against hash functions. It can be applicable to both AES-based and permutation-based hash functions. Based on the state of the art of rebound attacks and our diferential cryptanalysis of the KNOT permutations, we estimate that the highest attacked rounds using rebound attacks with 3 inbound phases is at most 60, 69, 93 and 123 for the 4 KNOT-Hash members respectively. Adding an extra redundancy of about 12%, we selected $n r _ { h } = 6 8 , 8 0$ , 104 and 140 for the 4 KNOT-Hash members respectively. 
+
+## 11 Performance in Various Environments
+
+## 11.1 Hardware Evaluation of KNOT
+
+The hardware implementation area of an AEAD algorithm greatly depends on design parameters, such as the utilized protocol, the width of the interface and etc. These design parameters normally are chosen for specific application scenarios and reflect the applicability and the flexibility of an AEAD algorithm. In order to study the intrinsic hardware performance of KNOT, we focus on the core datapath of an KNOT. Together with various compact controllers, the core datapath of an KNOT is capable to accomplish all functional modes, including AE mode and hash mode. 
+
+![image](https://cdn-mineru.openxlab.org.cn/result/2026-08-16/d8418eb5-5f72-47b5-ad89-a8057e04fb11/8bdac95a3d5896771354cdba233018c50c03ffe170a301e989f74b25c6d55e56.jpg)
+
+
+
+Fig. 1. The datapath of a crypto core of KNOT-Pair I
+
+
+Figure 1 illustrates the core datapath of KNOT-AEAD(128,256,64). In this figure, the KNOT permutation and round constant generator are denoted by Pb and RC. The key and nonce are loaded via a multiplex to initialize the state. The associated data, plaintext and ciphertext are fed into the datapath by XORing with specific segments of the state. 
+
+
+Table 14. Hardware results of the crypto core of KNOT-AEAD(128,256,64)
+
+
+<table><tr><td>KNOT-AEAD(128, 256, 64)</td><td>Area (GE)</td><td>Latency (ns)</td></tr><tr><td>crypto_core</td><td>3628</td><td>0.89</td></tr><tr><td>Permutation</td><td>1206.67</td><td>0.33</td></tr><tr><td>one S-box</td><td>18.67</td><td>0.27</td></tr><tr><td>Round Constant 6</td><td>48.67</td><td>0.12</td></tr><tr><td>State</td><td>1450.67</td><td>N/A</td></tr></table>
+
+
+Table 15. Hardware results of the crypto core of KNOT members
+
+
+<table><tr><td>crypto_core</td><td>Area (GE)</td><td>Latency (ns)</td></tr><tr><td>KNOT-AEAD(128, 256, 64)</td><td>3628</td><td>0.89</td></tr><tr><td>KNOT-AEAD(128, 384, 192)</td><td>5905</td><td>0.92</td></tr><tr><td>KNOT-AEAD(192, 384, 96)</td><td>5421</td><td>0.91</td></tr><tr><td>KNOT-AEAD(256, 512, 128)</td><td>7218</td><td>0.89</td></tr></table>
+
+To evaluate the hardware performance of KNOT-AEAD(128,256,64), the design shown in Figure 1 was synthesized with Synopsys Design Compiler G-2012.06-SP5 to the NAN-GATE 45 open cell library(PDKv1 3 v2010 12). Table 14 summarizes the results. The core datapath consumes in total around 3.7 kGE(gate equivalent), while the consumption of the permutation part and the state are 1.2 kGE and 1.4 kGE respectively. The critical path of this core datapath is around 0.89 ns, implying that a theoretical upper bound of maximal working frequency is around 1.12 GHz. 
+
+We repeated the same evaluation approach for all the other KNOT-AEAD members. The result is listed in Table 15. Thanks to their similar architectures, the hardware implementations of the cryptographic cores for all KNOT-AEAD members have similar critical path length. As shown in Table 15, the hardware area of these implementations varies, mainly due to their diferent state sizes. It is known that the throughput of an AEAD algorithm greatly depends on sizes of its input and output interface, which should be specified according to a target application. Therefore, instead of analyzing the throughput, we studied latencies of the critical path of all proposed implementations. We note that these latencies can be improved to achieve a higher maximal working frequency by techniques such as pipeline, multiple clock domains and etc. In the ideal case, there is no further throughput reduction caused by interfaces, KNOT-AEAD(128, 256, 64) could achieve a throughput of 0.642 - 2.568 Gbps. 
+
+The same core datapath of KNOT-AEAD members can be reused by corresponding KNOT-Hash members from the same pair. Under the ideal case assumption, the KNOT-Hash(256, 256, 32, 128) could reach a throughput of 175.39 - 528.75 Mbps. 
+
+## 11.2 Software Implementation on 64-bit Platforms
+
+The platform used to evaluate the software implementation of KNOT is an Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz based system running Ubuntu 18. We follow the requirement on 
+
+
+Table 16. KNOT-AEAD Encryption Speed
+
+
+<table><tr><td></td><td>cycles/byte(for 8 bytes)</td><td>cycles/byte(for 2048 bytes)</td></tr><tr><td>KNOT-AEAD(128, 256, 64)</td><td>74</td><td>23</td></tr><tr><td>KNOT-AEAD(128, 384, 192)</td><td>137</td><td>17</td></tr><tr><td>KNOT-AEAD(192, 384, 96)</td><td>159</td><td>51</td></tr><tr><td>KNOT-AEAD(256, 512, 128)</td><td>198</td><td>47</td></tr></table>
+
+
+Table 17. KNOT-Hash Message Processing Speed (Reference Code)
+
+
+<table><tr><td></td><td>cycles/byte (for 8 bytes)</td><td>cycles/byte (for 2048 bytes)</td></tr><tr><td>KNOT-Hash(256, 256, 32, 128)</td><td>234</td><td>111</td></tr><tr><td>KNOT-Hash(256, 384, 128, 128)</td><td>310</td><td>74</td></tr><tr><td>KNOT-Hash(384, 384, 48, 192)</td><td>685</td><td>299</td></tr><tr><td>KNOT-Hash(512, 512, 64, 256)</td><td>769</td><td>253</td></tr></table>
+
+compiler and flags: 
+
+$$
+\text { GCC   7.3.0   using   flags:   -std = c99 - Wall - Wextra - Wshadow - fsanitize = address,undefined - O2 }
+$$
+
+The main purpose of the reference implementation is to support public understanding, we provide well-documented and straightforward implementations for all the KNOT members. In the following, we present the results of optimized implementations of KNOT. Table 16 presents the encryption speed of the 4 KNOT-AEAD members for 8-byte and 4096-byte messages respectively. Table 17 presents the message processing speed of the 4 KNOT-Hash members, also for 8-byte and 4096-byte messages respectively. 
+
+## 11.3 Software Implementation on 8-bit Platforms
+
+All members of KNOT are expected to have quite small code size (ROM) and very low RAM. To show this, we implemented all members of KNOT. The implementations were written in assembly code and compiled using AVR macro assembler 2.2.7 in Atmel Studio 7.0 with AVR ATmega128 as the targeted device. The code sizes and the RAM usage were also measured using Atmel Studio 7.0. Table 18 presents the measured results of the implementations of all KNOT members. 
+
+In all implementations, the size of the required RAM equals the size of the state (excluding the RAM required to store test vectors, i.e., key, nonce, messages, outputs). The implementations of the core permutations is in the bit-sliced way, in which the execution of the (eight) S-boxes are implementated using a sequence of 13 instructions. In addition, the execution of the S-boxes are combined with the row rotation to minimize the number of memory accesses. 
+
+From Table 18, all members of KNOT-AEAD can be implmented with code size less than 800 bytes, and all members of KNOT-Hash can be implemented with code size less than 650 bytes. It is worth mentioning that, from the last column of Table 18, supporting hash functionality on top of AEAD costs very limited additional resources, that is, only 70-114 ROM bytes are added. 
+
+<table><tr><td>KNOT Members</td><td>Memory Type</td><td>AEAD</td><td>Hash</td><td>AEAD+Hash</td></tr><tr><td rowspan="2">KNOT-Pair I: AEAD(128, 256, 64) + Hash(256, 256, 32, 128)</td><td>RAM</td><td>32</td><td>32</td><td>32</td></tr><tr><td>ROM</td><td>652</td><td>506</td><td>756</td></tr><tr><td rowspan="2">KNOT-Pair II: AEAD(128, 384, 192) + Hash(256, 384, 128, 128)</td><td>RAM</td><td>48</td><td>48</td><td>48</td></tr><tr><td>ROM</td><td>730</td><td>570</td><td>800</td></tr><tr><td rowspan="2">KNOT-Pair III: AEAD(192, 384, 96) + Hash(384, 384, 48, 192)</td><td>RAM</td><td>48</td><td>48</td><td>48</td></tr><tr><td>ROM</td><td>716</td><td>570</td><td>786</td></tr><tr><td rowspan="2">KNOT-Pair IV: AEAD(256, 512, 128) + Hash(512, 512, 64, 256)</td><td>RAM</td><td>64</td><td>64</td><td>64</td></tr><tr><td>ROM</td><td>786</td><td>650</td><td>900</td></tr></table>
+
+
+ROM was measured excluding the codes for generating test vectors. RAM was measured excluding those used for storing test vectors (i.e., key, nonce, messages, outputs). 
+
+
+Table 18. Implementation costs in 8-bit AVR processors (memory costs in bytes) 
+
+## 11.4 Capability of Integrating Side-Channel Countermeasures
+
+For application scenarios where side-channel resistance is critical, KNOT by design can be implemented eficiently. Implementations of the KNOT families could follow the bitslice style without using the look-up tables, which helps to mitigate the threat of cachetiming attacks. The 4-bit S-box used in KNOT comes from the same class as RECTANGLE and PRESENT [7]. The existence of countermeasures for S-boxes of RECTANGLE and PRESENT implies the feasibility of implementing eficient first-order and high-order masking, or threshold implementations for KNOT algorithms. 
+
+## 11.5 Targeted Constrained Devices of KNOT
+
+The bit-slice style makes KNOT well-suited for both hardware and software. Due to small state size, careful selection of the 4-bit S-box and a bit permutation as the difusion layer, KNOT is extremely hardware-friendly. As for software, the KNOT S-box can be implemented using a sequence of 12 basic logical instructions, the P-layer of each KNOT permutations is composed of 3 b/4-bit rotations, which makes KNOT also very friendly for software implementations. Moreover, the bit-sliced design principle allows KNOT for very flexible hardware/software implementations. 
+
+The researchers in University of Luxembourg developed an open-source framework-FELICS (Fair Evaluation of Lightweight Cryptographic Systems) [25] in 2015, which aims at fairly evaluating the software performance of lightweight ciphers on embedded devices. By extracting Flash, RAM consumption and execution time on 3 widely used microcontrollers: 8-bit AVR, 16-bit MSP and 32-bit ARM, the ciphers are ranked respectively with an average value under scenario 1 (communication protocol) and scenario 2 (authentication protocol). There are 22 lightweight block ciphers in this evaluation, the RECTANGLE block cipher ranked the 4th in Scenario 1 and 5th in Scenario 2, which indicates that RECTANGLE has very good software performance on embedded devices. Since the KNOT permutations are extensions of RECTANGLE, it can be deduced that KNOT also has very good performances on these 3 microcontrollers. 
+
+To sum up, KNOT is well suited in constrained environments, including various hardware and embedded software platforms. 
+
+## 12 Advantages and Limitations of KNOT
+
+We would like to emphasize the following advantages of KNOT: 
+
+1. KNOT uses two provably secure modes, that is, Monkey Duplex for KNOT-AEAD and an extended Sponge for KNOT-Hash. 
+
+2. KNOT-AEAD has 4 members, KNOT-Hash also has 4 members, which can provide diferent security requirements. 
+
+3. Security of the KNOT permutations against known cryptanalytic approaches can be thoroughly evaluated, especially the security against diferential and linear cryptanalysis. Moreover, the KNOT permutations are based on the design of RECTANGLE, hence, the security analysis and hardware/software implementations of KNOT can benefit from the known results on RECTANGLE [40, 25, 5, 30]. 
+
+4. Due to the bit-slice style, KNOT allows for very eficient and flexible implementations in both hardware and software environments. Moreover, the implementation of the round function can be reused in the KNOT-AEAD and KNOT-Hash of the same KNOT-Pair, which reduces the hardware area or software ROM compared to use of two diferent primitives. The last but not least, bit-slice style, together with carefully selected S-box, enables eficient side-channel resistant implementations of KNOT. 
+
+5. KNOT is especially well-suited for constrained devices, due to its mode selection, small state size, 4-bit Sbox and a bit permutation as the difusion layer. 
+
+6. KNOT is inverse-free, that is, there is no need to implement the inverse of the underlying permutations. 
+
+7. No hidden weaknesses in KNOT. All design choices are explained and motivated in this document. 
+
+It requires that the nonce of KNOT is unique, the uniqueness of the nonce is as critical as the secrecy of a key. KNOT is a new design, we encourage further security analysis on KNOT. 
+
+## Acknowledgements
+
+We are very grateful to Chun Guo, Vincent Rijmen, Lei Wang and Peng Wang for their helpful comments. 
+
+## References
+
+
+
+1. Anderson, R., Biham, E., Knudsen, L.R.: Serpent: A Proposal for the Advanced Encryption Standard. NIST AES proposal (1998). 
+
+
+
+
+
+2. Andreeva, E., Bilgin, B., Bogdanov, A., Luykx, A., Mendel, F., Mennink, B., Mouha, N., Wang, Q., Yasuda, K.: PRIMATEs v1 (2014), submission to CAESAR competition. 
+
+
+
+
+
+3. Andreeva, E., Mennink, B., and Preneel, B.: The parazoa family: Generalizing the sponge hash functions. International Journal of Information Security 11(3), 149-165, 2012. 
+
+
+
+
+
+4. Aumasson, J., Jovanovic, P., Neves, S.: NORX v1 (2014), submission to CAESAR competition. 
+
+
+
+
+
+5. Bao Z., Luo P., Lin D.: Bitsliced Implementations of the PRINCE, LED and RECTANGLE Block Ciphers on AVR 8-Bit Microcontrollers. ICICS 2015, Springer-Verlag, LNCS, Vol. 9543, 18-36. 
+
+
+
+
+
+6. Bao, Z., Zhang, W., Lin, D.: Speeding up the Search Algorithm for the Best Diferential and Best Linear Trails, Inscrypt’2014, LNCS, vol. 8957, 259–285, Springer (2014). 
+
+
+
+
+
+7. Bilgin, B., Nikova, S., Nikov, V., Rijmen, V., Sttz, G.: Threshold Implementations of All $3 \times 3$ and 4 × 4 S-Boxes. CHES 2012: 76–91. Springer (2012). 
+
+
+
+
+
+8. Biham, E.: A Fast New DES Implementation in Software. In: Biham, E. (ed.) FSE 1997. LNCS, vol. 1267, 260–272. Springer (1997). 
+
+
+
+
+
+9. Biham, E., Biryukov, A., Shamir, A.: Cryptanalysis of Skipjack Reduced to 31 Rounds Using Impossible Diferentials. In: Stern, J. (ed.) EUROCRYPT 1999. LNCS, vol. 1592, 12–23. Springer (1999). 
+
+
+
+
+
+10. Bertoni, G., Daemen, J., Peeters, M., Van Assche, G.: Cryptographic sponge functions, 2011. http://sponge.noekeon.org/CSF-0.1.pdf 
+
+
+
+
+
+11. Bertoni, G., Daemen, J., Peeters, M., Van Assche, G.: Keccak Specifications. NIST SHA-3 Submission (2008), http://keccak.noekeon.org 
+
+
+
+
+
+12. Biham, E., Shamir, A.: Diferential Cryptanalysis of DES-like Cryptosystems. Journal of Cryptology 4(1), 3–72 (1991). 
+
+
+
+
+
+13. Bertoni, G., Daemen, J., Peeters, M., and Assche, G.: Ketje v2(2014), submission to CAESAR competition. 
+
+
+
+
+
+14. Bertoni, G., Daemen, J., Peeters, M., Van Assche, G., Van Keer, R.: Keyak v1 (2014), submission to CAESAR competition. 
+
+
+
+
+
+15. A. Bogdanov, M. Knezevic, G. Leander, D. Toz, K. Varici, I. Verbauwhede, spongent: A lightweight hash function, in B. Preneel, T. Takagi, (eds.) Cryptographic Hardware and Embedded SystemsCHES 201113th InternationalWorkshop, Nara, Japan, September 28COctober 1, 2011. Proceedings. LNCS, vol. 6917, 312C325. Springer (2011). 
+
+
+
+
+
+16. A. Chakraborti, N. Datta, M. Nandi, K. Yasuda.: Beetle Family of Lightweight and Secure Authenticated Encryption Ciphers, IACR Transactions on Cryptographic Hardware and Embedded Systems. 2018(2), 218–241. 
+
+
+
+
+
+17. Collard, B., Standaert, F.X.: A Statistical Saturation Attack against the Block Cipher PRESENT. In: Fischlin, M. (ed.) CT-RSA 2009. LNCS, vol. 5473, 195–210. Springer (2009). 
+
+
+
+
+
+18. Courtois N., Pieprzyk J.: Cryptanalysis of Block Ciphers with Overdefined Systems of Equations. In Zheng Y., ed. 8th International Conference on the Theory and Application of Cryptology and Information Security (ASIACRYPT 2002), LNCS 2501, 2002, 267– 287. Springer (2002). 
+
+
+
+
+
+19. Daemen, J.: Permutation-based Encryption, Authentication and Authenticated Encryption. DIAC - Directions in Authenticated Ciphers, July 2012. 
+
+
+
+
+
+20. Daemen, J., Knudsen, L. R., Rijmen, V.: The block cipher Square. In Biham, E., editor, Fast Software Encryption, FSE 1997, LNCS, vol. 1267, 149–165. Springer (1997). 
+
+
+
+
+
+21. Daemen, J., Peeters, M., Van Assche, G., Rijmen, V.: Nessie Proposal: the Block Cipher Noekeon, Nessie submission (2000), http://gro.noekeon.org/ 
+
+
+
+
+
+22. Daemen, J., Rijmen, V.: The Design of Rijndael: AES - The Advanced Encryption Standard. Springer (2002). 
+
+
+
+
+
+23. De Canni`ere, C., Preneel, B. Trivium. In: Robshaw, M., Billet , O.(eds.), New Stream Cipher Designs - The eSTREAM Finalists, LNCS, vol. 4986. 244–266, Springer (2008). 
+
+
+
+
+
+24. C. Dobraunig, M. Eichlseder, F. Mendel, M. Schl?fer, Ascon v1.1 (2015), submission to CAE-SAR competition. 
+
+
+
+
+
+25. FELICS website, https://www.cryptolux.org/index.php/FELICS Block Ciphers Brief Results. 
+
+
+
+
+
+26. Guo, J., Peyrin, T., and Poschmann, A.: The photon family of lightweight hash functions. In: P. Rogaway (Ed.), CRYPTO 2011. LNCS, vol. 6841, 222-239. Springer (2011). 
+
+
+
+
+
+27. Knudsen, L.R., Wagner, D.: Integral Cryptanalysis. In: Daemen, J., Rijmen, V. (eds.) FSE 2002. LNCS, vol. 2365, 112–127. Springer (2002). 
+
+
+
+
+
+28. Leander, G., Poschmann, A.: On the Classification of 4 bit S-boxes. In: Carlet, C., Sunar, B. (eds.) WAIFI 2007. LNCS, vol. 4547, 159–176. Springer (2007). 
+
+
+
+
+
+29. Li T., Sun Y., Liao M.D., Wang D.K.: Preimage Attacks on the Round-reduced Keccak with Cross-linear Structures. IACR Trans. Symmetric Cryptol. 2017(4): 39–57 (2017). 
+
+
+
+
+
+30. Maene,P.,Verbauwhede,I.:Single-Cycle Implementations of Block Ciphers, Lightweight Cryptography for Security and Privacy:LightSec 2015, LNCS, Vol.9542, 131C-147. Springer (2015). 
+
+
+
+
+
+31. Matsui, M.: Linear Cryptanalysis Method for DES Cipher. In: Helleseth, T. (ed.) EUROCRYPT 1993. LNCS, vol. 765, 386–397. Springer (1994). 
+
+
+
+
+
+32. Matsui, M.: On Correlation between the Order of S-Boxes and the Strength of DES. In: De Santis, A. (ed.) EUROCRYPT 1994. LNCS, vol. 950, 366–375. Springer (1995). 
+
+
+
+
+
+33. Matsui, M., Nakajima, J.: On the Power of Bitslice Implementation on Intel Core2 Processor. In: Paillier, P., Verbauwhede, I. (eds.) CHES 2007. LNCS, vol. 4727, 121–134. Springer (2007) 
+
+
+
+
+
+34. Nakahara J., Seperhdad P., Zhang B., Wang M.,: Linear (Hull) and Algebraic Cryptanalysis of the Block Cipher PRESENT, CANS’ 2009, LNCS 5888, 58C-75, Springer (2009). 
+
+
+
+
+
+35. Philipp, J., Atul, L., Bart, M., Yu, S., Kan, Y.: Beyond conventional security in sponge-based authenticated encryption modes. Journal of Cryptology, 2018. 
+
+
+
+
+
+36. Todo, Y.: Structural evaluation by generalized integral property. In: Advances in Cryptology EUROCRYPT 2015, 287–314. Springer (2015). 
+
+
+
+
+
+37. Mendel, F., Rechberger, C., Schlafer, M., Thomsen, S.S.: The Rebound Attack: Cryptanalysis of Reduced Whirlpool and Gr?stl. In: Fast Software Encryption - FSE 2009. LNCS, vol. 1008. Springer (2009). 
+
+
+
+
+
+38. Xiang, Z., Zhang, W., Bao, Z., Lin, D.: Applying milp method to searching integral distinguishers based on division property for 6 lightweight block ciphers. In: International Conference on the Theory and Application of Cryptology and Information Security. 648–678. Springer (2016). 
+
+
+
+
+
+39. Wu, H.: The Hash Function JH. Submission to NIST (2008), http://icsd.i2r.astar.edu.sg/staf/hongjun/jh/jh.pdf 
+
+
+
+
+
+40. Zhang, W., Bao, Z., Rijmen, V., Liu, M.: A New Classification of 4-bit Optimal S-boxes and its Application to PRESENT, RECTANGLE and SPONGENT, In: Leander, G. (ed.) FSE 2015. LNCS, vol.9054, 494–515. Springer (2015). 
+
+
+
+
+
+41. Zhang, W., Bao, Z., Lin, D., Rijmen, V., Yang, B., Verbauwhede, I.: RECTANGLE: a bitslice lightweight block cipher suitable for multiple platforms. Sci. China Inf. Sci., 2015, 58: 122103(15). 
+
+
+## Appendix A. Permutation Test Vectors
+
+Known-answer tests for the bare KNOT permutation $p_b[n_r]$ at each state width, run for the design full-round count (KNOT-256: 52 rounds, KNOT-384: 76 rounds, KNOT-512: 100 rounds). Bit-exact against the designer NIST-LWC reference C (`crypto_aead/{knot128v1,knot128v2,knot256}/ref`). Round-constant LFSR width per member: d = 6 (256), 7 (384), 7 (512); note the 512-bit permutation uses the 7-bit LFSR (rc0 = rc6 ⊕ rc5), since 2^7 = 128 covers its 100 rounds.
+
+State/output convention: a flat bit array where index r·cols + c is column c of row r (row 0 holds the S-box LSB), cols = b/4. Below each output is written as hex over that flat array, most-significant bit first (bit 0 is the MSB of byte 0).
+
+All-zero input (b zero bits):
+
+| Member | Rounds | Output (hex) |
+| --- | --- | --- |
+| KNOT-256 | 52 | `4092cb008dffb2d92693d978efaffc32afd2ad88e0e53ce0a9d815777aed223d` |
+| KNOT-384 | 76 | `f4b2352945df604f62db2d874f6f2e7b2420da9074940e25f4cd358435348ea77c109af707eac137d750a0ba2309fed9` |
+| KNOT-512 | 100 | `d34289ead25b7e6d035b9e24d1ca9f7da6758380d2bfbc796ba45df979d63c9eafbd00da14434fdaa2a71cd20c0683a4b44a557cc1bb3bb0c4cc734b6e7c61ac` |
+
+The complete vector set (all-zero, PRNG, and single-bit inputs for all three widths, in the flat-bit format consumed by `gen_test_vectors`) lives in `files/knot_test_vectors.json`, keyed by version, and is baked into `primitives/knot.py`.
+

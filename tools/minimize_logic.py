@@ -9,6 +9,59 @@ except (ImportError, OSError):
     pyeda = None
 
 
+def _pyeda_raw_patterns(ttable, variables):
+    """Minimize the truth table's ON-set with PyEDA's built-in Espresso and
+    return cube patterns in the SAME column convention the external espresso
+    binary emits, so the downstream ``espresso_pattern_to_ineq`` parser is reused
+    unchanged.
+
+    The ON-set is the set of minterms with ``ttable[k] == '0'`` (identical to the
+    PLA that the external path writes, where such minterms get output bit '1').
+    Each returned pattern has one character per variable, in ``variables`` order
+    (position 0 == variables[0] == most-significant input bit):
+        '0' -> the variable must be 0 in the cube (complemented literal)
+        '1' -> the variable must be 1 in the cube (uncomplemented literal)
+        '-' -> the variable is absent from the cube
+
+    Correctness is exact: a point violates at least one derived inequality iff it
+    lies in the ON-set (verified exhaustively). PyEDA's Espresso always returns a
+    minimized ON-set cover, so the ``mode`` presets used by the external binary
+    have no analogue here and are not needed.
+    """
+    from pyeda.boolalg.table import truthtable
+    from pyeda.boolalg.bfarray import ttvars
+    from pyeda.boolalg.minimization import espresso_tts
+    from pyeda.boolalg.expr import Complement, Variable
+
+    num_vars = len(variables)
+    onset_str = "".join('1' if ttable[k] == '0' else '0' for k in range(2 ** num_vars))
+    minimized = espresso_tts(truthtable(ttvars('x', num_vars), onset_str))[0]
+
+    if minimized.is_zero():
+        return []                      # empty ON-set: nothing to forbid
+    if minimized.is_one():
+        return ['-' * num_vars]        # full ON-set: forbid every point
+
+    cubes = list(minimized.xs) if minimized.__class__.__name__ == 'OrOp' else [minimized]
+    patterns = []
+    for cube in cubes:
+        literals = list(cube.xs) if cube.__class__.__name__ == 'AndOp' else [cube]
+        pattern = ['-'] * num_vars
+        for literal in literals:
+            if isinstance(literal, Complement):
+                bit_index, char = (~literal).indices[0], '0'   # variable must be 0
+            elif isinstance(literal, Variable):
+                bit_index, char = literal.indices[0], '1'       # variable must be 1
+            else:
+                raise TypeError(f"unexpected PyEDA literal {literal!r}")
+            # PyEDA's x[bit_index] is minterm bit `bit_index` (LSB = 0); the PLA /
+            # espresso column order is most-significant first, so variables[i]
+            # maps to minterm bit (num_vars - 1 - i).
+            pattern[num_vars - 1 - bit_index] = char
+        patterns.append("".join(pattern))
+    return patterns
+
+
 def espresso_pattern_to_ineq(pattern): # Convert the Espresso output into a list of integer coefficients representing a linear inequality of the form: sum_i (coeff_i * x_i) >= rhs
     """
     Parameters:
@@ -92,7 +145,7 @@ def ttb_to_ineq_logic(ttable, variables, mode=0, tool_type="espresso_pyeda", tim
     # Define espresso command-line options based on mode. Refer to Espresso documentation for details on these options.
     espresso_options =  [['-estrong', '-eonset'], [], ['-eonset']] # Espresso Script of Pyeda provides the parameters: "-e {fast,ness,nirr,nunwrap,onset,strong}"
 
-    if tool_type == "minimize_logic": # Generate inequalities from the truth table using Espresso via pyeda
+    if tool_type == "minimize_logic": # Generate inequalities from the truth table using PyEDA's built-in Espresso (no external binary required)
         if pyeda is None:
             raise ImportError(
                 "PyEDA is required for tool_type='minimize_logic'. "
@@ -100,7 +153,10 @@ def ttb_to_ineq_logic(ttable, variables, mode=0, tool_type="espresso_pyeda", tim
             )
         backend_name = "espresso_pyeda"
         backend_version = getattr(pyeda, "__version__", "unknown")
-        espresso_command = ['espresso', *espresso_options[mode], pla_file]
+        raw_patterns = _pyeda_raw_patterns(ttable, variables)
+        inequalities = [espresso_pattern_to_ineq(p[:len(variables)]) for p in raw_patterns]
+        information = {"Backend": backend_name, "Backend version": backend_version, "Mode": espresso_options[mode]}
+        return inequalities, information
 
     elif tool_type == "minimize_logic_espresso": # Generate inequalities from the truth table using external Espresso software
         backend_name = "espresso"

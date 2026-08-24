@@ -69,7 +69,7 @@ def analysis_success_result(
             "model_type": model_type,
             "artifact_links": artifact_links,
         },
-        summary=f"{analysis_label} analysis ({model_type.upper()}, {goal}): found {trail_count} trail(s).",
+        summary=f"{analysis_label} cryptanalysis ({model_type.upper()}, {goal}): found {trail_count} trail(s).",
     )
 
 

@@ -6,7 +6,9 @@ def test_web_template_exposes_manual_draft_spec_editor():
 
     assert 'id="draftPanel"' in template
     assert 'id="draftSpecEditor"' in template
-    assert "validateDraftSpec()" in template
+    # Build validates the edited draft in-line (via /api/text/draft/spec) before
+    # building, so a separate Validate button is intentionally not present.
+    assert "confirmCipherDraft()" in template
     assert "/api/text/draft/spec" in template
     assert "Build this cipher from the validated draft?" in template
 

@@ -112,9 +112,18 @@ class CipherExtractorSkill(BaseSkill):
         pages = params.get("pages", "")
         auto_build = params.get("auto_build", False)
 
+        # Convenience: a bare filename or relative path that isn't found as given
+        # is resolved against the configured files/ directory, so users can just
+        # drop a file in files/ and refer to it by name in chat.
+        if file_path and not os.path.exists(file_path) and not os.path.isabs(file_path):
+            from tools.paths import get_files_dir
+            candidate = get_files_dir() / file_path
+            if candidate.exists():
+                file_path = str(candidate)
+
         if not file_path or not os.path.exists(file_path):
             return SkillResult(success=False, skill=self.name,
-                               error=f"File not found: {file_path}")
+                               error=f"File not found: {file_path}. Put the file in the files/ folder and give its name, or provide an absolute path.")
 
         try:
             file_type = detect_file_type(file_path)

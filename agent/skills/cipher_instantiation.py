@@ -157,6 +157,27 @@ CIPHER_CATALOG = {
 }
 
 
+def _load_custom_ciphers():
+    """Merge user-defined ciphers registered in files/custom_ciphers.json into the
+    catalog, so a cipher built through the agent (which writes primitives/<name>.py
+    plus this registry) is usable by name like a built-in. setdefault keeps built-ins
+    authoritative on a name clash."""
+    try:
+        import json
+        from tools.paths import get_files_dir
+        path = get_files_dir() / "custom_ciphers.json"
+        if path.exists():
+            entries = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(entries, dict):
+                for name, entry in entries.items():
+                    CIPHER_CATALOG.setdefault(name, entry)
+    except Exception:
+        pass  # a malformed registry must never break instantiation of built-ins
+
+
+_load_custom_ciphers()
+
+
 def _format_instantiation_error(cipher_name: str, exc: Exception) -> str:
     """Return an actionable error for common setup and import failures."""
     if isinstance(exc, ModuleNotFoundError):
@@ -248,6 +269,16 @@ class CipherInstantiationSkill(BaseSkill):
 
         factory_name = entry["factories"][cipher_type]
         module_path = entry["module"]
+
+        # Normalize a partial version to a full catalog version when it uniquely
+        # matches, e.g. "384" -> "KNOT-384" for a named-version family. Only applies
+        # to string versions (custom families); built-in int/list versions are untouched.
+        if version is not None:
+            valid = entry.get("valid_versions", {}).get(cipher_type, [])
+            if version not in valid:
+                matches = [v for v in valid if isinstance(v, str) and v.endswith(str(version))]
+                if len(matches) == 1:
+                    version = matches[0]
 
         # Build kwargs
         kwargs = {}

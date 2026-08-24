@@ -12,7 +12,7 @@ For examples of other ciphers, refer to the following folders:
 
 from pathlib import Path
 
-from kiwisolver import Variable
+# from kiwisolver import Variable
 import implementations.implementations as imp
 import visualisations.visualisations as vis
 import attacks.attacks as attacks
@@ -125,12 +125,17 @@ if __name__ == "__main__":
     # cipher = speck.SPECK_PERMUTATION(version=32)
     # cipher = speck.SPECK_BLOCKCIPHER(version=[32,64])
 
-    import primitives.simon as simon
-    cipher = simon.SIMON_BLOCKCIPHER(version=[32,64])
+    # import primitives.simon as simon
+    # cipher = simon.SIMON_BLOCKCIPHER(version=[32,64])
 
+    # test_all_implementations(cipher)
+    # test_visualisation(cipher)
+    # test_diff_attack_milp(cipher)
+    # test_diff_attack_sat(cipher)
+    # test_linear_attack_milp(cipher)
+    # test_linear_attack_sat(cipher)
+
+    import primitives.lea_128 as lea_128
+    cipher = lea_128.LEA_128_BLOCKCIPHER(r=24)
     test_all_implementations(cipher)
-    test_visualisation(cipher)
-    test_diff_attack_milp(cipher)
-    test_diff_attack_sat(cipher)
-    test_linear_attack_milp(cipher)
-    test_linear_attack_sat(cipher)
+

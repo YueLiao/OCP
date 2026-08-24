@@ -88,6 +88,11 @@ class Session:
                 "success": r.success,
                 "summary": r.summary,
             })
+        # Pre-set defaults from a UI control panel, if any. Surfaced so the LLM
+        # can apply them to unspecified parameters and confirm on conflict.
+        panel_settings = self._metadata.get("panel_settings")
+        if panel_settings:
+            ctx["panel_settings"] = panel_settings
         return ctx
 
     def reset(self):

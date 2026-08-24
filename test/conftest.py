@@ -48,8 +48,15 @@ def pytest_collection_modifyitems(config, items):
     )
 
     for item in items:
-        rel = item.path.relative_to(ROOT)
-        rel_parts = rel.parts
+        # `item.path` (pathlib.Path) exists on pytest >= 7.0; older pytest only has
+        # `item.fspath` (py.path.local). Support both so the suite collects on either.
+        raw = getattr(item, "path", None)
+        if raw is None:
+            raw = item.fspath
+        try:
+            rel_parts = Path(str(raw)).resolve().relative_to(ROOT).parts
+        except ValueError:
+            rel_parts = Path(str(raw)).parts
         if rel_parts[:2] == ("test", "operators"):
             item.add_marker(pytest.mark.legacy_script)
             item.add_marker(skip_legacy)

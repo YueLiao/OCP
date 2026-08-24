@@ -42,12 +42,46 @@ class OpenAIProvider(LLMProvider):
             kwargs["base_url"] = base_url
         self.client = OpenAI(**kwargs)
         self.model = model
+        # JSON mode (response_format) forces valid JSON and cuts parse-retry
+        # tokens. Not every OpenAI-compatible endpoint supports it, so we probe
+        # once and fall back to plain calls if it is rejected.
+        self._json_mode = True
+        # Running token counters so the UI can show usage. total = whole session,
+        # last = the most recent LLM call.
+        self.total_tokens = 0
+        self.last_tokens = 0
+
+    def _record_usage(self, response):
+        """Accumulate token usage from a chat.completions response, if reported."""
+        usage = getattr(response, "usage", None)
+        total = getattr(usage, "total_tokens", 0) if usage else 0
+        if total:
+            self.last_tokens = total
+            self.total_tokens += total
+
+    def _create(self, **kwargs):
+        """chat.completions.create that records token usage."""
+        response = self.client.chat.completions.create(**kwargs)
+        self._record_usage(response)
+        return response
+
+    def _create_json(self, messages, temperature=0, max_tokens=None):
+        """chat.completions.create requesting a JSON object, with a one-time
+        graceful fallback for endpoints that don't support response_format."""
+        kwargs = {"model": self.model, "messages": messages, "temperature": temperature}
+        if max_tokens:
+            kwargs["max_tokens"] = max_tokens
+        if self._json_mode:
+            try:
+                return self._create(**kwargs, response_format={"type": "json_object"})
+            except Exception:
+                self._json_mode = False
+        return self._create(**kwargs)
 
     def parse_user_request(self, user_message, conversation_history, available_skills, session_context):
         prompt = build_parse_prompt(user_message, available_skills, session_context)
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
+        response = self._create_json(
+            [
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": user_message},
             ],
@@ -68,7 +102,7 @@ class OpenAIProvider(LLMProvider):
             for r in results
         ]
         prompt = build_response_prompt(results_dicts, session_context)
-        response = self.client.chat.completions.create(
+        response = self._create(
             model=self.model,
             messages=[{"role": "system", "content": prompt}],
             temperature=0.3,
@@ -86,11 +120,17 @@ class OpenAIProvider(LLMProvider):
                     "url": f"data:{image_data['mime_type']};base64,{image_data['base64']}"
                 }},
             ]
-        else:
-            content = prompt
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": content}],
-            temperature=0,
+            # Vision + JSON mode can conflict on some endpoints; keep image calls plain.
+            response = self._create(
+                model=self.model,
+                messages=[{"role": "user", "content": content}],
+                temperature=0,
+            )
+            return response.choices[0].message.content
+        content = prompt
+        # High cap: cipher-facts / extraction JSON (families, tables) can be large;
+        # the default (~4k on some endpoints) truncates it into invalid JSON.
+        response = self._create_json(
+            [{"role": "user", "content": content}], temperature=0, max_tokens=8192
         )
         return response.choices[0].message.content

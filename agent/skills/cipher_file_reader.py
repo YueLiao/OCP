@@ -32,7 +32,17 @@ def detect_file_type(file_path: str) -> str:
         return "image"
     if ext in TEXT_EXTENSIONS:
         return "text"
-    raise ValueError(f"Unsupported file type: {ext}")
+    if ext == ".json":
+        raise ValueError(
+            ".json is not a cipher specification document. A .json file is usually "
+            "test vectors or a saved spec - not the round structure of a cipher. To "
+            "add test vectors: define the cipher first from a .md/.tex/.txt spec, then "
+            "load the JSON via the draft's 'Add test vectors' box (not the chat box)."
+        )
+    raise ValueError(
+        f"Unsupported file type: {ext}. Cipher specifications come from .md/.tex/.txt "
+        "(or .pdf/image); test vectors load via the draft's 'Add test vectors' box."
+    )
 
 
 def parse_page_range(pages_str):

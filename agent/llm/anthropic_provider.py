@@ -38,13 +38,44 @@ class AnthropicProvider(LLMProvider):
             raise ImportError("anthropic package is required. Install it with: pip install anthropic")
         self.client = Anthropic(api_key=api_key)
         self.model = model
+        # Prompt caching: mark the large, static system prompt as cacheable so
+        # repeated calls in a session bill it at the cheaper cached rate. Probe
+        # once and fall back to a plain system string if the SDK rejects it.
+        self._cache_ok = True
+        # Running token counters so the UI can show usage.
+        self.total_tokens = 0
+        self.last_tokens = 0
+
+    def _record_usage(self, response):
+        """Accumulate token usage (input + output) from a messages response."""
+        usage = getattr(response, "usage", None)
+        if usage:
+            total = (getattr(usage, "input_tokens", 0) or 0) + (getattr(usage, "output_tokens", 0) or 0)
+            if total:
+                self.last_tokens = total
+                self.total_tokens += total
+
+    def _messages_create(self, prompt, **kwargs):
+        """messages.create with the system prompt marked cacheable, degrading
+        gracefully to a plain system string on older SDKs/endpoints."""
+        if self._cache_ok:
+            try:
+                cached = [{"type": "text", "text": prompt, "cache_control": {"type": "ephemeral"}}]
+                response = self.client.messages.create(system=cached, **kwargs)
+                self._record_usage(response)
+                return response
+            except Exception:
+                self._cache_ok = False
+        response = self.client.messages.create(system=prompt, **kwargs)
+        self._record_usage(response)
+        return response
 
     def parse_user_request(self, user_message, conversation_history, available_skills, session_context):
         prompt = build_parse_prompt(user_message, available_skills, session_context)
-        response = self.client.messages.create(
+        response = self._messages_create(
+            prompt,
             model=self.model,
             max_tokens=2048,
-            system=prompt,
             messages=[{"role": "user", "content": user_message}],
             temperature=0,
         )
@@ -63,10 +94,10 @@ class AnthropicProvider(LLMProvider):
             for r in results
         ]
         prompt = build_response_prompt(results_dicts, session_context)
-        response = self.client.messages.create(
+        response = self._messages_create(
+            prompt,
             model=self.model,
             max_tokens=2048,
-            system=prompt,
             messages=[{"role": "user", "content": "Please summarize the results."}],
             temperature=0.3,
         )
@@ -89,8 +120,9 @@ class AnthropicProvider(LLMProvider):
             content = prompt
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=4096,
+            max_tokens=8192,
             messages=[{"role": "user", "content": content}],
             temperature=0,
         )
+        self._record_usage(response)
         return response.content[0].text

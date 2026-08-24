@@ -18,6 +18,7 @@ from agent.types import SkillName, SkillRequest, SkillResult
 from agent.session import Session
 from agent.skills.base import BaseSkill
 from agent.skills.cipher_spec import CipherSpec, LayerSpec
+from agent.skills.cipher_readback import describe_layer as _describe_layer, spec_readback as format_spec_summary
 
 
 # Dialogue states
@@ -75,63 +76,6 @@ DIALOGUE_PROMPTS = {
         "Please review it and confirm, or tell me what to change."
     ),
 }
-
-
-def format_spec_summary(spec):
-    """Format a CipherSpec into a human-readable summary."""
-    lines = [
-        f"**{spec.name}**",
-        f"  Type: {spec.cipher_type}",
-        f"  Block size: {spec.block_size} bits ({spec.nbr_words} x {spec.word_bitsize}-bit words)",
-        f"  Rounds: {spec.nbr_rounds}",
-    ]
-
-    if spec.sbox_tables:
-        lines.append(f"  S-boxes: {', '.join(spec.sbox_tables.keys())}")
-
-    lines.append("  Round structure:")
-    for i, layer in enumerate(spec.round_structure):
-        lines.append(f"    {i+1}. {_describe_layer(layer)}")
-
-    if spec.cipher_type == "blockcipher":
-        lines.append(f"  Key size: {spec.key_size} bits ({spec.key_nbr_words} x {spec.key_word_bitsize}-bit words)")
-        lines.append(f"  Subkey extraction: words {spec.key_extract_indices}")
-        if spec.key_schedule:
-            lines.append("  Key schedule:")
-            for i, layer in enumerate(spec.key_schedule):
-                lines.append(f"    {i+1}. {_describe_layer(layer)}")
-
-    return "\n".join(lines)
-
-
-def _describe_layer(layer):
-    """Generate a human-readable description of a layer."""
-    lt = layer.layer_type
-    p = layer.params
-
-    if lt == "rotation":
-        dir_str = "left" if p.get("direction") == "l" else "right"
-        out = f" -> word {p['out_index']}" if "out_index" in p else ""
-        return f"Rotate word {p.get('word_index')} {dir_str} by {p.get('amount')}{out}"
-    elif lt == "xor":
-        ins = p.get("input_indices", [])
-        outs = p.get("output_indices", [])
-        return f"XOR {ins} -> word {outs}"
-    elif lt == "modadd":
-        ins = p.get("input_indices", [])
-        outs = p.get("output_indices", [])
-        return f"ModAdd {ins} -> word {outs}"
-    elif lt == "sbox":
-        return f"S-box '{p.get('sbox_name')}' on groups {p.get('index', 'all')}"
-    elif lt == "permutation":
-        return f"Permutation (table length {len(p.get('table', []))})"
-    elif lt == "matrix":
-        return f"Matrix multiplication ({len(p.get('matrix', []))}x{len(p.get('matrix', []))})"
-    elif lt == "add_round_key":
-        return f"Add round key ({p.get('operator', 'xor')})"
-    elif lt == "add_constant":
-        return f"Add constant ({p.get('add_type', 'xor')})"
-    return f"{lt}: {p}"
 
 
 class CipherDialogueSkill(BaseSkill):

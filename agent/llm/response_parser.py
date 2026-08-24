@@ -15,6 +15,18 @@ from agent.types import UserIntent, SkillRequest, SkillName
 _SKILL_NAME_MAP = {s.value: s for s in SkillName}
 
 
+def _repair_json(text: str) -> str:
+    """Repair common LLM JSON quirks so a near-miss reply still parses:
+      - trailing commas before } or ]
+      - 0x hex integer literals: JSON is decimal-only, but LLMs naturally emit hex
+        for cryptographic constants and test vectors (e.g. [0x298650c13199cdec]),
+        which otherwise makes the whole facts reply unparseable.
+    """
+    text = re.sub(r",\s*([}\]])", r"\1", text)
+    text = re.sub(r"\b0[xX][0-9a-fA-F]+\b", lambda m: str(int(m.group(0), 16)), text)
+    return text
+
+
 def parse_llm_json_object(raw: str) -> Optional[Dict[str, Any]]:
     """Extract a JSON object from common LLM response formats.
 
@@ -56,15 +68,12 @@ def parse_llm_json_object(raw: str) -> Optional[Dict[str, Any]]:
 
     json_str = text[brace_start:brace_end + 1]
 
-    try:
-        return json.loads(json_str)
-    except json.JSONDecodeError:
-        # Try fixing trailing commas
-        fixed = re.sub(r",\s*([}\]])", r"\1", json_str)
+    for candidate in (json_str, _repair_json(json_str)):
         try:
-            return json.loads(fixed)
+            return json.loads(candidate)
         except json.JSONDecodeError:
-            return None
+            continue
+    return None
 
 
 def parse_llm_json_response(raw: str) -> Optional[UserIntent]:
