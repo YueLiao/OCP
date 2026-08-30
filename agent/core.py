@@ -54,6 +54,17 @@ class AgentCore:
 
         self.session.add_message("user", user_message)
 
+        # If a clarification is open (a build gap the user is resolving in chat), try to apply
+        # the answer + rebuild first. None means "not a resolution" -> fall through to normal parsing.
+        if self.session.get_metadata("pending_clarification") is not None:
+            resolved = self.resolve_pending_clarification(user_message)
+            if resolved is not None:
+                self._record_result(resolved)
+                response = (resolved.summary or f"{resolved.skill.value}: done.") if resolved.success \
+                    else f"{resolved.skill.value} failed: {resolved.error}"
+                self.session.add_message("assistant", response)
+                return response
+
         # Parse user intent
         intent = self.llm.parse_user_request(
             user_message=user_message,
@@ -145,6 +156,37 @@ class AgentCore:
         if corrected is None:
             raise ValueError("Could not parse a corrected CipherSpec from the LLM response.")
         return corrected
+
+    def resolve_pending_clarification(self, user_message: str) -> Optional[SkillResult]:
+        """Apply the user's chat answer to an OPEN clarification (a build gap like a missing
+        S-box) and rebuild. Returns the rebuild SkillResult, or None when there is no pending
+        clarification, no LLM, or the message is not a resolution (caller then handles it normally).
+        """
+        pending = self.session.get_metadata("pending_clarification")
+        if not pending or self.llm is None:
+            return None
+        from agent.llm.prompt_templates import build_clarification_resolution_prompt
+        from operators.Sbox import builtin_sbox_names
+
+        prompt = build_clarification_resolution_prompt(
+            pending.get("spec"), pending.get("clarifications") or [], user_message, builtin_sbox_names())
+        try:
+            parsed = parse_llm_json_object(self.llm.call_llm(prompt))
+        except Exception:
+            return None
+        if not isinstance(parsed, dict) or parsed.get("not_a_resolution"):
+            return None                                  # unrelated message -> normal processing
+        corrected = parsed.get("spec") if isinstance(parsed.get("spec"), dict) else parsed
+        if not isinstance(corrected, dict):
+            return None
+
+        result = self._execute_skill(SkillRequest(skill=SkillName.CIPHER_DEFINITION,
+                                                  params={"spec": corrected}))
+        # If the rebuild left no open clarification, the gap is resolved - clear it. (When a gap
+        # remains, the CIPHER_DEFINITION skill has already stored the updated pending itself.)
+        if result.success and not (result.data or {}).get("clarifications"):
+            self.session.set_metadata("pending_clarification", None)
+        return result
 
     def _run_orchestrated(self, requests) -> str:
         """Run a turn's SkillRequests through the AgentController and summarize the report.

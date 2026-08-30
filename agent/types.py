@@ -40,3 +40,33 @@ class UserIntent:
     raw_text: str = ""
     needs_clarification: bool = False
     clarification_prompt: str = ""
+
+
+@dataclass
+class ClarificationRequest:
+    """A piece the agent could not auto-resolve while building a cipher, surfaced so the user
+    can resolve it conversationally (the human-in-the-loop clarification loop).
+
+    e.g. a version's S-box has no table and is not a built-in - the user can point to a built-in
+    ("use Midori128_SSb0-3"), paste the table, or skip the version.
+    """
+    kind: str                                       # "missing_sbox" (extensible)
+    item: str                                       # the missing name, e.g. "SSb"
+    context: str                                    # human-readable description of the gap
+    options: List[str] = field(default_factory=list)      # resolution options offered
+    suggestions: List[str] = field(default_factory=list)  # e.g. built-in names that may match
+    version: Optional[str] = None                   # the family version this blocks, if any
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"kind": self.kind, "item": self.item, "context": self.context,
+                "options": list(self.options), "suggestions": list(self.suggestions),
+                "version": self.version}
+
+    def prompt_line(self) -> str:
+        """A one-block chat message asking the user to resolve this gap."""
+        lines = [f"⚠️ Need your help: {self.context}"]
+        if self.suggestions:
+            lines.append(f"   Likely built-in match(es): {', '.join(self.suggestions)}")
+        if self.options:
+            lines.append("   You can: " + "; ".join(self.options))
+        return "\n".join(lines)

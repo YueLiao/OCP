@@ -782,6 +782,59 @@ How to fix:
 """
 
 
+def build_clarification_resolution_prompt(spec, clarifications, user_message, builtin_sboxes):
+    """Prompt to APPLY the user's answer to an open clarification (a gap the auto-build could not
+    fill, e.g. a missing S-box) and return the corrected CipherSpec.
+
+    The user may point to a built-in S-box ("use Midori128_SSb0-3"), paste a table, or ask to
+    skip a version. The model returns {"spec": <corrected full spec>} - or {"not_a_resolution":
+    true} if the message is unrelated to the open gap (the caller then handles it normally).
+    """
+    import json as _json
+
+    start = SYSTEM_PROMPT_TEMPLATE.index("## Custom Cipher Definition")
+    end = SYSTEM_PROMPT_TEMPLATE.index("## File Import")
+    rules = SYSTEM_PROMPT_TEMPLATE[start:end].strip().replace("{{", "{").replace("}}", "}")
+
+    gaps = "\n".join(
+        f"- version {c.get('version')}: missing S-box '{c.get('item')}'"
+        f" (kind {c.get('kind')}); built-in matches: {', '.join(c.get('suggestions') or []) or 'none'}"
+        for c in (clarifications or [])
+    )
+    return f"""You are resolving an OPEN CLARIFICATION about a cipher the user is building. Some
+version(s) could not be built because a piece was missing; the user is now telling you how to
+fill the gap. Apply their answer and return the corrected FULL CipherSpec.
+
+OPEN GAPS:
+{gaps}
+
+THE USER'S ANSWER:
+{user_message}
+
+AVAILABLE BUILT-IN OCP S-BOXES (reference any by name in `sbox_name`, NO table needed):
+{', '.join(builtin_sboxes)}
+
+HOW TO APPLY:
+- If the user points to a built-in S-box, set that layer's `sbox_name` to the built-in's exact
+  name (e.g. "Midori128_SSb0") and do NOT add a table for it.
+- If DIFFERENT S-boxes apply per cell position (e.g. Midori128 uses SSb0..3 on cells j where
+  j%4==0..3), emit ONE `sbox` layer PER S-box with a `mask` selecting its cells (mask[j]=1 for
+  the cells that use this S-box, else 0), in place of the single generic sbox layer.
+- If the user pastes a table, add it under `sbox_tables` and keep the name.
+- If the user asks to skip a version, remove that entry from `versions`.
+- Change ONLY what is needed to fill the gap; keep everything else identical.
+
+If the user's message is NOT about resolving these gaps, return exactly {{"not_a_resolution": true}}.
+
+CURRENT SPEC:
+{_json.dumps(spec, indent=2)}
+
+FORMAT RULES (for reference):
+{rules}
+
+Return ONLY a JSON object: {{"spec": <corrected full CipherSpec>}}  (or {{"not_a_resolution": true}})."""
+
+
 def build_repair_prompt(spec: dict, problems: List[str]) -> str:
     """Build a small, targeted prompt to fix a specific CipherSpec, not re-extract it."""
     from agent.skills.cipher_examples import few_shot_spec_text

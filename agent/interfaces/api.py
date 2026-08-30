@@ -774,6 +774,16 @@ class OCPAgent:
             raise ValueError("spec must be a JSON object.")
         return self._core._repair_spec(spec, problems)
 
+    def resolve_clarification(self, user_message: str) -> Optional[SkillResult]:
+        """Apply the user's answer to an open build clarification (e.g. a missing S-box) and
+        rebuild. Returns the rebuild SkillResult, or None if nothing is pending / the message is
+        not a resolution. See AgentCore.resolve_pending_clarification."""
+        return self._core.resolve_pending_clarification(user_message)
+
+    def pending_clarification(self):
+        """The currently-open clarification (dict) the agent is waiting on, or None."""
+        return self.session.get_metadata("pending_clarification")
+
     def add_test_vectors_to_draft(self, tv_data: Any) -> CipherSpecDraft:
         """Inject test vectors (parsed JSON: per-version map or a plain list) into the
         pending text-first draft and re-validate, so Build can verify correctness."""

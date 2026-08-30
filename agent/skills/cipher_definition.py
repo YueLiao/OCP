@@ -965,6 +965,51 @@ def verify_all_versions(spec):
     return results
 
 
+def detect_clarifications(spec, dropped_versions):
+    """Turn un-buildable family versions into structured ClarificationRequests the user can
+    resolve conversationally (the human-in-the-loop loop). Structural (re-inspects each dropped
+    version's spec) rather than parsing error strings, so it is robust.
+
+    Currently detects a MISSING S-BOX: a sbox layer whose sbox_name is neither a custom table nor
+    a built-in OCP S-box - the exact Midori128 'SSb' case. Suggests built-ins whose name looks
+    related so the user can just say "use those".
+    """
+    from operators.Sbox import builtin_sbox_class, builtin_sbox_names
+    from agent.types import ClarificationRequest
+
+    clarifications = []
+    seen = set()
+    builtins = builtin_sbox_names()
+    for vname in (dropped_versions or {}):
+        try:
+            vspec = spec.instantiate(vname) if getattr(spec, "versions", None) else spec
+        except Exception:
+            continue
+        tables = set(vspec.sbox_tables or {})
+        layers = list(vspec.round_structure or []) + list(vspec.key_schedule or [])
+        for layer in layers:
+            if getattr(layer, "layer_type", None) != "sbox":
+                continue
+            nm = (layer.params or {}).get("sbox_name")
+            if not nm or nm in tables or builtin_sbox_class(nm) is not None or nm in seen:
+                continue
+            seen.add(nm)
+            low = nm.lower()
+            suggestions = [b for b in builtins if low in b.lower() or b.lower().startswith(low)][:8]
+            clarifications.append(ClarificationRequest(
+                kind="missing_sbox", item=nm, version=vname,
+                context=(f"{vname}'s S-box '{nm}' has no lookup table and is not a built-in OCP "
+                         f"S-box, so {vname} could not be built."),
+                options=[
+                    "reference a built-in S-box by name (e.g. paste which one, or its file/class)",
+                    "paste the S-box lookup table",
+                    "skip this version",
+                ],
+                suggestions=suggestions,
+            ))
+    return clarifications
+
+
 def key_schedule_needs_bitslicing(spec):
     """Reason string if a block cipher's key schedule cannot be expressed at its word
     granularity, else None.
@@ -1326,12 +1371,23 @@ class CipherDefinitionSkill(BaseSkill):
             # `spec` was already instantiated to the default (and layout-expanded), losing versions.
             version_results = verify_all_versions(export_spec)
             dropped_versions = {}
+            clarifications = []
             if version_results:
                 built = {v: r for v, r in version_results.items() if r.get("tested")}
                 dropped_versions = {v: r for v, r in version_results.items() if not r.get("tested")}
                 default_ok = (export_spec.default_version in built) if export_spec.default_version else bool(built)
                 verified = bool(built) and default_ok and all(r.get("all_passed") for r in built.values())
                 if verified and dropped_versions:
+                    # Human-in-the-loop: BEFORE dropping the un-buildable versions, detect the gaps
+                    # we can name precisely (a missing S-box) and stash the FULL spec (still holding
+                    # those versions) so the user can resolve them in chat and we rebuild.
+                    clarifications = detect_clarifications(export_spec, dropped_versions)
+                    if clarifications:
+                        session.set_metadata("pending_clarification", {
+                            "spec": export_spec.to_dict(),
+                            "cipher_name": cipher.name,
+                            "clarifications": [c.to_dict() for c in clarifications],
+                        })
                     import copy as _copy
                     export_spec = _copy.deepcopy(export_spec)
                     for v in dropped_versions:
@@ -1385,9 +1441,14 @@ class CipherDefinitionSkill(BaseSkill):
                         why = r.get("hint") or (r.get("error") or "").strip()
                         reasons.append(f"{v}: {why}" if why else v)
                     summary += (" (excluded from the saved family because these versions could not "
-                                "be built from this spec - " + "; ".join(reasons)
-                                + ". Supply the missing per-version structure via the Editable JSON "
-                                "and re-send to include them.)")
+                                "be built from this spec - " + "; ".join(reasons) + ".)")
+                    if clarifications:
+                        summary += ("\n\n" + "\n".join(c.prompt_line() for c in clarifications)
+                                    + "\n\nReply with how to resolve it (e.g. \"use Midori128_SSb0-3\") "
+                                    "and I will rebuild - or edit the Editable JSON directly.")
+                    else:
+                        summary += (" Supply the missing per-version structure via the Editable JSON "
+                                    "and re-send to include them.")
                 elif not verified:
                     summary += " - NOT saved until the default and all buildable versions pass."
             if export_error and not export_error.startswith("not applicable"):
@@ -1417,6 +1478,8 @@ class CipherDefinitionSkill(BaseSkill):
             data = {"cipher_name": cipher.name, "type": spec.cipher_type,
                     "rounds": spec.nbr_rounds, "block_size": spec.block_size,
                     "verification": verification}
+            if clarifications:
+                data["clarifications"] = [c.to_dict() for c in clarifications]
             # Distinguish the FOUR distinct outcomes the UI used to conflate as "success":
             # built in memory, KAT-verified, exported to primitives/, registered in the catalog.
             data["status"] = {
