@@ -142,7 +142,19 @@ def _apply_layer(func, round_idx, layer_idx, layer_spec, sbox_classes):
         sbox_name = p["sbox_name"]
         index = p.get("index")
         mask = p.get("mask")
-        sbox_cls = sbox_classes[sbox_name]
+        sbox_cls = sbox_classes.get(sbox_name)
+        if sbox_cls is None:
+            # Not a custom table - the spec may REFERENCE a built-in OCP S-box by name (e.g.
+            # AES_Sbox, PRESENT_Sbox, Midori128_SSb0). Resolve + cache it so a version whose
+            # 8-bit S-box (etc.) is not in the paper as a table can still build.
+            from operators.Sbox import builtin_sbox_class, builtin_sbox_names
+            sbox_cls = builtin_sbox_class(sbox_name)
+            if sbox_cls is None:
+                raise ValueError(
+                    f"S-box '{sbox_name}' is not in sbox_tables ({sorted(sbox_classes)}) and is not a "
+                    f"built-in OCP S-box. Provide its table under sbox_tables, or reference a built-in "
+                    f"by name - available: {', '.join(builtin_sbox_names())}.")
+            sbox_classes[sbox_name] = sbox_cls
         func.SboxLayer(f"SB_{layer_idx}", round_idx, layer_idx, sbox_cls, mask=mask, index=index)
 
     elif lt == "permutation":

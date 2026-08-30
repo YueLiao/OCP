@@ -929,3 +929,45 @@ class Midori_Sb1_Sbox(Sbox):
     def __init__(self, input_vars, output_vars, ID=None):
         super().__init__(input_vars, output_vars, 4, 4, ID=ID)
         self.table = [1, 0, 5, 3, 14, 2, 15, 7, 13, 10, 9, 11, 12, 8, 4, 6]
+
+
+def builtin_sbox_class(name):
+    """Resolve an S-box NAME to an existing OCP Sbox subclass, or None.
+
+    Looks in this module and in the agent-generated operators/generated_sboxes.py, trying the
+    name as given and with the OCP '_Sbox'/'Sbox' suffix. Lets a cipher spec REFERENCE a
+    built-in S-box (e.g. 'AES_Sbox', 'PRESENT_Sbox', 'Midori128_SSb0') by name instead of
+    re-supplying its lookup table - the human-in-the-loop "the S-box is already stored, use it"
+    resolution.
+    """
+    import sys
+    modules = [sys.modules[__name__]]
+    try:
+        import operators.generated_sboxes as _generated
+        modules.append(_generated)
+    except Exception:
+        pass
+    for module in modules:
+        for candidate in (name, name + "_Sbox", name + "Sbox"):
+            cls = getattr(module, candidate, None)
+            if isinstance(cls, type) and issubclass(cls, Sbox) and cls is not Sbox:
+                return cls
+    return None
+
+
+def builtin_sbox_names():
+    """Sorted names of the built-in OCP S-box classes (this module + generated_sboxes),
+    for surfacing available S-boxes to the user in a clarification prompt."""
+    import sys
+    names = set()
+    modules = [sys.modules[__name__]]
+    try:
+        import operators.generated_sboxes as _generated
+        modules.append(_generated)
+    except Exception:
+        pass
+    for module in modules:
+        for attr, cls in vars(module).items():
+            if isinstance(cls, type) and issubclass(cls, Sbox) and cls is not Sbox:
+                names.add(attr)
+    return sorted(names)

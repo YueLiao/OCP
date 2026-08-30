@@ -1443,7 +1443,11 @@ class CipherSpec:
             if layer.layer_type == "sbox":
                 sbox_name = layer.params.get("sbox_name", "")
                 if sbox_name and sbox_name not in self.sbox_tables:
-                    errors.append(f"Round layer {i}: S-box '{sbox_name}' not found in sbox_tables.")
+                    from operators.Sbox import builtin_sbox_class
+                    if builtin_sbox_class(sbox_name) is None:
+                        errors.append(
+                            f"Round layer {i}: S-box '{sbox_name}' not found in sbox_tables and is not a "
+                            f"built-in OCP S-box (e.g. AES_Sbox, PRESENT_Sbox, Midori128_SSb0).")
                 table = self.sbox_tables.get(sbox_name)
                 index = layer.params.get("index")
                 if (isinstance(table, list) and table and isinstance(index, list)
