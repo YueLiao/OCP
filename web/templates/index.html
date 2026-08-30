@@ -930,6 +930,32 @@ function capabilityAnswer(msg) {
     }
   }
 
+  // Concept definitions - fire ONLY on a definitional question ("what is X", "什么是X",
+  // "explain X", "difference between") so they never hijack an action/param question ("run
+  // differential", "what can X do"). Placed after version/solver, before the fnMap param lookup.
+  if (/what\s+(is|are|s\b|does)|what's|是什么|什么是|explain|介绍|difference between|\bvs\b|区别|定义/.test(q)) {
+    const concepts = [
+      [/differential.*linear|linear.*differential/, 'Both search a round-by-round trail: **differential** tracks input->output XOR *differences* (probability 2^-weight); **linear** tracks *linear masks* (correlation/bias). Same solver, different propagation rule.'],
+      [/impossible/, '**Impossible-differential** cryptanalysis finds an (input, output) difference pattern that can NEVER occur (probability 0), built from a miss-in-the-middle contradiction.'],
+      [/zero.?correlation/, '**Zero-correlation** cryptanalysis is the linear analogue of impossible-differential: an (input, output) mask pair whose correlation is exactly 0, via miss-in-the-middle.'],
+      [/integral|division.?property/, '**Integral / division-property** cryptanalysis finds an output bit that is provably balanced (sums to 0) over a structured input set - a distinguisher independent of probability. MILP-only; needs the constant input bits.'],
+      [/two.?stage/, '**Two-stage trail search** first finds the min-active-S-box truncated pattern, then fixes it and searches the best bit-level trail on it - efficient for word-oriented ciphers (AES / SKINNY).'],
+      [/differential/, '**Differential cryptanalysis** finds a high-probability trail of input->output XOR differences across the rounds; the tool searches the min-weight (best-probability) trail, or counts active S-boxes.'],
+      [/linear/, '**Linear cryptanalysis** finds a high-correlation linear approximation (input/output bit masks) across the rounds; the tool searches the best correlation, or counts active S-boxes.'],
+      [/distinguisher/, 'A **distinguisher** tells the cipher apart from a random permutation - a high-probability differential/linear trail, a provably balanced bit (integral), or an impossible / zero-correlation pattern. Usually the first step of an attack.'],
+      [/\btrail\b|characteristic/, 'A **trail** (characteristic) is a round-by-round path of differences (differential) or masks (linear). Its **weight** = -log2(probability); lower weight = better. Per-round weights sum to the total.'],
+      [/active.?s.?-?box|活跃|活性/, 'An **active S-box** has a nonzero difference/mask on the trail. The minimum count of active S-boxes lower-bounds the trail weight - a standard security metric (goals DIFFERENTIAL_SBOXCOUNT / LINEAR_SBOXCOUNT).'],
+      [/branch.?number/, 'The **branch number** of a linear/MixColumn layer is the smallest total of active input+output words over all nonzero inputs - it measures diffusion (higher = stronger).'],
+      [/permutation|block.?cipher/, 'A **permutation** is keyless (a fixed public function); a **block cipher** adds a key schedule and round keys. Trail search often runs on the keyless permutation derived from a block cipher.'],
+    ];
+    for (const [re, ans] of concepts) if (re.test(q)) return ans;
+  }
+  // How to add a custom cipher (workflow help).
+  if (/(custom|own|\bnew\b|自定义|自己).{0,14}(cipher|密码)|(define|add|create|make).{0,10}(custom|own|new|自定义)|(如何|怎么|怎样).{0,10}(添加|定义|自定义).{0,6}(密码|cipher)/.test(q)
+      && /how|怎么|怎样|如何|define|add|create|\bmy\b/.test(q)) {
+    return 'To add your own cipher: describe it in chat (name, block/word size, rounds, the round operations, S-box, key schedule) or paste a paper / spec. The agent extracts a CipherSpec, builds it, and verifies it against your test vectors - or edit the JSON directly in the draft panel on the left.';
+  }
+
   const fnMap = [
     // More-specific analyses first: "impossible differential" / "zero-correlation linear" /
     // "two-stage differential" all contain "differential"/"linear", so they must match before
@@ -958,7 +984,15 @@ function capabilityAnswer(msg) {
   }
 
   if (/what can|capabilit|help|能做|功能|怎么用|如何用/.test(q)) {
-    return 'For a chosen cipher this tool can:\n- **Differential / linear cryptanalysis** - search the best trail (goals, MILP/SAT, optimal/bounded, multiple trails).\n- **Implementation** - generate Python / C / Verilog code.\n- **Visualization** - render the cipher structure as a PDF.\nUse the control panel on the left, or describe a new cipher in chat.';
+    return 'For a chosen cipher this tool can:\n- **Trail search** - differential / linear best-trail (goals, MILP/SAT, optimal or bounded, multiple trails).\n- **Distinguishers** - integral (division property), impossible-differential, zero-correlation.\n- **Two-stage trail search** - truncated then bit-level optimal trail (word-oriented ciphers).\n- **Implementation** - generate Python / C / Verilog code.\n- **Visualization** - render the cipher structure as a PDF.\nUse the control panel on the left, or describe a new cipher in chat.';
+  }
+  // "which ciphers are supported / list ciphers / 有哪些密码" - a factual catalog lookup, so it
+  // never mis-routes to cipher_instantiation (which would try to BUILD one). Placed after the
+  // "what can ... do" catch-all so a capability question still wins.
+  if (SCHEMA.ciphers && /cipher|密码|算法/.test(q)
+      && /\blist\b|which|what|support|available|\ball\b|有哪些|哪些|支持|多少|几种|所有/.test(q)) {
+    const names = Object.keys(SCHEMA.ciphers).sort();
+    return `OCP has ${names.length} built-in ciphers:\n${names.join(', ')}\n\nPick one in the control panel, or say e.g. "add speck" or "analyze SPECK-32".`;
   }
   return null;
 }
