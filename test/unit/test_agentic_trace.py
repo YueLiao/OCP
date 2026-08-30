@@ -88,7 +88,9 @@ def test_chat_skill_execution_registers_artifacts():
 
     response = agent.chat("generate")
 
-    assert response == "done"
+    # Skill turns now return a deterministic aggregation of per-skill outcomes
+    # (success -> `r.summary or "<skill>: done."`), not a provider-generated reply.
+    assert response == "generated"
     assert agent.session.get_results()[0].summary == "generated"
     assert agent.session.get_context()["artifact_count"] == 1
     assert agent.session.get_artifacts()[0]["label"] == "generated_code"
@@ -121,7 +123,10 @@ def test_chat_skill_execution_keeps_provider_error_handler():
 
     response = agent.chat("generate")
 
-    assert response == "done"
+    # The provider's handle_error still formats the stored result.error (below);
+    # the aggregated skill-turn response now renders a failed skill as
+    # "<skill> failed: <error>" instead of the old provider generate_response reply.
+    assert response == "code_generation failed: provider should format this"
     assert agent.session.get_results()[0].error == "provider should format this"
 
 
@@ -211,7 +216,8 @@ def test_auto_build_extraction_result_is_recorded_once_with_artifacts():
 
     response = agent.chat("extract and build")
 
-    assert response == "done"
+    # Aggregated summaries: extraction ("extracted") then the auto-build ("built").
+    assert response == "extracted\nbuilt"
     assert [result.skill for result in agent.session.get_results()] == [
         SkillName.CIPHER_EXTRACTION,
         SkillName.CIPHER_DEFINITION,
@@ -227,7 +233,12 @@ def test_extraction_pipeline_classifies_parse_and_unexpected_failures():
 
     response = agent.chat("extract and build")
 
-    assert response == "done"
+    # Extraction succeeds ("extracted"); the auto pipeline fails to parse the
+    # "not json" reply, rendered as "<skill> failed: <error>" in the aggregation.
+    assert response == (
+        "extracted\ncipher_extraction failed: Extraction pipeline failed: "
+        "No parseable JSON object found in LLM response: not json"
+    )
     assert agent.session.get_results()[1].error.startswith("Extraction pipeline failed:")
 
     registry = SkillRegistry()
@@ -236,7 +247,10 @@ def test_extraction_pipeline_classifies_parse_and_unexpected_failures():
 
     response = agent.chat("extract and build")
 
-    assert response == "done"
+    assert response == (
+        "extracted\ncipher_extraction failed: "
+        "Unexpected extraction pipeline failure: programming detail"
+    )
     assert agent.session.get_results()[1].error == (
         "Unexpected extraction pipeline failure: programming detail"
     )

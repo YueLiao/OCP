@@ -1,38 +1,35 @@
 import os
+import shutil
 import subprocess
 import sys
-import builtins
+from types import SimpleNamespace
 
 import pytest
 
 import variables.variables as var
 import tools.model_constraints as model_constraints
 from tools.model_constraints import (
-    MODEL_GENERATION_PROFILE_ENABLED_KEY,
-    MODEL_GENERATION_PROFILE_KEY,
-    gen_constraints_obj_func_from_template,
     gen_constraints_sum_at_most,
-    gen_matrix_constraints,
-    gen_predefined_constraints,
-    gen_round_model_constraint_obj_fun,
-    gen_sequential_encoding_sat,
-    load_constraints_template,
-)
-from tools.bit_constraints import gen_nxor_constraints, gen_xor_constraints, gen_word_matrix_constraints
-from tools.model_templates import instantiate_constraints_template
-from tools.model_generation_state import (
-    build_identity_elision_aliases,
-    is_identity_elision_candidate,
-    resolve_identity_alias,
-)
-from tools.model_templates import generate_and_save_constraints
-from tools.predefined_constraints import gen_constraints_sum_exactly
-from tools.objective_targets import gen_sat_constraints_from_objective_target
-from tools.search_constraints import (
+    gen_constraints_sum_exactly,
     gen_matsui_constraints_milp,
     gen_matsui_constraints_sat,
     gen_matsui_partial_cardinality_sat,
+    gen_predefined_constraints,
+    gen_sequential_encoding_sat,
 )
+from tools.operator_constraints import (
+    gen_matrix_row_constraints,
+    gen_nxor_constraints,
+    gen_word_matrix_row_constraints,
+    gen_xor_constraints,
+)
+from tools.model_templates import (
+    gen_constraints_obj_func_from_template,
+    generate_and_save_constraints,
+    instantiate_constraints_template,
+    load_constraints_template,
+)
+from tools.sat_search import gen_sat_constraints_from_objective_target
 
 
 def test_predefined_constraints_expand_bitwise_variables():
@@ -73,6 +70,41 @@ def test_matsui_constraint_builders_raise_value_errors_for_invalid_inputs():
         gen_matsui_partial_cardinality_sat([], [], 1, 0, 0, 0)
 
 
+def test_matsui_constraints_do_not_mutate_input_obj_lists():
+    # The trailing empty round is trimmed internally; the caller's list must stay intact.
+    obj_fun = [["w0"], ["w1"], []]
+    gen_matsui_constraints_milp(2, [1], obj_fun, "ALL")
+    assert obj_fun == [["w0"], ["w1"], []]
+
+    obj_var = [["w0"], ["w1"], []]
+    gen_matsui_constraints_sat(2, [1], 2, obj_var)
+    assert obj_var == [["w0"], ["w1"], []]
+
+
+def test_matsui_milp_happy_path_bounds_each_partial_objective_against_total():
+    # valid config: each partial-round objective is bounded against the total `obj` by the
+    # best-known value (best_obj), i.e. `<round terms> - obj <= -best_obj`.
+    cons = gen_matsui_constraints_milp(2, [1], [["w0"], ["w1"]], "ALL")
+    assert set(cons) == {"w0 - obj <= -1", "w1 - obj <= -1"}
+
+
+def test_predefined_constraints_sat_value_branches():
+    # Trivially-satisfied bounds emit no clause.
+    assert gen_predefined_constraints("sat", "AT_MOST", ["a", "b"], 1, bitwise=False) == []
+    assert gen_predefined_constraints("sat", "AT_LEAST", ["a", "b"], 0, bitwise=False) == []
+    # value 0/1 force each variable false/true.
+    assert gen_predefined_constraints("sat", "EXACTLY", ["a", "b"], 1, bitwise=False) == ["a", "b"]
+    assert gen_predefined_constraints("sat", "EXACTLY", ["a", "b"], 0, bitwise=False) == ["-a", "-b"]
+    assert gen_predefined_constraints("sat", "AT_LEAST", ["a", "b"], 1, bitwise=False) == ["a", "b"]
+    assert gen_predefined_constraints("sat", "AT_MOST", ["a", "b"], 0, bitwise=False) == ["-a", "-b"]
+    # SUM_AT_LEAST 1 is a single disjunction; SUM_EXACTLY 0 forces each variable false.
+    assert gen_predefined_constraints("sat", "SUM_AT_LEAST", ["a", "b"], 1, bitwise=False) == ["a b"]
+    assert gen_predefined_constraints("sat", "SUM_EXACTLY", ["a", "b"], 0, bitwise=False) == ["-a", "-b"]
+    # EXACTLY only supports value 0/1 in SAT.
+    with pytest.raises(ValueError, match="EXACTLY"):
+        gen_predefined_constraints("sat", "EXACTLY", ["a", "b"], 2, bitwise=False)
+
+
 def test_sat_objective_target_rejects_invalid_decimal_and_matsui_configs():
     with pytest.raises(ValueError, match="Length mismatch"):
         gen_sat_constraints_from_objective_target(
@@ -93,8 +125,8 @@ def test_sat_objective_target_rejects_invalid_decimal_and_matsui_configs():
 
 
 def test_matrix_constraints_preserve_xor_special_cases():
-    assert gen_matrix_constraints(["a"], "b", "sat") == ["a -b", "-a b"]
-    assert gen_matrix_constraints(["a", "b"], "c", "sat") == [
+    assert gen_matrix_row_constraints(["a"], "b", "sat") == ["-a b", "a -b"]
+    assert gen_matrix_row_constraints(["a", "b"], "c", "sat") == [
         "a b -c",
         "a -b c",
         "-a b c",
@@ -110,25 +142,21 @@ def test_bit_constraint_helpers_reject_invalid_variable_shapes():
         gen_nxor_constraints(["a", 1], "b", "sat")
 
     with pytest.raises(TypeError, match="list of strings"):
-        gen_word_matrix_constraints("a", "b", "sat")
+        gen_word_matrix_row_constraints("a", "b", "sat")
 
 
-def test_predefined_and_template_helpers_raise_value_errors_for_invalid_options():
+def test_predefined_and_template_helpers_raise_value_errors_for_invalid_options(monkeypatch):
+    # Force the PySAT branch so the encoding guard is reached without a real PySAT backend;
+    # the invalid encoding is rejected before any backend call.
+    monkeypatch.setattr(model_constraints, "pysat_import", True)
     with pytest.raises(ValueError, match="Invalid encoding"):
-        gen_constraints_sum_exactly(
-            "sat",
-            ["a"],
-            1,
-            encoding=99,
-            pysat_available=lambda: True,
-            require_cardenc=lambda: object(),
-            cardinality_constraints=lambda *args, **kwargs: [],
-        )
+        gen_constraints_sum_exactly("sat", ["a"], 1, encoding=99)
 
-    with pytest.raises(ValueError, match="Unsupported tool type bad"):
+    with pytest.raises(ValueError, match="unsupported tool type 'bad' for milp model"):
         generate_and_save_constraints("milp", "bad", "diff", [], ["x"], ["y"])
 
 
+@pytest.mark.skipif(shutil.which("espresso") is None, reason="espresso CLI not on PATH")
 def test_generate_and_save_constraints_returns_generated_template(tmp_path):
     ttable = "1001"
     model_file = tmp_path / "xor_template.txt"
@@ -148,18 +176,8 @@ def test_generate_and_save_constraints_returns_generated_template(tmp_path):
     assert objective_fun is None
     assert load_constraints_template(model_file) == (constraints, None)
 
-    facade_constraints, facade_objective = model_constraints.generate_and_save_constraints(
-        "sat",
-        "minimize_logic",
-        0,
-        ttable,
-        ["a0"],
-        ["b0"],
-    )
-    assert facade_constraints == constraints
-    assert facade_objective is None
 
-
+@pytest.mark.skipif(shutil.which("espresso") is None, reason="espresso CLI not on PATH")
 def test_in_memory_template_instantiation_matches_loaded_template(tmp_path):
     model_file = tmp_path / "template.txt"
     constraints, objective_fun = generate_and_save_constraints(
@@ -210,167 +228,6 @@ def test_model_constraints_defers_pysat_cardinality_import():
     assert result.stdout.strip() == "True"
 
 
-class FakeInputConstraint:
-    ID = "IN_LINK_EQ_0"
-
-    def generate_model(self, model_type):
-        return ["input"]
-
-
-class FakeOutputConstraint:
-    ID = "OUT_LINK_EQ_0"
-
-    def generate_model(self, model_type):
-        return ["output"]
-
-
-class FakeRoundConstraint:
-    ID = "FakeRound_1_0_0"
-    weight = ["w0"]
-
-    def generate_model(self, model_type):
-        return ["round_a", "round_b"]
-
-
-class FakeFunction:
-    nbr_rounds = 1
-    nbr_layers = 0
-
-    def __init__(self):
-        self.constraints = {1: {0: [FakeRoundConstraint()]}}
-
-
-class FakeCipher:
-    inputs_constraints = [FakeInputConstraint()]
-    outputs_constraints = [FakeOutputConstraint()]
-
-    def __init__(self):
-        self.functions = {"PERMUTATION": FakeFunction()}
-
-
-def test_round_model_generation_can_record_profile():
-    config_model = {
-        "functions": ["PERMUTATION"],
-        "rounds": {"PERMUTATION": [1]},
-        "layers": {"PERMUTATION": {1: [0]}},
-        "positions": {"PERMUTATION": {1: {0: [0]}}},
-        MODEL_GENERATION_PROFILE_ENABLED_KEY: True,
-    }
-
-    constraints, obj_fun = gen_round_model_constraint_obj_fun(
-        FakeCipher(),
-        "DIFFERENTIAL_SBOXCOUNT",
-        "milp",
-        config_model,
-    )
-
-    assert constraints == ["input", "output", "round_a", "round_b"]
-    assert obj_fun == [["w0"]]
-    profile = config_model[MODEL_GENERATION_PROFILE_KEY]
-    assert profile["total_constraints"] == 4
-    assert profile["operators"]["FakeInputConstraint"]["calls"] == 1
-    assert profile["operators"]["FakeRoundConstraint"]["constraints"] == 2
-    assert profile["operator_prefixes"]["FakeInputConstraint:IN_LINK_EQ"]["calls"] == 1
-    assert profile["operator_prefixes"]["FakeRoundConstraint:FakeRound"]["constraints"] == 2
-    assert profile["total_time_s"] >= 0
-
-
-def test_identity_alias_rewrite_preserves_model_token_boundaries():
-    aliases = {
-        "v_1_2_3": "v_1_1_3",
-        "v_1_2_30": "v_1_1_30",
-    }
-
-    assert model_constraints._apply_identity_aliases(
-        [
-            "-v_1_2_3_0 v_1_2_30_0",
-            "v_1_2_3_0 - v_1_2_30_0 = 0",
-            "Binary\nv_1_2_3_0 v_1_2_30_0",
-        ],
-        aliases,
-    ) == [
-        "-v_1_1_3_0 v_1_1_30_0",
-        "v_1_1_3_0 - v_1_1_30_0 = 0",
-        "Binary\nv_1_1_3_0 v_1_1_30_0",
-    ]
-
-
-def test_identity_elision_candidate_requires_single_equal_same_bitsize():
-    class Equal:
-        def __init__(self, input_vars, output_vars, ID="X_EQ"):
-            self.input_vars = input_vars
-            self.output_vars = output_vars
-            self.ID = ID
-
-    assert is_identity_elision_candidate(
-        Equal([var.Variable(2, ID="x")], [var.Variable(2, ID="y")])
-    )
-    assert not is_identity_elision_candidate(
-        Equal([var.Variable(2, ID="x")], [var.Variable(3, ID="y")])
-    )
-    assert not is_identity_elision_candidate(
-        Equal([var.Variable(2, ID="x"), var.Variable(2, ID="z")], [var.Variable(2, ID="y")])
-    )
-    assert not is_identity_elision_candidate(
-        Equal([var.Variable(2, ID="x")], [var.Variable(2, ID="y")], ID="IN_LINK_EQ_0")
-    )
-
-
-def test_identity_elision_alias_resolution_rejects_cycles():
-    with pytest.raises(ValueError, match="alias cycle"):
-        resolve_identity_alias({"a": "b", "b": "a"}, "a")
-
-
-def test_identity_elision_alias_builder_rejects_conflicting_outputs():
-    class Equal:
-        def __init__(self, input_id, output_id, ID):
-            self.input_vars = [var.Variable(1, ID=input_id)]
-            self.output_vars = [var.Variable(1, ID=output_id)]
-            self.ID = ID
-
-    class FakeFunctionWithConflict:
-        constraints = {1: {0: [Equal("a", "x", "A_EQ_0"), Equal("b", "x", "B_EQ_0")]}}
-
-    class FakeCipherWithConflict:
-        functions = {"PERMUTATION": FakeFunctionWithConflict()}
-
-    config_model = {
-        "functions": ["PERMUTATION"],
-        "rounds": {"PERMUTATION": [1]},
-        "layers": {"PERMUTATION": {1: [0]}},
-        "positions": {"PERMUTATION": {1: {0: [0, 1]}}},
-    }
-
-    with pytest.raises(ValueError, match="alias conflict"):
-        build_identity_elision_aliases(FakeCipherWithConflict(), config_model)
-
-
-def test_constraints_template_loading_is_cached(monkeypatch, tmp_path):
-    template = tmp_path / "template.txt"
-    template.write_text(
-        "Input: a0; msb: a0\n"
-        "Output: b0; msb: b0\n"
-        "Constraints: ['a0 - b0 = 0']\n"
-        "Weight: p0\n",
-        encoding="utf-8",
-    )
-
-    real_open = builtins.open
-    open_calls = []
-
-    def counting_open(*args, **kwargs):
-        if args and args[0] == str(template):
-            open_calls.append(args[0])
-        return real_open(*args, **kwargs)
-
-    monkeypatch.setattr(builtins, "open", counting_open)
-
-    assert load_constraints_template(str(template)) == (["a0 - b0 = 0"], "p0")
-    assert load_constraints_template(str(template)) == (["a0 - b0 = 0"], "p0")
-
-    assert open_calls == [str(template)]
-
-
 def test_template_variable_replacement_preserves_token_boundaries(tmp_path):
     template = tmp_path / "template.txt"
     template.write_text(
@@ -398,23 +255,23 @@ def test_template_variable_replacement_preserves_token_boundaries(tmp_path):
     assert objective_fun == "2 w0 + w10"
 
 
-def test_pysat_cardinality_errors_warn_and_return_empty(monkeypatch):
+def test_pysat_cardinality_errors_are_reported_and_return_empty(capsys, monkeypatch):
     def failing_encoder(**kwargs):
         raise ValueError("unsupported encoding")
 
     monkeypatch.setattr(model_constraints, "_load_pysat_cardinality_backend", lambda: (object(), object()))
     monkeypatch.setattr(model_constraints, "_pysat_cardinality_error_types", lambda: (ValueError,))
 
-    with pytest.warns(RuntimeWarning, match="does not support encoding"):
-        constraints = model_constraints._pysat_cardinality_constraints(
-            ["a", "b"],
-            1,
-            99,
-            failing_encoder,
-            "atmost",
-        )
+    constraints = model_constraints._pysat_cardinality_constraints(
+        ["a", "b"],
+        1,
+        99,
+        failing_encoder,
+        "atmost",
+    )
 
     assert constraints == []
+    assert "does not support encoding" in capsys.readouterr().out
 
 
 def test_pysat_cardinality_programming_errors_are_not_suppressed(monkeypatch):
@@ -431,4 +288,91 @@ def test_pysat_cardinality_programming_errors_are_not_suppressed(monkeypatch):
             1,
             broken_encoder,
             "atmost",
+        )
+
+
+# ===================== fixed input/output boundary constraints (moved from test_attack_common) =====================
+def _boundary_cipher():
+    inputs = [var.Variable(4, ID="x"), var.Variable(4, ID="y")]
+    outputs = [var.Variable(4, ID="z")]
+    return SimpleNamespace(
+        inputs={"plaintext": inputs},
+        outputs={"ciphertext": outputs},
+        inputs_constraints=[SimpleNamespace(input_vars=inputs)],
+    )
+
+
+def test_fixed_input_constraints_expand_bits_for_sat():
+    cipher = _boundary_cipher()
+
+    expected = ["-x_0", "-x_1", "-x_2", "x_3", "-y_0", "-y_1", "y_2", "-y_3"]
+
+    assert model_constraints.gen_fixed_input_output_constraints(
+        "input", "0x12", cipher, "sat", value_name="fix_diff"
+    ) == expected
+
+
+def test_fixed_output_constraints_generate_milp_binary_declarations():
+    cipher = _boundary_cipher()
+
+    assert model_constraints.gen_fixed_input_output_constraints(
+        "output", "0b1010", cipher, "milp", value_name="fix_value"
+    ) == [
+        "z_0 = 1",
+        "Binary\nz_0",
+        "z_1 = 0",
+        "Binary\nz_1",
+        "z_2 = 1",
+        "Binary\nz_2",
+        "z_3 = 0",
+        "Binary\nz_3",
+    ]
+
+
+def test_fixed_value_rejects_too_many_bits():
+    with pytest.raises(ValueError, match="5 bits"):
+        model_constraints.normalize_fixed_value_bits("0b10000", 4, "fix_value")
+
+
+def test_fixed_value_rejects_malformed_hex_with_readable_error():
+    with pytest.raises(ValueError, match="Invalid input_diff format"):
+        model_constraints.normalize_fixed_value_bits("0xnothex", 4, "input_diff")
+
+
+def test_fixed_value_rejects_malformed_binary_with_readable_error():
+    # the 0b branch must reject non-binary digits, symmetrically with the 0x branch
+    with pytest.raises(ValueError, match="Invalid input_diff format"):
+        model_constraints.normalize_fixed_value_bits("0b1012", 4, "input_diff")
+    assert model_constraints.normalize_fixed_value_bits("0b1010", 4, "input_diff") == "1010"  # valid still works
+
+
+def test_input_non_zero_constraints_use_word_ids_when_not_bitwise():
+    cipher = _boundary_cipher()
+
+    # bitwise=False -> word-level markers (truncated goals).
+    assert model_constraints.gen_input_non_zero_constraints(
+        cipher, {"model_type": "sat"}, bitwise=False
+    ) == ["x y"]
+    # bitwise=True -> per-bit markers.
+    assert model_constraints.gen_input_non_zero_constraints(
+        cipher, {"model_type": "sat"}, bitwise=True
+    ) == ["x_0 x_1 x_2 x_3 y_0 y_1 y_2 y_3"]
+
+
+def test_required_fixed_boundary_constraints_are_shared_for_diff_and_linear():
+    cipher = _boundary_cipher()
+
+    assert model_constraints.gen_required_fixed_boundary_constraints(
+        cipher,
+        "0x12",
+        None,
+        "sat",
+    ) == ["-x_0", "-x_1", "-x_2", "x_3", "-y_0", "-y_1", "y_2", "-y_3"]
+
+    with pytest.raises(ValueError, match="input or output value must be specified"):
+        model_constraints.gen_required_fixed_boundary_constraints(
+            cipher,
+            None,
+            None,
+            "sat",
         )

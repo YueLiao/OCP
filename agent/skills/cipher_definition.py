@@ -66,6 +66,7 @@ def _apply_layer(func, round_idx, layer_idx, layer_spec, sbox_classes):
     from operators.boolean_operators import XOR, AND, OR, NOT, N_XOR, ANDXOR
     from operators.modular_operators import ModAdd
     from operators.operators import Equal
+    from operators.AESround import AESround
 
     # Bitwise/arithmetic operators applied through SingleOperatorLayer. Each maps
     # input_indices (groups of source word indices) to output_indices. Binary ops
@@ -91,6 +92,7 @@ def _apply_layer(func, round_idx, layer_idx, layer_spec, sbox_classes):
         "matrix": ("matrix", "indices"),
         "gf2_linear": ("matrix", "index_in"),
         "add_constant": ("constant_mask", "constant_table"),
+        "aes_round": ("input_indices", "output_indices"),
     }
     _req = () if (lt == "rotation" and (p or {}).get("rotations") is not None) else _required.get(lt, ())
     missing = [k for k in _req if k not in (p or {})]
@@ -164,6 +166,17 @@ def _apply_layer(func, round_idx, layer_idx, layer_spec, sbox_classes):
         func.GF2Linear_TransLayer(
             f"GF2_{layer_idx}", round_idx, layer_idx, index_in, index_out, mat, constants=constants
         )
+
+    elif lt == "aes_round":
+        # Fused AES round (SubBytes + ShiftRows + MixColumns, no key) as one operator over
+        # 16-byte state groups - used by AES-based designs like Rocca that treat a whole AES
+        # round as a single primitive. input_indices/output_indices are grouped exactly like
+        # the boolean operators, but each group MUST list 16 word positions (one 128-bit AES
+        # state); AESround validates that. Any AddRoundKey is a separate add_round_key/xor
+        # layer. Routed through SingleOperatorLayer exactly as primitives/rocca.py does.
+        input_indices = p["input_indices"]
+        output_indices = p["output_indices"]
+        func.SingleOperatorLayer(f"AESR_{layer_idx}", round_idx, layer_idx, AESround, input_indices, output_indices)
 
     elif lt == "add_round_key":
         operator = p.get("operator", "xor")
@@ -835,7 +848,7 @@ def verify_cipher_test_vectors(cipher, spec):
         inputs, expected = test_vector[0], test_vector[1]
         try:
             with redirect_stdout(io.StringIO()):
-                computed = imp.evaluate(cipher, inputs, output_len=None)
+                computed = imp.evaluate_python(cipher, inputs, output_len=None)
         except Exception as exc:
             failures.append({"input": inputs, "error": str(exc), "traceback": _concise_traceback()})
             continue
@@ -1031,7 +1044,7 @@ def derive_permutation(block_spec, block_cipher=None, sample_input=None):
             with redirect_stdout(io.StringIO()):
                 imp.generate_implementation(cipher, files_dir / f"{cipher.name}.py", "python",
                                             _spec_needs_unroll(spec))
-                out = imp.evaluate(cipher, inputs)
+                out = imp.evaluate_python(cipher, inputs)
             return cipher, out
 
         # independent reference: the verified block cipher with an all-zero key
@@ -1039,7 +1052,7 @@ def derive_permutation(block_spec, block_cipher=None, sample_input=None):
             sample_input = [list(block_cipher.test_vectors[0][0][0])]
             zero_key = [0] * len(block_cipher.test_vectors[0][0][1])
             with redirect_stdout(io.StringIO()):
-                reference = imp.evaluate(block_cipher, [sample_input[0], zero_key])
+                reference = imp.evaluate_python(block_cipher, [sample_input[0], zero_key])
         else:  # no block cipher to reference: fall back to the perm's own output (regression anchor)
             reference = None
 

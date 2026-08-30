@@ -53,11 +53,13 @@ class OCPAgent:
         llm_provider: Optional[LLMProvider] = None,
         skill_registry: Optional[SkillRegistry] = None,
         session: Optional[Session] = None,
+        orchestrate: bool = False,
     ):
         self._core = AgentCore(
             llm_provider=llm_provider,
             skill_registry=skill_registry or create_default_registry(),
             session=session or Session(),
+            orchestrate=orchestrate,
         )
 
     @property
@@ -196,6 +198,61 @@ class OCPAgent:
         }
         params.update(kwargs)
         return self._core.execute_direct(SkillRequest(skill=SkillName.LINEAR_ANALYSIS, params=params))
+
+    def integral_analysis(self, constant_bits: List[int], **kwargs) -> SkillResult:
+        """Search for an integral (division-property) distinguisher on the current cipher.
+
+        MILP-only. `constant_bits` are the input bit positions held constant (the rest are
+        active/summed). Extra kwargs: active_bits, show_mode, solver, solution_number.
+        """
+        params: Dict[str, Any] = {"constant_bits": constant_bits}
+        params.update(kwargs)
+        return self._core.execute_direct(SkillRequest(skill=SkillName.INTEGRAL_ANALYSIS, params=params))
+
+    def impossible_differential_analysis(self, model_type: str = "milp", **kwargs) -> SkillResult:
+        """Search for an impossible-differential distinguisher on the current cipher.
+
+        `model_type` is 'milp' or 'sat'. Extra kwargs: show_mode, solver, solution_number.
+        """
+        params: Dict[str, Any] = {"model_type": model_type}
+        params.update(kwargs)
+        return self._core.execute_direct(
+            SkillRequest(skill=SkillName.IMPOSSIBLE_DIFFERENTIAL_ANALYSIS, params=params))
+
+    def zero_correlation_analysis(self, model_type: str = "milp", **kwargs) -> SkillResult:
+        """Search for a zero-correlation linear distinguisher on the current cipher.
+
+        `model_type` is 'milp' or 'sat'. Extra kwargs: show_mode, solver, solution_number.
+        """
+        params: Dict[str, Any] = {"model_type": model_type}
+        params.update(kwargs)
+        return self._core.execute_direct(
+            SkillRequest(skill=SkillName.ZERO_CORRELATION_ANALYSIS, params=params))
+
+    def two_stage_trail_search(
+        self,
+        cipher_name: str,
+        rounds: int,
+        *,
+        cipher_type: str = "blockcipher",
+        version: Any = None,
+        goal: str = "DIFFERENTIALPATH_PROB",
+        **kwargs,
+    ) -> SkillResult:
+        """Two-stage (truncated then bit-level) optimal trail search for a word-oriented cipher.
+
+        Unlike the other analyses this rebuilds the named cipher per stage, so it takes
+        cipher_name/type/version/rounds rather than the loaded cipher. goal is
+        DIFFERENTIALPATH_PROB or LINEARPATH_CORR.
+        """
+        params: Dict[str, Any] = {
+            "cipher_name": cipher_name, "rounds": rounds,
+            "cipher_type": cipher_type, "goal": goal,
+        }
+        if version is not None:
+            params["version"] = version
+        params.update(kwargs)
+        return self._core.execute_direct(SkillRequest(skill=SkillName.TWO_STAGE_TRAIL_SEARCH, params=params))
 
     def define_custom_cipher(
         self,
@@ -713,19 +770,9 @@ class OCPAgent:
         A targeted correction (current spec + the exact validation/test-vector
         failures) instead of a full re-extraction. Returns the corrected spec dict.
         """
-        if self._core.llm is None:
-            raise RuntimeError("AI repair needs a connected LLM provider.")
         if not isinstance(spec, dict):
             raise ValueError("spec must be a JSON object.")
-        from agent.llm.prompt_templates import build_repair_prompt
-        from agent.llm.response_parser import parse_llm_json_object
-
-        prompt = build_repair_prompt(spec, problems or [])
-        raw = self._core.llm.call_llm(prompt)
-        corrected = parse_llm_json_object(raw)
-        if corrected is None:
-            raise ValueError("Could not parse a corrected CipherSpec from the LLM response.")
-        return corrected
+        return self._core._repair_spec(spec, problems)
 
     def add_test_vectors_to_draft(self, tv_data: Any) -> CipherSpecDraft:
         """Inject test vectors (parsed JSON: per-version map or a plain list) into the
@@ -815,6 +862,158 @@ class OCPAgent:
                 result.data["job"] = job
                 result.data["artifact_links"] = job["artifact_links"]
         return result
+
+    def build_and_verify_cipher(self, spec: Union[CipherSpec, Dict[str, Any]], *, max_attempts: int = 3):
+        """Build a cipher from `spec` and verify it against its test vectors, repairing on a
+        KAT failure, via the AgentController harness.
+
+        Runs a one-step plan [build -> KAT gate -> repair] through the generic controller: the
+        cipher is built (define_custom_cipher, which also runs the KAT), the objective verdict
+        is read, and on a mismatch the spec is handed to repair_cipher_spec (LLM) and the build
+        retried, up to `max_attempts`. Without an LLM there is no repair, so a KAT failure fails
+        the run with the mismatch reported. Honors the session cancel flag between attempts.
+
+        This is the first end-to-end goal wired onto the agentic harness; later phases add
+        analysis / report steps to the same engine. Returns a controller RunReport; on success
+        the built cipher is on the session (session.get_cipher()).
+        """
+        from agent.controller import AgentController, Step, ActionResult, definition_verdict_gate
+
+        spec_dict = spec.to_dict() if isinstance(spec, CipherSpec) else dict(spec)
+
+        def build_action(ctx):
+            result = self.define_custom_cipher(ctx["spec"])
+            ctx["cipher"] = self.session.get_cipher()
+            return ActionResult(ok=bool(result.success), data=result.data,
+                                summary=result.summary, error=result.error)
+
+        def repair(ctx, problems, attempt):
+            if self._core.llm is None:
+                return False                          # no repair capability without an LLM
+            fixed = self.repair_cipher_spec(ctx["spec"], problems)
+            if not fixed or fixed == ctx["spec"]:
+                return False                          # no-progress: nothing changed
+            ctx["spec"] = fixed
+            return True
+
+        step = Step("build", action=build_action, gate=definition_verdict_gate, repair=repair)
+        controller = AgentController(
+            session=self.session, is_cancelled=self.is_cancelled, max_attempts=max_attempts,
+        )
+        return controller.run("build a KAT-verified cipher", [step], ctx={"spec": spec_dict})
+
+    def run_analysis_verified(
+        self,
+        goal: str,
+        *,
+        analysis: str = "differential",
+        model_type: str = "milp",
+        backend_fallback: bool = True,
+        max_attempts: int = 2,
+        **kwargs,
+    ):
+        """Run a cryptanalysis on the current cipher via the AgentController, falling back to
+        another installed solver backend if the requested one errors.
+
+        `analysis` selects the family ('differential' or 'linear'); `goal` / `model_type` /
+        extra kwargs pass through to that analysis. On a solver-or-model error the step is
+        repaired by swapping model_type to an installed alternate backend (milp <-> sat) not yet
+        tried, up to `max_attempts` - the common "no MILP solver here, fall back to SAT" case. A
+        run that REACHES a verdict passes the gate: finding no distinguisher (0 trails / UNSAT)
+        is a valid result, not a failure; only a self-inconsistent trail set is rejected.
+
+        Returns a controller RunReport; the analysis result data is on the passing step's
+        outcome.data (and the final backend used is in the run's ctx).
+        """
+        from agent.controller import (
+            AgentController, Step, ActionResult, analysis_verdict_gate, make_backend_fallback_repair,
+        )
+
+        family = (analysis or "differential").lower()
+        runners = {
+            "differential": self.differential_analysis,
+            "linear": self.linear_analysis,
+            "impossible": self.impossible_differential_analysis,
+            "zero_correlation": self.zero_correlation_analysis,
+        }
+        if family not in runners:
+            raise ValueError(f"Unknown analysis '{analysis}'. Use one of {sorted(runners)}.")
+        run = runners[family]
+        # impossible / zero-correlation fix their goal internally (IMPOSSIBLETRUNCATEDDIFF /
+        # ZEROCORRELATIONTRUNCATEDLINEAR) and take no `goal` kwarg; only diff/linear accept it.
+        takes_goal = family in ("differential", "linear")
+
+        def analyze_action(ctx):
+            if self.session.get_cipher() is None:
+                return ActionResult(ok=False, error="no cipher loaded; build one first")
+            call = dict(ctx["kwargs"])
+            call["model_type"] = ctx["model_type"]
+            if takes_goal:
+                call["goal"] = ctx["goal"]
+            result = run(**call)
+            return ActionResult(ok=bool(result.success), data=result.data,
+                                summary=result.summary, error=result.error)
+
+        step = Step(
+            f"{family}_analysis",
+            action=analyze_action,
+            gate=analysis_verdict_gate,
+            repair=make_backend_fallback_repair() if backend_fallback else None,
+        )
+        controller = AgentController(
+            session=self.session, is_cancelled=self.is_cancelled, max_attempts=max_attempts,
+        )
+        return controller.run(
+            f"{family} analysis ({goal})", [step],
+            ctx={"goal": goal, "model_type": model_type, "kwargs": kwargs},
+        )
+
+    def run_pipeline(self, requests, *, goal: str = "multi-step pipeline", max_attempts: int = 3):
+        """Run a list of SkillRequests as a verified multi-step pipeline through the controller.
+
+        Each request becomes a Step whose objective gate + repair come from the default skill
+        registry (a build gets the KAT verdict gate, an analysis gets the verdict gate + solver
+        backend fallback). State flows between steps via the session - e.g. a cipher a definition
+        step builds is read from the session by a later analysis step. A required step that fails
+        after its repair budget halts the pipeline. Returns a controller RunReport.
+
+        `requests` items are SkillRequests, or {"skill": SkillName|str, "params": {...}} dicts.
+        """
+        from agent.controller import AgentController, plan_from_requests
+
+        normalized = [self._as_skill_request(r) for r in requests]
+        repair_spec = self.repair_cipher_spec if self._core.llm is not None else None
+        plan = plan_from_requests(normalized, execute=self._core.execute_direct, repair_spec=repair_spec)
+        controller = AgentController(
+            session=self.session, is_cancelled=self.is_cancelled, max_attempts=max_attempts,
+        )
+        return controller.run(goal, plan, ctx={})
+
+    def run_recipe(self, name: str, *, max_attempts: int = 3, **kwargs):
+        """Run a named recipe (a canned SkillRequest pipeline) through the controller.
+
+        e.g. run_recipe("build_and_analyze", spec=my_spec) builds the cipher then runs
+        differential + linear trail search on it. See agent/recipes.py for available recipes.
+        Extra kwargs pass through to the recipe. Returns a controller RunReport.
+        """
+        from agent.recipes import build_recipe
+        return self.run_pipeline(build_recipe(name, **kwargs), goal=f"recipe: {name}",
+                                 max_attempts=max_attempts)
+
+    @staticmethod
+    def _as_skill_request(item) -> SkillRequest:
+        """Coerce a SkillRequest / dict / (skill, params) into a SkillRequest."""
+        if isinstance(item, SkillRequest):
+            return item
+        if isinstance(item, dict):
+            skill = item["skill"]
+            skill = skill if isinstance(skill, SkillName) else SkillName(skill)
+            return SkillRequest(skill=skill, params=item.get("params") or {})
+        if isinstance(item, (tuple, list)) and len(item) == 2:
+            skill, params = item
+            skill = skill if isinstance(skill, SkillName) else SkillName(skill)
+            return SkillRequest(skill=skill, params=params or {})
+        raise ValueError(f"Cannot interpret {item!r} as a SkillRequest.")
 
     def extract_cipher_from_file(
         self,

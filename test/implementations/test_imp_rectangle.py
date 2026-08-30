@@ -4,13 +4,13 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from primitives.rectangle import RECTANGLE_PERMUTATION, RECTANGLE_BLOCKCIPHER
-from OCP import test_python_unrolled_imp
+from OCP import test_python_unrolled_imp as run_python_unrolled_imp
 
 
 def test_imp_rectangle_permutation():
     cipher = RECTANGLE_PERMUTATION(r=None)
 
-    test_python_unrolled_imp(cipher)
+    run_python_unrolled_imp(cipher)
 
 
 def test_imp_rectangle_blockcipher():
@@ -19,7 +19,7 @@ def test_imp_rectangle_blockcipher():
     for version in RECTANGLE_BLOCKCIPHER_VERSIONS:
         cipher = RECTANGLE_BLOCKCIPHER(r=None, version=version)
 
-        test_python_unrolled_imp(cipher)
+        run_python_unrolled_imp(cipher)
 
 
 if __name__ == "__main__":

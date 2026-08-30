@@ -16,7 +16,10 @@ def test_web_template_exposes_manual_draft_spec_editor():
 def test_web_template_exposes_solver_preflight_status():
     template = Path("web/templates/index.html").read_text(encoding="utf-8")
 
-    assert 'id="solverStatus"' in template
+    # The dedicated "Check Solvers" button and its #solverStatus side-panel were removed
+    # in the control-panel redesign. Solver preflight capabilities are still fetched and
+    # surfaced - now inline in the run-confirmation dialog as "Solver defaults:".
+    assert 'id="solverStatus"' not in template
     assert "fetchSolverCapabilities" in template
     assert "renderSolverStatus" in template
     assert "/api/solvers" in template

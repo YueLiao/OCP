@@ -63,6 +63,8 @@ def test_parse_prompt_marks_file_extraction_as_experimental():
         session_context={},
     )
 
-    assert "Experimental File Import" in prompt
+    # The section was renamed from "## Experimental File Import" to "## File Import";
+    # its auto_build guidance was likewise generalized (no longer "for PDF/image imports").
+    assert "## File Import" in prompt
     assert '"auto_build": false' in prompt
-    assert "Do not set auto_build=true for PDF/image imports." in prompt
+    assert "Do not set auto_build=true." in prompt

@@ -55,18 +55,20 @@ def _format_cli_error(exc):
     return f"\n[Error] {exc}\n"
 
 
-def run_cli(llm_provider: LLMProvider, input_func=input, output_func=print):
+def run_cli(llm_provider: LLMProvider, input_func=input, output_func=print, orchestrate: bool = True):
     """Run an interactive CLI session with the OCP agent.
 
     Args:
         llm_provider: An LLMProvider implementation for natural language processing.
+        orchestrate: Run each turn's skills through the AgentController (per-step verify +
+            auto-repair). On by default; pass False for the plain single-pass loop.
 
     Example:
         from my_llm import MyOpenAIProvider
         from agent.interfaces.cli import run_cli
         run_cli(MyOpenAIProvider(api_key="sk-..."))
     """
-    agent = OCPAgent(llm_provider=llm_provider)
+    agent = OCPAgent(llm_provider=llm_provider, orchestrate=orchestrate)
 
     output_func("=" * 60)
     output_func("  OCP Agent - Automated Cryptanalysis Assistant")

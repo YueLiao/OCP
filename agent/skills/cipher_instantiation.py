@@ -198,6 +198,50 @@ def _validate_version(entry, cipher_type, version):
     return None
 
 
+def resolve_cipher_factory(cipher_name, cipher_type="blockcipher", version=None):
+    """Resolve (cipher_name, type, version) to a ``factory(r) -> cipher`` builder.
+
+    Returns ``(factory, None)`` on success or ``(None, error_message)``. The factory
+    rebuilds a fresh cipher at ``r`` rounds - used by the two-stage trail search, which
+    needs a fresh cipher per stage. Reuses the same catalog/version resolution as
+    :class:`CipherInstantiationSkill`.
+    """
+    cipher_name = (cipher_name or "").lower()
+    cipher_type = (cipher_type or "blockcipher").lower()
+    if cipher_name not in CIPHER_CATALOG:
+        return None, f"Unknown cipher: '{cipher_name}'. Supported: {sorted(CIPHER_CATALOG.keys())}"
+
+    entry = CIPHER_CATALOG[cipher_name]
+    if cipher_type not in entry["factories"]:
+        available = list(entry["factories"].keys())
+        if len(available) == 1:
+            cipher_type = available[0]
+        else:
+            return None, f"Cipher type '{cipher_type}' not available for {cipher_name}. Available: {available}"
+
+    if version is not None:
+        valid = entry.get("valid_versions", {}).get(cipher_type, [])
+        if version not in valid:
+            matches = [v for v in valid if isinstance(v, str) and v.endswith(str(version))]
+            if len(matches) == 1:
+                version = matches[0]
+
+    version_error = _validate_version(entry, cipher_type, version)
+    if version_error:
+        return None, version_error
+
+    mod = importlib.import_module(entry["module"])
+    factory_fn = getattr(mod, entry["factories"][cipher_type])
+
+    def factory(r):
+        kwargs = {"r": r}
+        if version is not None:
+            kwargs["version"] = version
+        return factory_fn(**kwargs)
+
+    return factory, None
+
+
 class CipherInstantiationSkill(BaseSkill):
 
     @property

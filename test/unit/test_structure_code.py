@@ -58,7 +58,7 @@ def test_layer_index_table_from_code_builds_correctly():
     with redirect_stdout(io.StringIO()):
         cipher = build_permutation_from_spec(spec)
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
-        out = imp.evaluate(cipher, [[1, 2, 3, 4]], output_len=None)
+        out = imp.evaluate_python(cipher, [[1, 2, 3, 4]], output_len=None)
     assert out == [sbox[w] for w in [1, 2, 3, 4]]
 
 

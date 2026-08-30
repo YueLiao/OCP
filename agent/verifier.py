@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from solving.solving import is_solver_available
 
@@ -18,7 +18,7 @@ class VerificationResult:
         }
 
 
-def verify_action(action: str, session, params: Dict[str, Any] | None = None) -> VerificationResult:
+def verify_action(action: str, session, params: Optional[Dict[str, Any]] = None) -> VerificationResult:
     """Run lightweight preflight checks before risky Agent actions."""
     params = params or {}
     errors: List[str] = []

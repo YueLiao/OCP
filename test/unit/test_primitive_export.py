@@ -126,7 +126,7 @@ def test_generic_export_versioned_block_cipher_is_one_file_with_version_param():
         with redirect_stdout(io.StringIO()):
             c = build_blockcipher_from_spec(inst)
             imp.generate_implementation(c, get_files_dir() / f"{c.name}.py", "python", _spec_needs_unroll(inst))
-            return imp.evaluate(c, [P, K], output_len=16)
+            return imp.evaluate_python(c, [P, K], output_len=16)
 
     exp_a = _build_eval(spec.instantiate("A"), [1, 2, 3, 4], list(range(16)))
     exp_b = _build_eval(spec.instantiate("B"), [1, 2, 3, 4], list(range(32)))
@@ -143,10 +143,10 @@ def test_generic_export_versioned_block_cipher_is_one_file_with_version_param():
         with redirect_stdout(io.StringIO()):
             ca = mod.DUO_BLOCKCIPHER(version=[16, 64])
             imp.generate_implementation(ca, get_files_dir() / f"{ca.name}.py", "python", True)
-            got_a = imp.evaluate(ca, [[1, 2, 3, 4], list(range(16))], output_len=16)
+            got_a = imp.evaluate_python(ca, [[1, 2, 3, 4], list(range(16))], output_len=16)
             cb = mod.DUO_BLOCKCIPHER(version=[16, 128])
             imp.generate_implementation(cb, get_files_dir() / f"{cb.name}.py", "python", True)
-            got_b = imp.evaluate(cb, [[1, 2, 3, 4], list(range(32))], output_len=16)
+            got_b = imp.evaluate_python(cb, [[1, 2, 3, 4], list(range(32))], output_len=16)
         assert got_a == exp_a and got_b == exp_b       # each version reproduces the builder
     finally:
         ppath.unlink(missing_ok=True)

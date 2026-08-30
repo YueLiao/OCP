@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[2]  # this file -> implementation -> tes
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from primitives.gift import GIFT_PERMUTATION, GIFT_BLOCKCIPHER
-from OCP import test_all_implementations, test_visualisation
+from OCP import test_all_implementations as run_all_implementations, test_visualisation as run_visualisation
 
 
 def test_imp_gift_permutation():
@@ -14,9 +14,9 @@ def test_imp_gift_permutation():
 
         cipher = GIFT_PERMUTATION(r=None, version=version)
 
-        test_all_implementations(cipher)
+        run_all_implementations(cipher)
 
-        test_visualisation(cipher)
+        run_visualisation(cipher)
 
 
 def test_imp_gift_blockcipher():
@@ -25,9 +25,9 @@ def test_imp_gift_blockcipher():
     for version in GIFT_BLOCKCIPHER_VERSIONS:
         cipher = GIFT_BLOCKCIPHER(r=None, version=version)
 
-        test_all_implementations(cipher)
+        run_all_implementations(cipher)
 
-        test_visualisation(cipher)
+        run_visualisation(cipher)
 
 
 if __name__ == "__main__":

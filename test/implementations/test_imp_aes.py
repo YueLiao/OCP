@@ -4,18 +4,18 @@ ROOT = Path(__file__).resolve().parents[2]  # this file -> implementation -> tes
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from primitives.aes import AES_PERMUTATION, AES_BLOCKCIPHER
-from OCP import test_all_implementations, test_visualisation
+from OCP import test_all_implementations as run_all_implementations, test_visualisation as run_visualisation
 
 # Note: For AES, only the *unrolled* implementation is currently supported (and verified against the NIST test vectors). 
 # The rolled implementation is not yet correct for AES because the rolled code generator emits a single round body inside a loop, which assumes every round is structurally identical and indexes round-dependent data by the loop counter. 
-# Hence test_all_implementations is expected to pass only on the unrolled output.
+# Hence run_all_implementations is expected to pass only on the unrolled output.
 
 def test_imp_aes_permutation():
     cipher = AES_PERMUTATION(r=None)
 
-    test_all_implementations(cipher)
+    run_all_implementations(cipher)
 
-    test_visualisation(cipher)
+    run_visualisation(cipher)
 
 
 def test_imp_aes_blockcipher():
@@ -24,9 +24,9 @@ def test_imp_aes_blockcipher():
     for version in AES_BLOCKCIPHER_VERSIONS:
         cipher = AES_BLOCKCIPHER(r=None, version=version)
 
-        test_all_implementations(cipher)
+        run_all_implementations(cipher)
 
-        test_visualisation(cipher)
+        run_visualisation(cipher)
 
 
 if __name__ == "__main__":

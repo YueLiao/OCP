@@ -1,7 +1,7 @@
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 
-def trail_artifact_links(trails: Iterable[Any] | None) -> List[Dict[str, str]]:
+def trail_artifact_links(trails: Optional[Iterable[Any]]) -> List[Dict[str, str]]:
     """Return standard artifact links for generated cryptanalysis trails."""
     links: List[Dict[str, str]] = []
     if not trails:

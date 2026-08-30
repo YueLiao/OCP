@@ -67,7 +67,7 @@ def _run(kbits):
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python",
                                     _spec_needs_unroll(spec))
         for P, K, C in kats:
-            assert imp.evaluate(cipher, [P, K], output_len=None) == C
+            assert imp.evaluate_python(cipher, [P, K], output_len=None) == C
 
 
 def test_led_64_matches_designer_kats():

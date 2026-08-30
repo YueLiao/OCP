@@ -1,30 +1,49 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import json
-import warnings
+
 from tools.paths import get_files_dir
+from tools.model_constraints import expand_var_ids
 
 
-def _emit_warning(message, warn=True):
-    if warn:
-        warnings.warn(message, RuntimeWarning)
+def bin_to_hex(bits):
+    """Format a bit string as hexadecimal, keeping ``"-"`` for unknown nibbles.
 
+    ``bits`` is read most-significant-bit first. Each 4-bit group (nibble) becomes one
+    hex digit. A nibble is rendered as ``"-"`` whenever it contains any unknown bit
+    (``"-"``); this is lossy, since a partially unknown nibble such as ``"1-01"`` cannot
+    be represented exactly. When the length is not a multiple of 4, the input is padded
+    with leading ``"0"`` (on the high/MSB side) so that the represented value is
+    preserved. A warning is printed when padding is added or when a mixed nibble is
+    collapsed to ``"-"``.
 
-def bin_to_hex(bits, warn=True): # Format bits as hex (with "-" for unknown nibbles).
+    Args:
+        bits (str): A string of ``"0"`` / ``"1"`` / ``"-"`` characters, MSB first.
+
+    Returns:
+        str: The hex string, one character per nibble.
+
+    Examples:
+        >>> bin_to_hex("1010")
+        'a'
+        >>> bin_to_hex("----")    # fully-unknown nibble
+        '-'
+        >>> bin_to_hex("1-01")    # mixed unknown bits -> lossy '-' (warns)
+        '-'
+        >>> bin_to_hex("101")     # left-padded to "0101" (warns)
+        '5'
+    """
     if len(bits) % 4 != 0:
         pad = 4 - len(bits) % 4
-        bits += "0" * pad  # Pad with zeros to make length a multiple of 4
-        _emit_warning(f"[WARNING] Padded {pad} trailing '0'(s) to align to 4-bit nibbles for hex formatting.", warn=warn)
+        bits = "0" * pad + bits  # Left-pad with zeros (high/MSB side) to align nibbles, preserving the value
+        print(f"[WARNING] Padded {pad} leading '0'(s) to align to 4-bit nibbles for hex formatting.")
     hex_digits = []
     # Convert each 4-bit group to hex, but keep "-" when any bit is unknown.
     for i in range(0, len(bits), 4):
         chunk = bits[i:i + 4]
         if "-" in chunk:
             if chunk != "----":
-                _emit_warning(
-                    f"[WARNING] Nibble '{chunk}' contains mixed unknown bits; using '-' as a lossy representation.",
-                    warn=warn,
-                )
+                print(f"[WARNING] Nibble '{chunk}' contains mixed unknown bits; using '-' as a lossy representation.")
             hex_digits.append("-")
         else:
             hex_digits.append(hex(int(chunk, 2))[2:])
@@ -32,28 +51,31 @@ def bin_to_hex(bits, warn=True): # Format bits as hex (with "-" for unknown nibb
 
 
 class AttackTrace(ABC):
+    """Abstract base for an attack result.
+
+    Args:
+        attack_type (str): The type of the trail (e.g. ``"differential"``, ``"linear"``, ``"integral"``).
+        data (dict): Attack data. Must contain ``"cipher"`` (str, cipher name,
+            e.g. ``"AES"``); other keys are read on demand by the concrete subclasses.
+        solution_trace (dict, optional): Mapping from variable name to its value,
+            e.g. the solution returned by a MILP/SAT solver. Defaults to None.
+    """
+
     def __init__(self, attack_type, data, solution_trace=None):
-        """
-        Initialize the AttackTrace object.
-
-        Parameters:
-        - attack_type: The type of the trail (e.g., "differential", "linear")
-        - data: A dictionary, must contain:
-            "cipher": str, The name of the cipher (e.g., "AES")
-            "rounds": List[int], The number of rounds, a list of round indices (e.g. [1, 2, 3])
-        - solution_trace: Optional mapping from variable name to its value, for example, the solution returned from MILP/SAT solver.
-        """
-
         if "cipher" not in data:
-            raise ValueError("AttackTrace data must contain 'cipher'")
-        if "rounds" not in data:
-            raise ValueError("AttackTrace data must contain 'rounds'")
+            raise ValueError("data must contain 'cipher'")
 
         self.type = attack_type
         self.data = data
         self.solution_trace = solution_trace or {}
 
     def to_dict(self):
+        """Return the attack result as a JSON-serializable dictionary.
+
+        Returns:
+            dict: A mapping with the keys ``"type"`` (uppercased attack type),
+            ``"data"``, ``"solution_trace"``, and ``"tool"`` (the OCP version tag).
+        """
         return {
             "type": str(self.type).upper(),
             "data": dict(self.data),
@@ -61,57 +83,83 @@ class AttackTrace(ABC):
             "tool": "OCP1.0",
         }
 
+    def _set_output_filenames(self, suffix):
+        # Set output filenames to "<name>_<type>_<solver>_<suffix>.{json,txt,pdf,tex}":
+        config_model = self.data.get("config_model", {})
+        solver_name = self.data.get("config_solver", {}).get("solver", "DEFAULT")
+        if "filename" in config_model:
+            model_path = Path(config_model["filename"])
+            stem = model_path.stem
+            base_name = stem[:-len("_model")] if stem.endswith("_model") else stem
+            base_path = model_path.with_name(f"{base_name}_{self.type}_{solver_name}_{suffix}")
+        else:
+            base_path = get_files_dir() / f"{self.data['cipher']}_{self.type}_{solver_name}_{suffix}"
+        self.json_filename = f"{base_path}.json"
+        self.txt_filename = f"{base_path}.txt"
+        self.pdf_filename = f"{base_path}.pdf"
+        self.tex_filename = f"{base_path}.tex"
+
     @abstractmethod
-    def save_json(self, **kwargs):  # Save the trail information into a .json file.
+    def save_json(self, **kwargs):
+        """Save the attack result to a ``.json`` file."""
         pass
 
     @abstractmethod
-    def save_txt(self, **kwargs): # Save the trail in a human-readable format into a .txt file.
+    def save_txt(self, **kwargs):
+        """Save the attack result as human-readable text to a ``.txt`` file."""
         pass
 
     @abstractmethod
     def save_tex(self, **kwargs):
+        """Save the attack result as a LaTeX ``.tex`` file."""
         pass
 
     @abstractmethod
     def save_pdf(self, **kwargs):
+        """Save the attack result to a ``.pdf`` file."""
         pass
 
 
-# Abstract base class for trail-type attack results
 class Trail(AttackTrace):
+    """Abstract base for trail-type attack results (differential, linear, ...).
+
+    Args:
+        attack_type (str): See :class:`AttackTrace`.
+        data (dict): In addition to the base keys, may contain ``"functions"`` 
+            (list of str, e.g. ``["PERMUTATION", "KEY_SCHEDULE"]``), ``"config_model"`` 
+            (model configuration), and ``"config_solver"`` (solver configuration).
+        solution_trace (dict, optional): See :class:`AttackTrace`. Defaults to None.
+    """
+
     def __init__(self, attack_type, data, solution_trace=None):
-        """
-        Parameters:
-        - data: A dictionary containing:
-            "functions": List[str], The list of functions involved in the cipher (e.g., ["PERMUTATION", "KEY_SCHEDULE"])
-            "config_model": Configuration for the model.
-            "config_solver": Configuration for the solver.
-        """
         super().__init__(attack_type, data, solution_trace=solution_trace)
-        config_model = data.get("config_model", {})
-        config_solver = data.get("config_solver", {})
-        solver_name = config_solver.get("solver", "DEFAULT")
+        self._set_output_filenames("trail")
 
-        if "filename" in config_model:
-            model_path = Path(config_model["filename"])
-            base_name = model_path.stem.removesuffix("_model")
-            base_path = model_path.with_name(base_name)
-            self.json_filename = str(base_path) + f"_{self.type}_{solver_name}_trail.json"
-            self.txt_filename = str(base_path) + f"_{self.type}_{solver_name}_trail.txt"
-        else:
-            base_path = get_files_dir() / f"{self.data['cipher']}_{self.type}_{solver_name}_trail"
-            self.json_filename = str(base_path) + f".json"
-            self.txt_filename = str(base_path) + f".txt"
+    def print_trail(self, show_mode=2, hex_format=True):
+        """Format the trail and print it to stdout.
 
+        Args:
+            show_mode (int): Level of detail, see :meth:`format_trail`.
+            hex_format (bool): If True, format the values in hexadecimal; otherwise, in binary.
+        """
+        print(self.format_trail(show_mode, hex_format=hex_format))
+    
     def save_json(self):
         trail_dict = self.to_dict()
-        with open(self.json_filename, "w") as f:
+        Path(self.json_filename).parent.mkdir(parents=True, exist_ok=True)
+        with open(self.json_filename, "w", encoding="utf-8") as f:
             json.dump(trail_dict, f, ensure_ascii=False, indent='\t')
 
-    def save_txt(self, show_mode=2, hex_format=True, emit_print=True):
-        lines = self.print_trail(show_mode, hex_format=hex_format, emit_print=emit_print)
-        with open(self.txt_filename, "w") as f:
+    def save_txt(self, show_mode=2, hex_format=True):
+        """Save the trail as human-readable text to a ``.txt`` file.
+
+        Args:
+            show_mode (int): Level of detail, see :meth:`format_trail`.
+            hex_format (bool): If True, format the values in hexadecimal; otherwise, in binary.
+        """
+        lines = self.format_trail(show_mode, hex_format=hex_format)
+        Path(self.txt_filename).parent.mkdir(parents=True, exist_ok=True)
+        with open(self.txt_filename, "w", encoding="utf-8") as f:
             f.write(lines)
         return lines
 
@@ -122,22 +170,25 @@ class Trail(AttackTrace):
         raise NotImplementedError("PDF export is not implemented yet.")
 
     @abstractmethod
-    def print_trail(self, show_mode, hex_format=True, emit_print=True):
-        """
-        Print the trail in a human-readable format.
+    def format_trail(self, show_mode=2, hex_format=True):
+        """Return the trail as a human-readable string.
 
-        Parameters:
-        - show_mode:
-            0 - Print only the first and last round (first layer) states excluding temporary variables.
-            1 - Print all rounds (first layer) excluding temporary variables.
-            2 - Print all rounds and all layers excluding temporary variables.
-            3 - Print all rounds and all layers including temporary variables.
-        - hex_format: If True, print the values in hexadecimal format; otherwise, print in binary format.
+        Args:
+            show_mode (int): Level of detail:
+
+                * ``0`` - first and last round only (first layer), excluding temporary variables.
+                * ``1`` - all rounds (first layer only), excluding temporary variables.
+                * ``2`` - all rounds and all layers, excluding temporary variables.
+                * ``3`` - all rounds and all layers, including temporary variables.
+
+            hex_format (bool): If True, format the values in hexadecimal; otherwise, in binary.
+
+        Returns:
+            str: The formatted trail.
         """
         lines = "========== Trail ==========\n"
-        lines += f"Type: {self.type}\n"
+        lines += f"Type: {self.type} ({'hexadecimal' if hex_format else 'binary'})\n"
         lines += f"Cipher: {self.data['cipher']}\n"
-        lines += f"Print {self.type} trail in {'hexadecimal' if hex_format else 'binary'} format.\n"
 
         if show_mode == 0:
             lines += "Show Mode: First Layer of First and Last Round.\n"
@@ -148,7 +199,7 @@ class Trail(AttackTrace):
         elif show_mode == 3:
             lines += "Show Mode: All Layers of All Rounds (Including Temporary Words)\n"
         else:
-            lines += f"[WARNING] Invalid show_mode {show_mode}. Cannot print the trail.\n"
+            lines += f"[ERROR] Invalid show_mode {show_mode}. Cannot format the trail.\n"
             return lines
 
         def _validate_trail_struct(trail_struct):
@@ -171,14 +222,14 @@ class Trail(AttackTrace):
                         }
             """
             if not isinstance(trail_struct, dict):
-                return "[WARNING] trail_struct is not a dictionary. Cannot print the trail structure.\n"
+                return "[WARNING] trail_struct is not a dictionary. Cannot format the trail structure.\n"
 
             for key in ("inputs", "functions", "outputs"):
                 if key in trail_struct and not isinstance(trail_struct[key], dict):
                     return f"[WARNING] trail_struct['{key}'] is not a dictionary.\n"
 
             if "functions" not in trail_struct:
-                return "[WARNING] trail_struct does not contain 'functions'. Cannot print the trail structure.\n"
+                return "[WARNING] trail_struct does not contain 'functions'. Cannot format the trail structure.\n"
 
             for fun, fun_struct in trail_struct["functions"].items():
                 if not isinstance(fun_struct, dict):
@@ -212,7 +263,7 @@ class Trail(AttackTrace):
             lines += "######## Input: ########\n"
             for name, node_list in trail_struct["inputs"].items():
                 state = "".join(node["bin_values"] for node in node_list)
-                lines += f"{name}: " + (bin_to_hex(state, warn=emit_print) if hex_format else state) + "\n"
+                lines += f"{name}: " + (bin_to_hex(state) if hex_format else state) + "\n"
 
         # Print functions
         for fun, fun_struct in trail_struct["functions"].items():
@@ -237,11 +288,11 @@ class Trail(AttackTrace):
                     layer_nodes = fun_struct[r][l]
 
                     state = "".join(layer_nodes[i]["bin_values"] for i in range(nbr_words))
-                    lines += bin_to_hex(state, warn=emit_print) if hex_format else state
+                    lines += bin_to_hex(state) if hex_format else state
 
                     if show_mode == 3 and nbr_temp_words > 0:
                         temp_state = "".join(layer_nodes[nbr_words + i]["bin_values"] for i in range(nbr_temp_words))
-                        lines += bin_to_hex(temp_state, warn=emit_print) if hex_format else temp_state
+                        lines += bin_to_hex(temp_state) if hex_format else temp_state
                     lines += "\n"
 
         # Print outputs
@@ -249,54 +300,222 @@ class Trail(AttackTrace):
             lines += "######## Output: ########\n"
             for name, node_list in trail_struct["outputs"].items():
                 state = "".join(node["bin_values"] for node in node_list)
-                lines += f"{name}: " + (bin_to_hex(state, warn=emit_print) if hex_format else state) + "\n"
+                lines += f"{name}: " + (bin_to_hex(state) if hex_format else state) + "\n"
 
         return lines
 
 
 class DifferentialTrail(Trail):
+    """A differential trail.
+
+    Args:
+        data (dict): In addition to the base keys, may contain ``"diff_weight"``
+            (float, int, or None; the trail weight, i.e. the negative base-2
+            logarithm of the differential probability, e.g. ``2``),
+            ``"rounds_diff_weight"`` (list of float or None; per-round weights,
+            e.g. ``[0, 1, 1]``), and ``"trail_struct"`` (dict; the trail structure).
+        solution_trace (dict, optional): See :class:`AttackTrace`. Defaults to None.
+    """
+
     def __init__(self, data, solution_trace=None):
-        """
-        Parameters:
-        - data: A dictionary containing:
-            "diff_weight": float | int | None, The weight (defined as the negative of logarithm base 2 of the differential probability) of the differential trail (e.g., 2)
-            "rounds_diff_weight": List[float] | None, The list of weights of each round (e.g., [0, 1, 1])
-            "trail_struct": Dict, The structure of the trail
-        """
         super().__init__("differential", data, solution_trace=solution_trace)
 
 
-    def print_trail(self, show_mode=2, hex_format=True, emit_print=True):
-        lines = super().print_trail(show_mode, hex_format=hex_format, emit_print=emit_print)
+    def format_trail(self, show_mode=2, hex_format=True):
+        lines = super().format_trail(show_mode, hex_format=hex_format)
 
         if "diff_weight" in self.data and self.data["diff_weight"] is not None:
             lines += f"\nTotal Weight: {self.data['diff_weight']}\n"
         if "rounds_diff_weight" in self.data and self.data["rounds_diff_weight"] is not None:
             lines += f"rounds_diff_weight: {self.data['rounds_diff_weight']}\n"
-        if emit_print:
-            print(lines)
         return lines
 
 
 class LinearTrail(Trail):
+    """A linear trail.
+
+    Args:
+        data (dict): In addition to the base keys, may contain ``"linear_weight"``
+            (float, int, or None; the trail weight, i.e. the negative base-2
+            logarithm of the linear correlation, e.g. ``2``),
+            ``"rounds_linear_weight"`` (list of float or None; per-round weights,
+            e.g. ``[0, 1, 1]``), and ``"trail_struct"`` (dict; the trail structure).
+        solution_trace (dict, optional): See :class:`AttackTrace`. Defaults to None.
+    """
+
     def __init__(self, data, solution_trace=None):
-        """
-        Parameters:
-        - data: A dictionary containing:
-            "linear_weight": float | int | None, The weight (defined as the negative of logarithm base 2 of the linear correlation) of the linear trail (e.g., 2)
-            "rounds_linear_weight": List[float] | None, The list of weights of each round (e.g., [0, 1, 1])
-            "trail_struct": Dict, The structure of the trail
-        """
         super().__init__("linear", data, solution_trace=solution_trace)
 
 
-    def print_trail(self, show_mode=2, hex_format=True, emit_print=True):
-        lines = super().print_trail(show_mode, hex_format=hex_format, emit_print=emit_print)
+    def format_trail(self, show_mode=2, hex_format=True):
+        lines = super().format_trail(show_mode, hex_format=hex_format)
 
         if "linear_weight" in self.data and self.data["linear_weight"] is not None:
             lines += f"\nTotal Weight: {self.data['linear_weight']}\n"
         if "rounds_linear_weight" in self.data and self.data["rounds_linear_weight"] is not None:
             lines += f"rounds_linear_weight: {self.data['rounds_linear_weight']}\n"
-        if emit_print:
-            print(lines)
         return lines
+
+
+class IntegralDistinguisher(AttackTrace):
+    """An integral (division-property) distinguisher result.
+
+    Args:
+        data (dict): In addition to the base keys, may contain ``"goal"``,
+            ``"status"``, ``"balanced_bits"`` (list), ``"config_model"``, and
+            ``"config_solver"``.
+        solution_trace (dict, optional): See :class:`AttackTrace`. Defaults to None.
+    """
+
+    def __init__(self, data, solution_trace=None):
+        super().__init__("integral", data, solution_trace=solution_trace)
+        self._set_output_filenames("distinguisher")
+
+    def format_distinguisher(self):
+        """Return the distinguisher as a human-readable string.
+
+        Returns:
+            str: The formatted distinguisher.
+        """
+        lines = []
+        lines.append("========== Integral Distinguisher ==========")
+        lines.append(f"Cipher: {self.data['cipher']}")
+        lines.append(f"Goal: {self.data.get('goal')}")
+        lines.append(f"Status: {self.data.get('status')}")
+        lines.append(f"Balanced bits: {self.data.get('balanced_bits', [])}")
+        lines.append(f"Model file: {self.data.get('config_model', {}).get('filename')}")
+        lines.append("")
+        return "\n".join(lines)
+
+    def print_distinguisher(self):
+        """Format the distinguisher and print it to stdout."""
+        print(self.format_distinguisher())
+
+    def save_json(self):
+        Path(self.json_filename).parent.mkdir(parents=True, exist_ok=True)
+        with open(self.json_filename, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, ensure_ascii=False, indent='\t')
+    
+    def save_txt(self):
+        text = self.format_distinguisher()
+        Path(self.txt_filename).parent.mkdir(parents=True, exist_ok=True)
+        with open(self.txt_filename, "w", encoding="utf-8") as f:
+            f.write(text)
+
+    def save_tex(self): # TO DO
+        raise NotImplementedError("LaTeX export is not implemented yet.")
+
+    def save_pdf(self): # TO DO
+        raise NotImplementedError("PDF export is not implemented yet.")
+
+
+# -------------------- Trail extraction from solver assignments -------------------- #
+def solution_bit(solution, var_id):
+    """Map a solver value to '0', '1', or '-'."""
+
+    value = solution.get(var_id, None)
+    if value is None:
+        return "-"
+    try:
+        return "1" if int(round(value)) == 1 else "0"
+    except (TypeError, ValueError, OverflowError):
+        return "-"
+
+
+def extract_trail_structures(cipher, goal, solution, truncated_marker):
+    """Extract a structured trail from a solver assignment."""
+
+    bitwise = truncated_marker not in goal
+
+    def node(var):
+        ids = expand_var_ids(var, bitwise=bitwise)
+        bits = "".join(solution_bit(solution, var_id) for var_id in ids)
+        return {
+            "var_ID": getattr(var, "ID", str(var)),
+            "variables": ids,
+            "bin_values": bits,
+        }
+
+    trail_struct = {
+        "bitwise": bitwise,
+        "inputs": {},
+        "outputs": {},
+        "functions": {},
+    }
+
+    if hasattr(cipher, "inputs") and isinstance(cipher.inputs, dict):
+        for name, var_list in cipher.inputs.items():
+            trail_struct["inputs"][name] = [node(v) for v in var_list]
+    if hasattr(cipher, "outputs") and isinstance(cipher.outputs, dict):
+        for name, var_list in cipher.outputs.items():
+            trail_struct["outputs"][name] = [node(v) for v in var_list]
+
+    for fun in cipher.functions:
+        cipher_function = cipher.functions[fun]
+        fun_store = {
+            "rounds": list(range(1, cipher_function.nbr_rounds + 1)),
+            "nbr_words": cipher_function.nbr_words if hasattr(cipher_function, "nbr_words") else None,
+            "nbr_temp_words": cipher_function.nbr_temp_words if hasattr(cipher_function, "nbr_temp_words") else None,
+        }
+        for round_index in range(1, cipher_function.nbr_rounds + 1):
+            round_store = {}
+            for layer_index in range(cipher_function.nbr_layers + 1):
+                round_store[layer_index] = [node(v) for v in cipher_function.vars[round_index][layer_index]]
+            fun_store[round_index] = round_store
+        trail_struct["functions"][fun] = fun_store
+    return trail_struct
+
+
+def extract_and_format_trails(
+    cipher,
+    goal,
+    config_model,
+    config_solver,
+    show_mode,
+    solutions,
+    trail_class,
+    truncated_marker,
+    weight_key,
+    rounds_weight_key,
+):
+    """Build each distinct trail and immediately save it; return the deduplicated list.
+
+    The goal-specific aggregate (differential total probability, linear ELP, ...) is
+    computed by the caller from the returned trails.
+    """
+
+    trails = []
+    trail_structs = []
+    for i, solution in enumerate(solutions):
+        trail_struct = extract_trail_structures(cipher, goal, solution, truncated_marker)
+        if trail_struct in trail_structs:
+            continue
+        trail_structs.append(trail_struct)
+        data = {
+            "cipher": f"{cipher.nbr_rounds}_round_{cipher.name}",
+            "functions": config_model["functions"],
+            "rounds": config_model["rounds"],
+            "config_model": config_model,
+            "config_solver": config_solver,
+            "trail_struct": trail_struct,
+            weight_key: solution.get("obj_fun_value"),
+            rounds_weight_key: solution.get("rounds_obj_fun_values"),
+        }
+        trail = trail_class(data, solution_trace=solution)
+        if i > 0:
+            print(f"[INFO] Saving the {i+1}-th Trail.")
+            trail.json_filename = (
+                trail.json_filename.replace(".json", f"_{i}.json")
+                if trail.json_filename
+                else str(get_files_dir() / f"{trail.data['cipher']}_trail_{i}.json")
+            )
+            trail.txt_filename = (
+                trail.txt_filename.replace(".txt", f"_{i}.txt")
+                if trail.txt_filename
+                else str(get_files_dir() / f"{trail.data['cipher']}_trail_{i}.txt")
+            )
+        trail.print_trail(show_mode=show_mode)
+        trail.save_json()
+        trail.save_txt(show_mode=show_mode)
+        trails.append(trail)
+    return trails

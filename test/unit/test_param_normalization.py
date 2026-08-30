@@ -26,7 +26,7 @@ def _rot_out(direction):
     with redirect_stdout(io.StringIO()):
         cipher = build_permutation_from_spec(spec)
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
-        return imp.evaluate(cipher, [[0x81, 0]], output_len=None)
+        return imp.evaluate_python(cipher, [[0x81, 0]], output_len=None)
 
 
 def test_direction_left_right_synonyms_build_and_match_l_r():

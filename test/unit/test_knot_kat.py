@@ -20,7 +20,7 @@ def test_knot_permutation_matches_designer_vectors(version):
         cipher = KNOT_PERMUTATION(version=version)
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
         vectors = cipher.test_vectors
-        results = [(imp.evaluate(cipher, tv[0], output_len=None), tv[1]) for tv in vectors]
+        results = [(imp.evaluate_python(cipher, tv[0], output_len=None), tv[1]) for tv in vectors]
 
     assert vectors, f"KNOT-{version} carries no test vectors"
     for got, want in results:

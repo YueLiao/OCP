@@ -197,7 +197,7 @@ def set_config():
 
     try:
         if provider_name in ("none", "direct", ""):
-            agent = OCPAgent()
+            agent = OCPAgent(orchestrate=True)
             config = {"provider": "none", "model": None, "connected": True}
             return jsonify({"success": True, "config": config})
         provider_defaults = get_provider_defaults(provider_name)
@@ -206,7 +206,7 @@ def set_config():
             return _error_response(api_key_error(provider_name), 400, "missing_api_key")
 
         provider = create_llm_provider(provider_name, api_key=api_key, model=model, base_url=base_url or None)
-        agent = OCPAgent(llm_provider=provider)
+        agent = OCPAgent(llm_provider=provider, orchestrate=True)
         config = {
             "provider": provider_name,
             "model": model or default_model(provider_name),
@@ -251,6 +251,12 @@ def chat():
         "panel_settings",
         panel_settings if isinstance(panel_settings, dict) and panel_settings else None,
     )
+
+    # Orchestration toggle: when the client sends an explicit boolean it overrides the agent's
+    # default (on for the web) for this and subsequent turns; omitting it keeps the default.
+    # ON routes the turn's skills through the AgentController (per-step verify + auto-repair).
+    if isinstance(data.get("orchestrate"), bool):
+        agent.session.set_metadata("orchestrate", data["orchestrate"])
 
     try:
         before_ids = {a.get("id") for a in agent.session.get_artifacts() if isinstance(a, dict)}

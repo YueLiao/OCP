@@ -25,10 +25,15 @@ class AgentCore:
         llm_provider: Optional[LLMProvider] = None,
         skill_registry: Optional[SkillRegistry] = None,
         session: Optional[Session] = None,
+        orchestrate: bool = False,
     ):
         self.llm = llm_provider
         self.registry = skill_registry or create_default_registry()
         self.session = session or Session()
+        # When on, a chat turn's skills run through the AgentController (verify + repair per
+        # step) instead of the plain sequential loop. Off by default (single-pass behavior
+        # unchanged); also switchable per-session via metadata "orchestrate".
+        self.orchestrate = orchestrate
 
     def process_message(self, user_message: str) -> str:
         """Process a natural language message through the full LLM pipeline.
@@ -65,6 +70,15 @@ class AgentCore:
         if intent.needs_clarification:
             self.session.add_message("assistant", intent.clarification_prompt)
             return intent.clarification_prompt
+
+        # Orchestrated path: run the turn's skills through the AgentController (each step
+        # verified + repaired against an objective gate) instead of the plain loop. Extraction
+        # turns keep the sequential path, which has its own multi-step LLM pipeline + auto-build.
+        has_extraction = any(r.skill == SkillName.CIPHER_EXTRACTION for r in intent.requests)
+        if self._orchestrate_enabled() and intent.requests and not has_extraction:
+            response = self._run_orchestrated(intent.requests)
+            self.session.add_message("assistant", response)
+            return response
 
         # Execute skills sequentially
         results = []
@@ -108,6 +122,68 @@ class AgentCore:
 
         self.session.add_message("assistant", response)
         return response
+
+    def _orchestrate_enabled(self) -> bool:
+        # An explicit per-session choice (e.g. a UI toggle setting metadata) overrides the
+        # constructor default in BOTH directions; absent that, the constructor default holds.
+        choice = self.session.get_metadata("orchestrate")
+        if choice is not None:
+            return bool(choice)
+        return bool(self.orchestrate)
+
+    def _repair_spec(self, spec, problems):
+        """LLM-targeted CipherSpec repair: current spec + concrete problems -> corrected spec dict.
+
+        Shared by the OCPAgent facade (repair_cipher_spec) and the orchestrated build step, so a
+        chat/pipeline build that fails its KAT is re-drafted, not just reported. Raises when no LLM
+        is connected or the response has no parseable spec.
+        """
+        if self.llm is None:
+            raise RuntimeError("AI repair needs a connected LLM provider.")
+        from agent.llm.prompt_templates import build_repair_prompt
+        corrected = parse_llm_json_object(self.llm.call_llm(build_repair_prompt(spec, problems or [])))
+        if corrected is None:
+            raise ValueError("Could not parse a corrected CipherSpec from the LLM response.")
+        return corrected
+
+    def _run_orchestrated(self, requests) -> str:
+        """Run a turn's SkillRequests through the AgentController and summarize the report.
+
+        Each skill executes via execute_direct (which records results/artifacts and traces), so
+        the orchestrated path adds per-step verify + repair on top of the sequential loop's
+        recording. A cipher a definition step builds is on the session for a later analysis step
+        to read; a build whose KAT fails is re-drafted via the LLM when one is connected.
+        """
+        from agent.controller import AgentController, plan_from_requests
+
+        repair_spec = self._repair_spec if self.llm is not None else None
+        plan = plan_from_requests(requests, execute=self.execute_direct, repair_spec=repair_spec)
+        controller = AgentController(
+            session=self.session,
+            is_cancelled=lambda: bool(self.session.get_metadata("cancel_requested")),
+            max_attempts=3,
+        )
+        report = controller.run("chat turn", plan, ctx={})
+        self.session.set_metadata(
+            "last_requests",
+            [{"skill": r.skill.value, "params": r.params} for r in requests],
+        )
+        return self._summarize_report(report)
+
+    @staticmethod
+    def _summarize_report(report) -> str:
+        """Turn a controller RunReport into the deterministic per-step summary process_message returns."""
+        lines = []
+        for o in report.outcomes:
+            if o.status == "passed":
+                lines.append(o.summary or f"{o.name}: done.")
+            elif o.status == "skipped":
+                lines.append(f"{o.name}: skipped ({o.error})")
+            elif o.status == "cancelled":
+                lines.append(f"{o.name}: cancelled")
+            else:
+                lines.append(f"{o.name} failed: {o.error}")
+        return "\n".join(lines) if lines else (report.summary or "Done.")
 
     def execute_direct(self, request: SkillRequest) -> SkillResult:
         """Execute a skill request directly without LLM involvement.

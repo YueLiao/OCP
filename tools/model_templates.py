@@ -1,7 +1,6 @@
 """Constraint template generation, caching, and instantiation helpers."""
 
 import ast
-from functools import lru_cache
 import os
 import platform
 import re
@@ -10,6 +9,12 @@ import time
 
 from tools.minimize_logic import ttb_to_ineq_logic
 from tools.polyhedron import ttb_to_ineq_convex_hull
+
+# Tool types that produce inequalities from a truth table, per model type.
+_SUPPORTED_TOOLS = {
+    "milp": ("minimize_logic", "minimize_logic_espresso", "polyhedron"),
+    "sat": ("minimize_logic", "minimize_logic_espresso"),
+}
 
 
 def generate_and_save_constraints(
@@ -24,32 +29,26 @@ def generate_and_save_constraints(
     model_filename=None,
 ):
     """
-    Generate template constraints/objective function and save them to self.model_filename.
+    Generate template constraints/objective function and save them to model_filename.
+
+    For a MILP model the returned constraints list carries a trailing ``"Binary\\n<vars>"``
+    declaration (not a real constraint).
 
     Returns:
         tuple[list[str], str]: (constraints, objective_fun)
     """
+    if not input_variables or not output_variables:
+        raise ValueError("generate_and_save_constraints requires non-empty input_variables and output_variables.")
     variables = (
         input_variables + output_variables + weight_variables
         if weight_variables
         else input_variables + output_variables
     )
     time_start = time.time()
-    if model_type == "milp":
-        if tool_type not in [
-            "minimize_logic",
-            "minimize_logic_espresso",
-            "polyhedron",
-        ]:
-            raise ValueError(f"Unsupported tool type {tool_type} for MILP model.")
-    elif model_type == "sat":
-        if tool_type not in [
-            "minimize_logic",
-            "minimize_logic_espresso",
-        ]:
-            raise ValueError(f"Unsupported tool type {tool_type} for SAT model.")
-    else:
-        raise ValueError(f"unknown model type {model_type}")
+    if model_type not in _SUPPORTED_TOOLS:
+        raise ValueError(f"generate_and_save_constraints: unknown model type '{model_type}'")
+    if tool_type not in _SUPPORTED_TOOLS[model_type]:
+        raise ValueError(f"generate_and_save_constraints: unsupported tool type '{tool_type}' for {model_type} model")
 
     if tool_type == "minimize_logic" or tool_type == "minimize_logic_espresso":
         inequalities, information = ttb_to_ineq_logic(
@@ -61,18 +60,21 @@ def generate_and_save_constraints(
 
     elif tool_type == "polyhedron": # Generate inequalities from the truth table using Convex Hull
         inequalities, information = ttb_to_ineq_convex_hull(ttable, variables)
-    else:
-        raise ValueError(f"unknown tool type {tool_type}")
+
+    # Drop any all-zero inequality (no coefficients): espresso/cddlib do not emit these,
+    # but an empty SAT clause / LHS-less MILP row would be malformed if one appeared.
+    inequalities = [ineq for ineq in inequalities if any(ineq[:-1])]
 
     if model_type == 'milp': # Generate MILP constraints from inequalities
         constraints = [inequality_to_constraint_milp(ineq, variables) for ineq in inequalities]
-        num_cons = len(constraints)
+        num_cons = len(constraints)  # real inequalities only (before the Binary line)
+        # The MILP constraints list carries a trailing "Binary\n<vars>" declaration (NOT a real
+        # constraint); "Number of constraints" stays num_cons, so the list length is num_cons + 1.
+        # Consumers must handle the trailing Binary line.
         constraints.append('Binary\n' + ' '.join(variables))
     elif model_type == 'sat':  # Generate SAT constraints from inequalities
         constraints = [inequality_to_constraint_sat(ineq, variables) for ineq in inequalities]
         num_cons = len(constraints)
-    else:
-        raise ValueError(f"unknown model type {model_type}")
 
     time_used = time.time() - time_start
     if model_filename is not None:
@@ -94,9 +96,16 @@ def generate_and_save_constraints(
     return constraints, objective_fun
 
 
-@lru_cache(maxsize=128)
-def load_constraints_template_cached(filename, mtime_ns):
+def load_constraints_template(filename):
+    """
+    Load template constraints/objective function from file.
+
+    Returns:
+        tuple[list[str] | None, str | None]: (constraints, objective_fun)
+    """
     constraints, objective_fun = None, None
+    if not os.path.exists(filename):
+        return None, None
     with open(filename, "r", encoding="utf-8") as file:
         for line in file:
             line = line.strip()
@@ -108,23 +117,7 @@ def load_constraints_template_cached(filename, mtime_ns):
                     raise ValueError(f"Failed to parse constraints from {filename}: {constraints_str}") from e
             elif line.startswith("Weight:"):
                 objective_fun = line.split(":", 1)[1].strip()
-    return tuple(constraints) if constraints is not None else None, objective_fun
-
-
-def load_constraints_template(filename):
-    """
-    Load template constraints/objective function from file.
-
-    Returns:
-        tuple[list[str] | None, str | None]: (constraints, objective_fun)
-    """
-    if not os.path.exists(filename):
-        return None, None
-    constraints, objective_fun = load_constraints_template_cached(
-        filename,
-        os.stat(filename).st_mtime_ns,
-    )
-    return list(constraints) if constraints is not None else None, objective_fun
+    return constraints, objective_fun
 
 
 def build_template_replacer(*template_var_groups):
@@ -193,8 +186,9 @@ def gen_constraints_obj_func_from_template(filename, var_in, var_out, var_p=None
 
 
 def inequality_to_constraint_sat(inequality, variables):
-    # Convert coefficients plus RHS into SAT clause format.
     """
+    Convert coefficients plus RHS into SAT clause format.
+    
     Example:
         inequality = [1, -1, 0, -1, -1], variables = ['x1', 'x2', 'x3', 'x4']
         Return: 'x1 -x2 -x4'
@@ -206,12 +200,15 @@ def inequality_to_constraint_sat(inequality, variables):
         elif coeff == -1:
             terms.append(f"-{var}")
         # coeff == 0 -> variable not used
+    if not terms:
+        raise ValueError(f"Degenerate all-zero inequality has no literals: {inequality}.")
     return " ".join(terms).strip()
 
 
 def inequality_to_constraint_milp(inequality, variables):
-    # Convert coefficients plus RHS into MILP inequality format.
     """
+    Convert coefficients plus RHS into MILP inequality format.
+    
     Example:
         ineq = [1, -1, 0, -1, -1], variables = ['x1', 'x2', 'x3', 'x4']
         Return: 'x1 - x2 - x4 >= -1'
@@ -226,4 +223,6 @@ def inequality_to_constraint_milp(inequality, variables):
         elif abs_coeff > 0:
             terms.append(f"{sign} {abs_coeff} {var}")
         # coeff == 0 -> variable not used
+    if not terms:
+        raise ValueError(f"Degenerate all-zero inequality has no left-hand side: {inequality}.")
     return " ".join(terms).lstrip('+ ').strip() + f" >= {rhs}"

@@ -66,7 +66,7 @@ def test_simon_32_64_build_matches_designer_kat():
         cipher = build_blockcipher_from_spec(spec)
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python",
                                     _spec_needs_unroll(spec))
-        got = imp.evaluate(cipher, [P, K], output_len=None)
+        got = imp.evaluate_python(cipher, [P, K], output_len=None)
     assert got == C
 
 
@@ -88,4 +88,4 @@ def test_simon_32_64_export_round_trips_kat():
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
         assert cipher.test_vectors
         for tv in cipher.test_vectors:
-            assert imp.evaluate(cipher, tv[0], output_len=len(tv[1])) == tv[1]
+            assert imp.evaluate_python(cipher, tv[0], output_len=len(tv[1])) == tv[1]

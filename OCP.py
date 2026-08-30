@@ -25,12 +25,19 @@ def _test_generated_implementation(cipher, language, extension, tester, unroll=F
     suffix = "_unrolled" if unroll else ""
     output_path = FILES_DIR / f"{cipher.name}{suffix}.{extension}"
     imp.generate_implementation(cipher, output_path, language, unroll)
-    if cipher.test_vectors == []:
-        print("warning: no test vector defined!")
-        return False
+    if not cipher.test_vectors:
+        import pytest
+        pytest.skip(f"{cipher.name}: no test vectors defined")
     implementation_name = cipher.name + suffix
     for tv in cipher.test_vectors:
-        tester(cipher, implementation_name, tv[0], tv[1])
+        result = tester(cipher, implementation_name, tv[0], tv[1])
+        if result is None:  # toolchain or generated file unavailable -> skip, do not fail
+            import pytest
+            pytest.skip(f"{cipher.name} ({language}{suffix}): implementation could not be built or run")
+        assert result is True, (
+            f"{cipher.name} ({language}{suffix}): generated implementation output does not "
+            f"match the test vector for input {tv[0]}"
+        )
     return True
 
 

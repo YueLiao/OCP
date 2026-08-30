@@ -36,8 +36,14 @@ class AES_permutation(Permutation):
 
     def gen_rounds_constant_table(self):
         constant_table = []
+        nbr_rounds = self.functions["PERMUTATION"].nbr_rounds
         Rcon = [0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 0x20000000, 0x40000000, 0x80000000, 0x1B000000, 0x36000000]
-        for i in range(1,self.functions["PERMUTATION"].nbr_rounds+1):
+        # If more than 10 rounds are needed, extend Rcon by GF(2^8) doubling (xtime) of the previous constant.
+        for i in range(len(Rcon), nbr_rounds):
+            prev = Rcon[i-1]>>24&0xff
+            rc = ((prev << 1) ^ 0x11B) if (prev & 0x80) else (prev << 1)
+            Rcon.append(rc << 24)
+        for i in range(1, nbr_rounds+1):
             constant_table.append([Rcon[i-1]>>24&0xff, Rcon[i-1]>>16&0xff, Rcon[i-1]>>8&0xff, Rcon[i-1]&0xff] * 4)
         return constant_table
 

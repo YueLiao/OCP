@@ -79,7 +79,7 @@ def test_midori64_from_spec_with_xor_whitening_matches_kats():
     ]
     for P, K, C in kats:
         with redirect_stdout(io.StringIO()):
-            out = imp.evaluate(cipher, [P, K], output_len=64)
+            out = imp.evaluate_python(cipher, [P, K], output_len=64)
         assert _pack(out[:16]) == C, f"got {_pack(out[:16]):016x} want {C:016x}"
 
 
@@ -122,7 +122,7 @@ def test_declarative_archetype_validates_and_matches_kats():
         cipher = build_blockcipher_from_spec(spec)
         fd = get_files_dir(); fd.mkdir(parents=True, exist_ok=True)
         imp.generate_implementation(cipher, fd / f"{cipher.name}.py", "python", True)
-        out = imp.evaluate(cipher, [[0] * 16, [0] * 32], output_len=64)
+        out = imp.evaluate_python(cipher, [[0] * 16, [0] * 32], output_len=64)
     assert _pack(out[:16]) == 0x3c9cceda2bbd449a
 
 
@@ -153,7 +153,7 @@ def test_archetype_carries_through_facts_layer():
         cipher = build_blockcipher_from_spec(spec)
         fd = get_files_dir(); fd.mkdir(parents=True, exist_ok=True)
         imp.generate_implementation(cipher, fd / f"{cipher.name}.py", "python", True)  # name must match evaluate()
-        out = imp.evaluate(cipher, [[0] * 16, [0] * 32], output_len=64)
+        out = imp.evaluate_python(cipher, [[0] * 16, [0] * 32], output_len=64)
     assert _pack(out[:16]) == 0x3c9cceda2bbd449a
 
 
@@ -202,7 +202,7 @@ def test_key_archetype_composes_with_cell_layout():
     with redirect_stdout(io.StringIO()):
         cipher = build_blockcipher_from_spec(spec)
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
-        out = imp.evaluate(cipher, [[0] * 64, [0] * 128], output_len=64)
+        out = imp.evaluate_python(cipher, [[0] * 64, [0] * 128], output_len=64)
     assert int("".join(str(b) for b in out[:64]), 2) == 0x3c9cceda2bbd449a
 
 

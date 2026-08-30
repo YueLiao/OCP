@@ -68,5 +68,5 @@ def test_present80_post_whitening_matches_designer_kats():
                                     _spec_needs_unroll(spec))
     for P, K, C in KATS:
         with redirect_stdout(io.StringIO()):
-            out = imp.evaluate(cipher, [P, K], output_len=64)
+            out = imp.evaluate_python(cipher, [P, K], output_len=64)
         assert out == C, f"PRESENT-80 KAT mismatch for P={P[:8]}.. K={K[:8]}.."

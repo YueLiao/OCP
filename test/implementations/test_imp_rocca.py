@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[2]  # this file -> implementation -> tes
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from primitives.rocca import ROCCA_AD_PERMUTATION
-from OCP import test_all_implementations, test_visualisation
+from OCP import test_all_implementations as run_all_implementations, test_visualisation as run_visualisation
 
 
 def test_imp_rocca_permutation():
@@ -14,9 +14,9 @@ def test_imp_rocca_permutation():
         print("represent_mode:", rm)
         cipher = ROCCA_AD_PERMUTATION(r=5, represent_mode=rm)
 
-        test_all_implementations(cipher)
+        run_all_implementations(cipher)
 
-        test_visualisation(cipher)
+        run_visualisation(cipher)
 
 
 if __name__ == "__main__":

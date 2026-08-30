@@ -4,23 +4,23 @@ ROOT = Path(__file__).resolve().parents[2]  # this file -> implementation -> tes
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from primitives.salsa import SALSA_PERMUTATION, SALSA_KEYPERMUTATION
-from OCP import test_all_implementations, test_visualisation
+from OCP import test_all_implementations as run_all_implementations, test_visualisation as run_visualisation
 
 
 def test_imp_salsa_permutation():
     cipher = SALSA_PERMUTATION(r=None)
 
-    test_all_implementations(cipher)
+    run_all_implementations(cipher)
 
-    test_visualisation(cipher)
+    run_visualisation(cipher)
 
 
 def test_imp_salsa_keypermutation():
     cipher = SALSA_KEYPERMUTATION(r=None)
 
-    test_all_implementations(cipher)
+    run_all_implementations(cipher)
 
-    test_visualisation(cipher)
+    run_visualisation(cipher)
 
 
 if __name__ == "__main__":

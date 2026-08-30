@@ -59,7 +59,7 @@ def _run(spec, IN, OUT):
     with redirect_stdout(io.StringIO()):
         cipher = build_permutation_from_spec(spec)
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
-        got = imp.evaluate(cipher, [IN], output_len=None)
+        got = imp.evaluate_python(cipher, [IN], output_len=None)
     return got == OUT
 
 
@@ -152,7 +152,7 @@ def test_arx_exports_to_self_contained_file():
         with redirect_stdout(io.StringIO()):
             cipher = mod.CHACHAEXP_PERMUTATION()
             imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
-            got = imp.evaluate(cipher, [IN], output_len=None)
+            got = imp.evaluate_python(cipher, [IN], output_len=None)
         assert got == OUT
     finally:
         p.unlink(missing_ok=True)

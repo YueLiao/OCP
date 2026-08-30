@@ -485,6 +485,31 @@ class LayerSpec:
         add_type: str - "xor" or "modadd"
         constant_mask: List - which words receive constants (True/None)
         constant_table: List[List[int]] - per-round constant values
+
+    "equal":
+        input_indices: List[List[int]] - single-word groups (source word)
+        output_indices: List[int] - output word indices
+        Copies a word unchanged (out = in); used to save a word for an ARX feed-forward.
+
+    "gf2_linear":
+        matrix: List[List[int]] - a word_bitsize x word_bitsize binary (GF(2)) matrix
+        index_in: List[int] - words the matrix is applied to (bit-level, e.g. a tweakey LFSR)
+        index_out: Optional[List[int]] - output words (defaults to index_in, in place)
+        constants: Optional - per-word constant added after the linear map
+        For a BIT-level LFSR over a word's bits (SKINNY/Deoxys tweakey), NOT a GF(2^n)
+        word-diffusion matrix (that is "matrix").
+
+    "add_identity":
+        (no params) - an explicit do-nothing layer that fills a layer slot. Prefer
+        only_rounds/except_rounds, which insert identities automatically.
+
+    "aes_round":
+        input_indices: List[List[int]] - groups of exactly 16 word positions (each a
+            128-bit AES state as 16 bytes)
+        output_indices: List[List[int]] - matching 16-word output groups
+        A whole AES round (SubBytes + ShiftRows + MixColumns, NO key) as one fused
+        operator - used by AES-based designs like Rocca. AddRoundKey, if any, is a
+        separate add_round_key/xor layer.
     """
 
     layer_type: str
@@ -601,11 +626,11 @@ class CipherSpec:
     pre_whitening: bool = False
     post_whitening: bool = False
 
-    # Declarative key-schedule archetype (Midori / LED family). When set,
-    # expand_key_archetype() lowers it into a concrete key_extract_indices + the
-    # AddRoundKey and round-constant layers, so the LLM can declare a static-key schedule
-    # in a few fields instead of hand-writing the per-round extraction table (the part it
-    # gets wrong). Shape:
+    # Declarative key-schedule archetype. When set, expand_key_archetype() lowers it into a
+    # concrete key handling so the LLM declares the schedule in a few fields instead of
+    # hand-writing the per-round extraction/evolution (the part it gets wrong). Two types:
+    #
+    # "static_alternating" (Midori / LED family - a FIXED key). Shape:
     #   {"type": "static_alternating", "shares": 2, "whitening": "xor_shares",
     #    "round_constants": {"source": "pi_hex", "count": 15}}
     # - shares: split the key into N equal shares; the round key alternates through them
@@ -618,6 +643,19 @@ class CipherSpec:
     # round_structure carries ONLY the data path (SubCell/Shuffle/Mix, no key add); this
     # archetype injects the AddRoundKey (key-add first) and the round constants, and applies
     # the MidoriCore layout (the final round applies only the first data-path layer).
+    #
+    # "tweakey_lfsr" (SKINNY / Deoxys tweakey - an EVOLVING key). Shape:
+    #   {"type": "tweakey_lfsr", "branches": 3, "cells_per_branch": 16, "subkey_cells": 8,
+    #    "permutation": [9,15,8,...], "lfsr_matrices": [null, mat_TK2, mat_TK3]}
+    # - branches: number of parallel tweakey branches TK1..TKz; branches*cells_per_branch
+    #   must equal key_nbr_words (the tweak is concatenated into the key state).
+    # - cells_per_branch: cells in one branch (usually nbr_words); permutation is a
+    #   cells_per_branch-length cell permutation applied per branch (default = SKINNY P_T).
+    # - lfsr_matrices: one per branch, a per-cell GF(2) bit matrix (word_bitsize x
+    #   word_bitsize) or null for no LFSR (TK1). subkey_cells (top cells) are extracted from
+    #   each branch and XORed together (N_XOR for 3 branches) to form the round subkey.
+    # Unlike static_alternating this does NOT emit the round add_round_key: SKINNY adds the
+    # subkey mid-round, so round_structure MUST keep its own add_round_key at that position.
     key_archetype: Optional[Dict[str, Any]] = None
 
     # ARX permutation family (ChaCha / Salsa / Forro / BLAKE-like). expand_arx() lowers this
@@ -870,9 +908,13 @@ class CipherSpec:
         arch = self.key_archetype
         if not arch:
             return self
-        if arch.get("type") != "static_alternating":
+        atype = arch.get("type")
+        if atype == "tweakey_lfsr":
+            return self._expand_tweakey_lfsr()
+        if atype != "static_alternating":
             raise ValueError(
-                f"key_archetype: unknown type {arch.get('type')!r} (expected 'static_alternating')")
+                f"key_archetype: unknown type {atype!r} "
+                f"(expected 'static_alternating' or 'tweakey_lfsr')")
         import copy
         shares = int(arch.get("shares", 1))
         whitening = arch.get("whitening", "none")
@@ -983,6 +1025,81 @@ class CipherSpec:
             new.key_nbr_words = knw
         return new
 
+    def _expand_tweakey_lfsr(self) -> "CipherSpec":
+        """Lower a `tweakey_lfsr` archetype (SKINNY / Deoxys tweakey) into an EVOLVING
+        key_schedule + key_extract_indices, leaving round_structure (its add_round_key
+        included) untouched.
+
+        The tweakey state holds ``branches`` parallel branches (TK1, TK2, ...) of
+        ``cells_per_branch`` cells each. Every round the schedule (a) permutes each branch's
+        cells by ``permutation`` (the SKINNY P_T by default), then (b) for each branch that
+        has an LFSR matrix, applies that per-cell GF(2) matrix to the branch's top
+        ``lfsr_cells`` cells. The round subkey is the XOR, over all branches, of each
+        branch's top ``subkey_cells`` cells; the generic SUBKEYS builder combines the shares
+        (XOR for 2 branches, N_XOR for 3). Because extraction reads the key state at the
+        START of each round (before that round's update), subkey_i is the top cells after
+        i-1 updates - exactly SKINNY's schedule (which achieves the same with an identity
+        first round and an nbr_rounds+1 key schedule).
+
+        Unlike static_alternating this archetype does NOT emit the round-function
+        add_round_key: SKINNY adds the subkey in the MIDDLE of the round (after SubCell and
+        the round constant, before ShiftRows), a position only the hand-written data path
+        knows, so round_structure keeps its own add_round_key.
+        """
+        import copy
+        arch = self.key_archetype
+        branches = int(arch.get("branches", 1))
+        C = int(arch.get("cells_per_branch", self.nbr_words or 0))
+        K = int(arch.get("subkey_cells", (C // 2) if C else 0))
+        L = int(arch.get("lfsr_cells", K))
+        # SKINNY's tweakey cell permutation P_T; override for a different tweakey family.
+        perm = arch.get("permutation", [9, 15, 8, 13, 10, 14, 12, 11, 0, 1, 2, 3, 4, 5, 6, 7])
+        lfsr_mats = arch.get("lfsr_matrices", [None] * branches)
+
+        if branches < 1:
+            raise ValueError("tweakey_lfsr: branches must be >= 1")
+        if C <= 0:
+            raise ValueError("tweakey_lfsr: cells_per_branch must be > 0 (set it or nbr_words)")
+        knw = self.key_nbr_words or (self.key_size // (self.key_word_bitsize or self.word_bitsize or 1))
+        if branches * C != knw:
+            raise ValueError(
+                f"tweakey_lfsr: branches*cells_per_branch ({branches}*{C}={branches * C}) must "
+                f"equal the key word count ({knw}). Set key_nbr_words / key_size accordingly.")
+        if len(perm) != C:
+            raise ValueError(f"tweakey_lfsr: permutation must have cells_per_branch={C} entries "
+                             f"(got {len(perm)}).")
+        if sorted(perm) != list(range(C)):
+            raise ValueError(f"tweakey_lfsr: permutation must be a permutation of 0..{C - 1}.")
+        if len(lfsr_mats) != branches:
+            raise ValueError(
+                f"tweakey_lfsr: lfsr_matrices must have one entry per branch ({branches}); use "
+                f"null for a branch with no LFSR (e.g. TK1). Got {len(lfsr_mats)}.")
+        if not (1 <= K <= C):
+            raise ValueError(f"tweakey_lfsr: subkey_cells must be in 1..{C} (got {K}).")
+        if not (1 <= L <= C):
+            raise ValueError(f"tweakey_lfsr: lfsr_cells must be in 1..{C} (got {L}).")
+
+        # one permutation layer over the whole key state: branch b's block [b*C, b*C+C) is
+        # permuted by perm, offset into that block.
+        full_perm = [b * C + perm[i] for b in range(branches) for i in range(C)]
+        layers = [LayerSpec("permutation", {"table": full_perm})]
+        for b in range(branches):
+            M = lfsr_mats[b]
+            if M is not None:
+                top = list(range(b * C, b * C + L))
+                layers.append(LayerSpec("gf2_linear", {"matrix": M, "index_in": top}))
+
+        if branches == 1:
+            extract = list(range(K))                     # single branch: plain top-K extraction
+        else:
+            extract = [{"xor": [list(range(b * C, b * C + K)) for b in range(branches)]}]
+
+        new = copy.deepcopy(self)
+        new.key_archetype = None
+        new.key_schedule = layers
+        new.key_extract_indices = extract
+        return new
+
     def expand_whitening(self) -> "CipherSpec":
         """Return an equivalent spec with pre/post whitening turned into extra round(s).
 
@@ -1034,22 +1151,33 @@ class CipherSpec:
             except (ValueError, KeyError, TypeError, IndexError) as exc:
                 return [f"Code-param resolution failed: {exc}"]
         if self.key_archetype:
-            # A key_archetype GENERATES the key handling (the per-round add_round_key, the
-            # subkey extraction, and - when round_constants is given - the add_constant). If the
-            # spec ALSO provides those, the archetype silently DOUBLES them (a spec with both an
-            # archetype and a hand-written add_round_key adds the key twice per round - the exact
-            # Midori mis-draft). Reject the conflict up front with a specific message. NOTE: an
-            # add_constant is allowed when the archetype has NO round_constants (LED supplies its
-            # own round constants that way).
-            arch_conflicts = []
+            # A key_archetype GENERATES key handling. If the spec ALSO provides the same handling
+            # the archetype silently DOUBLES it (a hand-written add_round_key next to a
+            # static_alternating archetype adds the key twice - the exact Midori mis-draft). Reject
+            # such conflicts up front. Which handling is generated depends on the archetype TYPE:
+            # static_alternating emits the round-function add_round_key itself, whereas tweakey_lfsr
+            # only evolves the tweakey and REQUIRES round_structure to add the subkey mid-round.
+            atype = self.key_archetype.get("type")
+            if atype not in ("static_alternating", "tweakey_lfsr"):
+                return [f"key_archetype: unknown type {atype!r} "
+                        f"(expected 'static_alternating' or 'tweakey_lfsr')"]
+            arch_conflicts = []   # handling PRESENT that this archetype also generates (would double)
+            arch_errors = []      # other archetype misuse (standalone messages)
             layer_types = [l.layer_type for l in (self.round_structure or [])]
-            if "add_round_key" in layer_types:
-                arch_conflicts.append(
-                    "an add_round_key layer. FIX by REMOVING that add_round_key layer and KEEPING "
-                    "the archetype (it adds the round key AND the round constants AND the whitening "
-                    "for you - all of which are easily lost if you instead delete the archetype and "
-                    "hand-wire the key). round_structure must be the DATA PATH ONLY (SubCell / "
-                    "Shuffle / MixColumn), with NO add_round_key")
+            if atype == "tweakey_lfsr":
+                if "add_round_key" not in layer_types:
+                    arch_errors.append(
+                        "tweakey_lfsr evolves the tweakey and extracts the subkey, but round_structure "
+                        "has NO add_round_key to ADD it. Put an add_round_key layer at the correct round "
+                        "position (SKINNY: after SubCell and the round constant, before ShiftRows).")
+            else:  # static_alternating: the archetype emits the add_round_key
+                if "add_round_key" in layer_types:
+                    arch_conflicts.append(
+                        "an add_round_key layer. FIX by REMOVING that add_round_key layer and KEEPING "
+                        "the archetype (it adds the round key AND the round constants AND the whitening "
+                        "for you - all of which are easily lost if you instead delete the archetype and "
+                        "hand-wire the key). round_structure must be the DATA PATH ONLY (SubCell / "
+                        "Shuffle / MixColumn), with NO add_round_key")
             if self.key_archetype.get("round_constants") and "add_constant" in layer_types:
                 arch_conflicts.append(
                     "an add_constant layer AND archetype round_constants (both add constants - keep one)")
@@ -1057,24 +1185,29 @@ class CipherSpec:
                 arch_conflicts.append(
                     "a hand-written key_extract_indices (the archetype generates it - remove the field)")
             if self.key_schedule:
-                # A key_schedule that UPDATES the key each round means the key EVOLVES, which
-                # CONTRADICTS a static_alternating archetype (a FIXED key). The right fix then is
-                # to remove the ARCHETYPE, not the schedule (the FUTURE/evolving-key class).
-                _update = {"rotation", "shift", "bit_rotation", "gf2_linear"}
-                if (self.key_archetype.get("type") == "static_alternating"
-                        and any(l.layer_type in _update for l in self.key_schedule)):
-                    kinds = sorted({l.layer_type for l in self.key_schedule if l.layer_type in _update})
+                # Both archetypes GENERATE the key_schedule, so a hand-written one conflicts.
+                if atype == "static_alternating":
+                    # An EVOLVING schedule (updates the key each round) also CONTRADICTS a
+                    # static_alternating archetype (a FIXED key); the right fix is to drop the
+                    # archetype, not the schedule (the FUTURE/evolving-key class).
+                    _update = {"rotation", "shift", "bit_rotation", "gf2_linear"}
+                    if any(l.layer_type in _update for l in self.key_schedule):
+                        kinds = sorted({l.layer_type for l in self.key_schedule if l.layer_type in _update})
+                        arch_conflicts.append(
+                            f"an EVOLVING key_schedule (it updates the key each round via {kinds}). A "
+                            f"static_alternating archetype models a FIXED key, so the two CONTRADICT. "
+                            f"FIX by REMOVING the key_archetype and keeping the key_schedule + "
+                            f"pre_whitening/post_whitening (the FUTURE/evolving-key class) - do NOT use "
+                            f"the archetype for a rotating/updating key")
+                    else:
+                        arch_conflicts.append(
+                            "a non-empty key_schedule (the archetype models a static key - remove it)")
+                else:  # tweakey_lfsr generates its own evolving schedule
                     arch_conflicts.append(
-                        f"an EVOLVING key_schedule (it updates the key each round via {kinds}). A "
-                        f"static_alternating archetype models a FIXED key, so the two CONTRADICT. "
-                        f"FIX by REMOVING the key_archetype and keeping the key_schedule + "
-                        f"pre_whitening/post_whitening (the FUTURE/evolving-key class) - do NOT use "
-                        f"the archetype for a rotating/updating key")
-                else:
-                    arch_conflicts.append(
-                        "a non-empty key_schedule (the archetype models a static key - remove it)")
-            if arch_conflicts:
-                return ["key_archetype conflicts with " + c for c in arch_conflicts]
+                        "a hand-written key_schedule (the tweakey_lfsr archetype generates the evolving "
+                        "tweakey schedule - remove the field)")
+            if arch_conflicts or arch_errors:
+                return ["key_archetype conflicts with " + c for c in arch_conflicts] + arch_errors
             try:
                 return self.expand_key_archetype().validate()
             except (ValueError, KeyError, TypeError, IndexError) as exc:
@@ -1118,7 +1251,7 @@ class CipherSpec:
 
         valid_layer_types = {"sbox", "permutation", "rotation", "shift", "xor", "and", "or", "not",
                              "n_xor", "andxor", "modadd", "matrix", "gf2_linear", "add_round_key",
-                             "add_constant", "add_identity", "equal"}
+                             "add_constant", "add_identity", "equal", "aes_round"}
         for i, layer in enumerate(self.round_structure):
             if layer.layer_type not in valid_layer_types:
                 errors.append(f"Round layer {i}: invalid type '{layer.layer_type}'. Valid: {valid_layer_types}")
@@ -1144,6 +1277,9 @@ class CipherSpec:
             "andxor": ("input_indices", "output_indices"),
             "not": ("input_indices", "output_indices"),
             "equal": ("input_indices", "output_indices"),
+            # fused AES round: input_indices/output_indices are groups of exactly 16 words
+            # (AESround enforces the 16 at build); routed through SingleOperatorLayer.
+            "aes_round": ("input_indices", "output_indices"),
         }
         # exact input-group size each operator needs (n_xor takes any >= 1)
         _op_arity = {"xor": 2, "and": 2, "or": 2, "modadd": 2, "andxor": 3, "not": 1, "equal": 1}

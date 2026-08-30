@@ -42,7 +42,7 @@ def test_block_cipher_final_state_equals_evaluate():
     with redirect_stdout(io.StringIO()):
         c = build_blockcipher_from_spec(cs)
         imp.generate_implementation(c, get_files_dir() / (c.name + ".py"), "python", True)
-        ev = imp.evaluate(c, [[0] * 16, [0] * 32], output_len=None)
+        ev = imp.evaluate_python(c, [[0] * 16, [0] * 32], output_len=None)
     res = extract_ocp_round_states(c, [[0] * 16, [0] * 32])
     assert res.get("error") is None
     assert len(res["states"]) >= 16

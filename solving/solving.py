@@ -1,14 +1,13 @@
 """
 This module provides tools for solving MILP/SAT models. Supports multiple solvers and configurations.
     - MILP solvers: Gurobi, SCIP
-    - SAT solvers: PySAT (OR-Tools route reserved but not implemented)
+    - SAT solvers: PySAT, OR-Tools CPSAT
 """
 from importlib import import_module
 from importlib.util import find_spec
 import time
 
 from tools.resource_monitor import RuntimeResourceMonitor
-from tools.search_reporting import log
 
 
 DEFAULT_MILP_SOLVER = "GUROBI"
@@ -37,16 +36,12 @@ PYSAT_SOLVER_NAME_MAP = {name.lower(): name for name in PYSAT_SOLVERS}
 
 
 def _modules_available(*module_names):
+    """Return True if every named module is importable, without importing any of them."""
     return all(find_spec(module_name) is not None for module_name in module_names)
 
 
-gurobipy_import = _modules_available("gurobipy")
-scip_import = _modules_available("pyscipopt")
-ortools_import = _modules_available("ortools", "ortoolslpparser")
-pysat_import = _modules_available("pysat")
-
-
 def _backend_status(available, *, implemented=True, solvers=None):
+    """Build a solver-backend capability entry (availability, implemented flag, solver names)."""
     status = {
         "available": bool(available),
         "implemented": bool(implemented),
@@ -75,8 +70,7 @@ def solver_capabilities():
                 solvers=("DEFAULT", *PYSAT_SOLVERS),
             ),
             "ORTools": _backend_status(
-                _modules_available("ortools", "ortoolslpparser"),
-                implemented=False,
+                _modules_available("ortools"),
                 solvers=("ORTools",),
             ),
         },
@@ -88,6 +82,7 @@ def solver_capabilities():
 
 
 def normalize_milp_solver_name(solver="DEFAULT"):
+    """Normalize a MILP solver name to a supported value ('GUROBI'/'SCIP'), raising on unknown."""
     solver_name = str(solver).upper()
     if solver_name == "DEFAULT":
         return DEFAULT_MILP_SOLVER
@@ -97,6 +92,7 @@ def normalize_milp_solver_name(solver="DEFAULT"):
 
 
 def normalize_sat_solver_name(solver="DEFAULT"):
+    """Normalize a SAT solver name to a supported value ('DEFAULT'/'ORTools'/a PySAT solver), raising on unknown."""
     solver_text = str(solver)
     if solver_text.upper() == "DEFAULT":
         return "DEFAULT"
@@ -140,6 +136,7 @@ def is_solver_available(kind, solver="DEFAULT"):
 
 
 def _load_gurobi():
+    """Import and return the ``gurobipy`` module, or ``None`` if it is unavailable."""
     try:
         return import_module("gurobipy")
     except ImportError:
@@ -147,6 +144,7 @@ def _load_gurobi():
 
 
 def _load_scip_model():
+    """Import and return PySCIPOpt's ``Model`` class, or ``None`` if it is unavailable."""
     try:
         return import_module("pyscipopt").Model
     except ImportError:
@@ -154,6 +152,7 @@ def _load_scip_model():
 
 
 def _scip_error_types():
+    """Return the exception types SCIP may raise (generic fallbacks if PySCIPOpt is unavailable)."""
     try:
         scip_module = import_module("pyscipopt")
     except ImportError:
@@ -163,10 +162,19 @@ def _scip_error_types():
 
 
 def _load_pysat():
+    """Import and return PySAT's ``(CNF, Solver)``, or ``(None, None)`` if it is unavailable."""
     try:
         return import_module("pysat.formula").CNF, import_module("pysat.solvers").Solver
     except ImportError:
         return None, None
+
+
+def _load_ortools_cpsat():
+    """Import and return OR-Tools' ``cp_model`` module, or ``None`` if it is unavailable."""
+    try:
+        return import_module("ortools.sat.python.cp_model")
+    except (ImportError, OSError):
+        return None
 
 
 def solve_milp(filename, config_solver=None):
@@ -189,7 +197,7 @@ def solve_milp(filename, config_solver=None):
         raise ValueError(f"Invalid config_solver: {config_solver}. Expected a dictionary or None.")
     solver = normalize_milp_solver_name(config_solver.get("solver", "DEFAULT"))
     config_solver["solver"] = solver
-    log(f"[INFO] Solving MILP model with settings: {config_solver}", config_solver=config_solver)
+    print(f"[INFO] Solving MILP model with settings: {config_solver}")
     monitor = RuntimeResourceMonitor(interval=0.2)
     monitor.start()
     time_start = time.time()
@@ -203,10 +211,11 @@ def solve_milp(filename, config_solver=None):
         config_solver["solving_time(s)"] = round(time.time() - time_start, 2)
 
 
-def solve_milp_gurobi(filename, config_solver): # Solve a MILP model using Gurobi.
+def solve_milp_gurobi(filename, config_solver):
+    """Solve a MILP model using Gurobi."""
     gp = _load_gurobi()
     if gp is None:
-        log("[WARNING] gurobipy module can't be loaded ... skipping test", config_solver=config_solver)
+        print("[WARNING] gurobipy module can't be loaded ... skipping test")
         return []
 
     try:
@@ -223,20 +232,20 @@ def solve_milp_gurobi(filename, config_solver): # Solve a MILP model using Gurob
         model.optimize()
         sol_count = getattr(model, "SolCount", 0)
     except gp.GurobiError:
-        log("[ERROR] Check your Gurobi license, visit https://gurobi.com/unrestricted for more information", config_solver=config_solver)
+        print("[ERROR] Check your Gurobi license, visit https://gurobi.com/unrestricted for more information")
         return []
 
     # Return a list of solutions
     # Case 1: No solution found
     if sol_count == 0:
-        log("[INFO] Found no solution from Gurobi.", config_solver=config_solver)
+        print("[INFO] Found no solution from Gurobi.")
         return []
 
     # Case 2: Single optimal solution found
     elif solution_number == 1 and getattr(model.Params, "PoolSearchMode", 0) == 0:
         sol = {v.VarName: v.X for v in model.getVars()}
         sol["obj_fun_value"] = model.ObjVal
-        log("[INFO] Found 1 solution from Gurobi.", config_solver=config_solver)
+        print("[INFO] Found 1 solution from Gurobi.")
         return [sol]
 
     # Case 3: Multiple solutions found
@@ -247,14 +256,15 @@ def solve_milp_gurobi(filename, config_solver): # Solve a MILP model using Gurob
             sol = {v.VarName: v.Xn for v in model.getVars()}
             sol.update({"obj_fun_value": model.PoolObjVal})
             sol_list.append(sol)
-        log(f"[INFO] Found {len(sol_list)} solution(s) from Gurobi.", config_solver=config_solver)
+        print(f"[INFO] Found {len(sol_list)} solution(s) from Gurobi.")
         return sol_list
 
 
-def solve_milp_scip(filename, config_solver): # Solve a MILP model using SCIP.
+def solve_milp_scip(filename, config_solver):
+    """Solve a MILP model using SCIP."""
     Model = _load_scip_model()
     if Model is None:
-        log("[WARNING] PySCIPOpt module can't be loaded ... skipping SCIP test", config_solver=config_solver)
+        print("[WARNING] PySCIPOpt module can't be loaded ... skipping SCIP test")
         return []
 
     try:
@@ -265,44 +275,42 @@ def solve_milp_scip(filename, config_solver): # Solve a MILP model using SCIP.
             model.setRealParam("limits/time", config_solver["time_limit"])
         solution_number = config_solver.get("solution_number", 1)
         if isinstance(solution_number, int) and solution_number > 1: # TO DO: support multiple solutions
-            log("[WARNING] It currently does not support finding multiple solutions ... returning only one solution", config_solver=config_solver)
+            print("[WARNING] It currently does not support finding multiple solutions ... returning only one solution")
             model.setIntParam("limits/solutions", solution_number)
         # Solve the model
         model.optimize()
         sol_count = model.getNSols()
     except _scip_error_types() as e:
-        log(f"[WARNING] SCIP solver error: {e} ... skipping test", config_solver=config_solver)
+        print(f"[WARNING] SCIP solver error: {e} ... skipping test")
         return []
 
     # Return a list of solutions
     if sol_count == 0:
-        log("[INFO] Found no solution from SCIP.", config_solver=config_solver)
+        print("[INFO] Found no solution from SCIP.")
         return []
 
     else:
         sol = model.getBestSol()
         sol_dic = {v.name: model.getSolVal(sol, v) for v in model.getVars()}
         sol_dic["obj_fun_value"] = model.getSolObjVal(sol)
-        log("[INFO] Found 1 solution from SCIP.", config_solver=config_solver)
+        print("[INFO] Found 1 solution from SCIP.")
         return [sol_dic]
 
 
 def solve_sat(filename, variable_map, config_solver=None):
     """
-    Solve a SAT problem
+    Solve a SAT problem (DIMACS CNF ``filename``).
 
     Args:
         filename (str): Path to the CNF file.
+        variable_map (dict): Mapping of variable names to their DIMACS integer ids.
         config_solver (dict):
-            - target: The optimization target:
-                - "SATISFIABLE": Find a feasible solution.
-                - "All": Find all feasible solutions.
-            - solver: solver name (e.g, "ORTools", "Cadical103")
+            - solver: solver name (e.g. "DEFAULT", "ORTools", "Cadical103").
+            - solution_number: The number of solutions to find (default: 1).
 
     Returns:
-        - If target is "SATISFIABLE", returns a dict of variable assignments (a solution).
-        - If target is "ALL", returns a list of such dicts (all solutions).
-        - None if no feasible solution is found or solver fails.
+        list: Up to ``solution_number`` solutions, each a dict mapping variable names to 0/1;
+            an empty list if unsatisfiable or the selected backend can't be loaded.
     """
 
     if config_solver is None:
@@ -311,24 +319,33 @@ def solve_sat(filename, variable_map, config_solver=None):
         raise ValueError(f"Invalid config_solver: {config_solver}. Expected a dictionary or None.")
     solver = normalize_sat_solver_name(config_solver.get("solver", "DEFAULT"))
     config_solver["solver"] = solver
-    log(f"[INFO] Solving SAT model with settings: {config_solver}", config_solver=config_solver)
+    print(f"[INFO] Solving SAT model with settings: {config_solver}")
     monitor = RuntimeResourceMonitor(interval=0.2)
     monitor.start()
     time_start = time.time()
     try:
         if solver in ("DEFAULT", *PYSAT_SOLVERS):
-            return solve_sat_pysat(filename, variable_map, config_solver)
+            solutions = solve_sat_pysat(filename, variable_map, config_solver)
         elif solver == "ORTools":
-            return solve_sat_ortools(filename, variable_map, config_solver)
+            solutions = solve_sat_cpsat(filename, variable_map, config_solver)
+        else:
+            solutions = []
+        # Normalize a missing-backend None to [] so callers always get a list (parity with solve_milp).
+        return solutions if solutions is not None else []
     finally:
         config_solver["resource_usage"] = monitor.stop()
         config_solver["solving_time(s)"] = round(time.time() - time_start, 2)
 
 
 def solve_sat_pysat(filename, variable_map, config_solver):
+    """Solve a SAT model (DIMACS CNF ``filename``) with PySAT.
+
+    Returns up to ``config_solver['solution_number']`` ``{variable_name: 0/1}`` solutions
+    over the variables in ``variable_map``, or ``None`` if PySAT is unavailable.
+    """
     CNF, Solver = _load_pysat()
     if CNF is None or Solver is None:
-        log("[WARNING] pysat module can't be loaded ... skipping test", config_solver=config_solver)
+        print("[WARNING] pysat module can't be loaded ... skipping test")
         return None
 
     solver = config_solver.get("solver", "DEFAULT")
@@ -358,9 +375,92 @@ def solve_sat_pysat(filename, variable_map, config_solver):
             sol_count += 1
     finally:
         pysat_solver.delete()
-    log(f"[INFO] Found {len(sol_list)} solution(s) from PySAT.", config_solver=config_solver)
+    print(f"[INFO] Found {len(sol_list)} solution(s) from PySAT.")
     return sol_list
 
 
-def solve_sat_ortools(filename, variable_map, config_solver): # TO DO
-    return None
+def _read_dimacs_clauses(filename):
+    """Read a DIMACS CNF file into a list of integer clauses (dropping the trailing 0)."""
+    clauses = []
+    with open(filename) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line[0] in ("c", "p", "%"):
+                continue
+            literals = [int(token) for token in line.split()]
+            if literals and literals[-1] == 0:
+                literals = literals[:-1]
+            if literals:
+                clauses.append(literals)
+    return clauses
+
+
+def solve_sat_cpsat(filename, variable_map, config_solver):
+    """
+    Solve a SAT problem using Google OR-Tools CP-SAT solver.
+
+    Args:
+        filename (str): Path to the DIMACS CNF file.
+        variable_map (dict): Mapping of variable names to their DIMACS integer ids.
+        config_solver (dict):
+            - solution_number: The number of solutions to find (default: 1).
+
+    Returns:
+        - A list of solutions, each a dict mapping variable names to 0/1 assignments.
+        - None if OR-Tools CP-SAT can't be loaded.
+    """
+    cp_model = _load_ortools_cpsat()
+    if cp_model is None:
+        print("[WARNING] OR-Tools CP-SAT module can't be loaded ... skipping test")
+        return None
+
+    # Creates the model
+    model = cp_model.CpModel()
+
+    # Creates the variables (the CNF is numeric, so index Boolean variables by DIMACS id).
+    clauses = _read_dimacs_clauses(filename)
+    boolean_var_map = {}
+    for var_id in {abs(lit) for clause in clauses for lit in clause} | set(variable_map.values()):
+        boolean_var_map[var_id] = model.new_bool_var(f"x{var_id}")
+
+    # Add constraints
+    for clause in clauses:
+        model.add_bool_or([boolean_var_map[-lit].Not() if lit < 0 else boolean_var_map[lit] for lit in clause])
+
+    solver = cp_model.CpSolver()
+    solver.parameters.num_workers = 1
+    config_solver = config_solver or {}
+    solution_number = config_solver.get("solution_number", 1)
+    sol_list = []
+
+    if solution_number == 1:
+        status = solver.solve(model)
+        sol = {}
+        if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
+            for var, var_id in variable_map.items():
+                sol[var] = solver.value(boolean_var_map[var_id])
+            sol_list.append(sol)
+        print(f"[INFO] Found {len(sol_list)} solution(s) from OR-Tools CP-SAT.")
+        return sol_list
+
+    elif solution_number > 1:
+        class VarArraySolutionPrinter(cp_model.CpSolverSolutionCallback):
+            def __init__(self, variable_map, boolean_var_map, solution_number):
+                cp_model.CpSolverSolutionCallback.__init__(self)
+                self.variable_map = variable_map
+                self.boolean_var_map = boolean_var_map
+                self.solution_number = solution_number
+                self.solutions = []
+            def on_solution_callback(self):
+                if len(self.solutions) >= self.solution_number:
+                    return
+                sol = {}
+                for var, var_id in self.variable_map.items():
+                    sol[var] = self.value(self.boolean_var_map[var_id])
+                self.solutions.append(sol)
+
+        solution_printer = VarArraySolutionPrinter(variable_map, boolean_var_map, solution_number)
+        solver.SearchForAllSolutions(model, solution_printer)
+        print(f"[INFO] Found {len(solution_printer.solutions)} solution(s) from OR-Tools CP-SAT.")
+        return solution_printer.solutions
+    return sol_list

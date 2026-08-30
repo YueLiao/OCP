@@ -86,7 +86,7 @@ def test_code_derived_constants_match_reference_and_kat():
     with redirect_stdout(io.StringIO()):
         cipher = build_blockcipher_from_spec(spec)
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
-        out = imp.evaluate(cipher, [[0] * 16, [0] * 32], output_len=64)
+        out = imp.evaluate_python(cipher, [[0] * 16, [0] * 32], output_len=64)
     val = 0
     for v in out[:16]:
         val = (val << 4) | (v & 0xF)
@@ -116,7 +116,7 @@ def test_code_source_works_in_layout_add_round_constant():
         with redirect_stdout(io.StringIO()):
             cipher = build_permutation_from_spec(spec)
             imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
-            return imp.evaluate(cipher, [[1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0]],
+            return imp.evaluate_python(cipher, [[1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0]],
                                 output_len=None)
 
     from agent.skills.cipher_definition import build_permutation_from_spec  # noqa: local import for clarity

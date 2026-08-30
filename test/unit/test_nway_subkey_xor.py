@@ -32,7 +32,7 @@ def test_three_way_xor_extraction_matches_independent_reference():
     with redirect_stdout(io.StringIO()):
         cipher = build_blockcipher_from_spec(spec)
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
-        got = imp.evaluate(cipher, [P, K], output_len=None)
+        got = imp.evaluate_python(cipher, [P, K], output_len=None)
     assert got == ref
     # the exporter emits an N_XOR reduce over 3 shares, not a 2-input XOR
     with redirect_stdout(io.StringIO()):
@@ -109,5 +109,5 @@ def test_skinny_128_384_matches_designer_kat():
         cipher = build_blockcipher_from_spec(spec)
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python",
                                     _spec_needs_unroll(spec))
-        got = imp.evaluate(cipher, [P, K], output_len=None)
+        got = imp.evaluate_python(cipher, [P, K], output_len=None)
     assert got == C

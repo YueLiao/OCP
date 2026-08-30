@@ -117,7 +117,7 @@ def _eval_block(spec, inputs):
         c = build_blockcipher_from_spec(spec)
         fd = get_files_dir(); fd.mkdir(parents=True, exist_ok=True)
         imp.generate_implementation(c, fd / f"{c.name}.py", "python", _spec_needs_unroll(spec))
-        return imp.evaluate(c, inputs, output_len=2)
+        return imp.evaluate_python(c, inputs, output_len=2)
 
 
 def test_expand_whitening_adds_round_and_marks_non_key_layers():
@@ -190,7 +190,7 @@ def test_round_dependent_key_extraction_alternates_halves():
         c = build_blockcipher_from_spec(spec)
         fd = get_files_dir(); fd.mkdir(parents=True, exist_ok=True)
         imp.generate_implementation(c, fd / f"{c.name}.py", "python", _spec_needs_unroll(spec))
-        out = imp.evaluate(c, [[1, 2], [3, 4, 5, 6]], output_len=2)
+        out = imp.evaluate_python(c, [[1, 2], [3, 4, 5, 6]], output_len=2)
     assert out == [7, 0], out
 
 

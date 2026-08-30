@@ -16,7 +16,7 @@ def _build_and_run_stored(factory):
     with redirect_stdout(io.StringIO()):
         cipher = factory()
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
-        results = [(imp.evaluate(cipher, tv[0], output_len=len(tv[1])), tv[1])
+        results = [(imp.evaluate_python(cipher, tv[0], output_len=len(tv[1])), tv[1])
                    for tv in cipher.test_vectors]
     return cipher.test_vectors, results
 
@@ -78,4 +78,4 @@ def test_tinyarx_fixture_yields_passing_kats():
         for tv in spec.test_vectors:
             (x0, x1), out = tv[0][0], tv[1]
             assert ref(x0, x1) == out                        # vectors are independently correct
-            assert imp.evaluate(cipher, tv[0], output_len=len(out)) == out
+            assert imp.evaluate_python(cipher, tv[0], output_len=len(out)) == out

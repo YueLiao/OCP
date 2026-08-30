@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[2]  # this file -> differential cryptana
 sys.path.insert(0, str(ROOT))
 from primitives.gift import GIFT_PERMUTATION, GIFT_BLOCKCIPHER
 import attacks.attacks as attacks
-from tools.predefined_constraints import gen_predefined_constraints
+from tools.model_constraints import gen_predefined_constraints
 
 
 # Example: Test known 12-round differential trail for GIFT64.

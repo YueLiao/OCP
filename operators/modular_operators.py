@@ -1,11 +1,5 @@
-from operators.operators import (
-    BinaryOperator,
-    UnaryOperator,
-    RaiseExceptionVersionNotExisting,
-    binary_declaration,
-    raise_unknown_implementation_type,
-    raise_unknown_model_type,
-)
+from operators.operators import BinaryOperator, UnaryOperator, RaiseExceptionVersionNotExisting, raise_unknown_implementation_type, raise_unknown_model_type
+from tools.operator_constraints import binary_declaration
 
 
 def _word_mask(bitsize):
@@ -23,13 +17,23 @@ def _modular_expression(left, right, operator, modulo, bitsize):
     return f"{expr} % {modulo}"
 
 
-class ModAdd(BinaryOperator): # Operator for the modular addition: add the two input variables together towards the output variable
-                              # (optional "modulo" defines the modular value in case of a modular addition, by default it uses 2^bitsize as modular value)
+class ModAdd(BinaryOperator):
+    """Modular addition of the two input variables into the output.
+
+    ``modulo`` optionally sets the modulus; by default it uses 2^bitsize.
+    """
+
+    SUPPORTED_MODEL_VERSIONS = {
+        "sat":  ("XORDIFF", "LINEAR"),
+        "milp": ("XORDIFF", "XORDIFF_1", "XORDIFF_2", "XORDIFF_3", "LINEAR", "INTEGRAL_TWOSUBSET"),
+    }
+
     def __init__(self, input_vars, output_vars, modulo = None, ID = None):
         super().__init__(input_vars, output_vars, ID = ID)
         self.modulo = modulo
 
     def generate_implementation(self, implementation_type='python', unroll=False):
+        self.check_supported_implementation(implementation_type)
         var_out = self.get_var_ID('out', 0, unroll)
         var_in1 = self.get_var_ID('in', 0, unroll)
         var_in2 = self.get_var_ID('in', 1, unroll)
@@ -44,9 +48,10 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
             else:
                 raise NotImplementedError(f"{self.__class__.__name__}: non-power-of-two modulo is not handled for verilog")
         else:
-            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
+            raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_model(self, model_type='sat'):
+        self.check_supported_model_version(model_type)
         model_list = []
         if model_type == 'sat':
             if self.model_version in [self.__class__.__name__ + "_XORDIFF"]: # Reference: [1] Nicky Mouha and Bart Preneel. Towards finding optimal differential charac- teristics for ARX. [2] Ling Sun, Wei Wang, and Meiqin Wang. Accelerating the search of differential and linear characteristics with the SAT method
@@ -113,7 +118,7 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
                     model_list += [f'{a} -{c} {d}', f'-{a} {c} {d}', f'{b} -{c} {d}', f'-{b} {c} {d}']
                 self.weight = var_p
                 return model_list
-            else: RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
+            else: RaiseExceptionVersionNotExisting(self.__class__.__name__, self.model_version, model_type)
         elif model_type == 'milp':
             if self.model_version in [self.__class__.__name__ + "_XORDIFF"]: # Reference: Kai Fu, Meiqin Wang, Yinghua Guo, Siwei Sun, Lei Hu. MILP-Based Automatic Search Algorithms for Differential and Linear Trails for Speck
                 var_in1, var_in2, var_out = (self.get_var_model("in", 0),  self.get_var_model("in", 1), self.get_var_model("out", 0))
@@ -268,14 +273,18 @@ class ModAdd(BinaryOperator): # Operator for the modular addition: add the two i
                 self.weight = []
                 return model_list
             else:
-                RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
+                RaiseExceptionVersionNotExisting(self.__class__.__name__, self.model_version, model_type)
+        elif model_type == 'cp': RaiseExceptionVersionNotExisting(self.__class__.__name__, self.model_version, model_type)
         else:
-            raise_unknown_model_type(str(self.__class__.__name__), model_type)
+            raise_unknown_model_type(self.__class__.__name__, model_type)
 
 
-class ModMul(BinaryOperator):  # Operator for the modular multiplication: multiply the two input variables together towards the output variable
-                               # (optional "modulo" defines the modular value in case of a modular addition, by default it uses 2^bitsize as modular value)
+class ModMul(BinaryOperator):
+    """Modular multiplication of the two input variables into the output.
+
+    ``modulo`` optionally sets the modulus; by default it uses 2^bitsize.
+    """
+
     def __init__(self, input_vars, output_vars, modulo = None, ID = None):
         super().__init__(input_vars, output_vars, ID = ID )
         self.modulo = modulo
@@ -295,18 +304,22 @@ class ModMul(BinaryOperator):  # Operator for the modular multiplication: multip
         elif implementation_type == 'verilog':
             raise NotImplementedError(f"{self.__class__.__name__}: multiplication is not handled for verilog")
         else:
-            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
+            raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_model(self, model_type='sat', unroll=True):
-        if model_type == 'sat': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        elif model_type == 'milp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
+        if model_type == 'sat': RaiseExceptionVersionNotExisting(self.__class__.__name__, self.model_version, model_type)
+        elif model_type == 'milp': RaiseExceptionVersionNotExisting(self.__class__.__name__, self.model_version, model_type)
+        elif model_type == 'cp': RaiseExceptionVersionNotExisting(self.__class__.__name__, self.model_version, model_type)
         else:
-            raise_unknown_model_type(str(self.__class__.__name__), model_type)
+            raise_unknown_model_type(self.__class__.__name__, model_type)
 
 
-class ConstantAdd(UnaryOperator): # Operator for the constant addition: use modular addition to incorporate the constant with value "constant" to the input variable and result is stored in the output variable
-                                  # (optional "modulo" defines the modular value in case of a modular addition, by default it uses 2^bitsize as modular value)
+class ConstantAdd(UnaryOperator):
+    """Add a round constant to the input variable via modular addition.
+
+    ``modulo`` optionally sets the modulus; by default it uses 2^bitsize.
+    """
+
     def __init__(self, input_vars, output_vars, constant_table, round = 0, index = 0, modulo = None, ID = None):
         super().__init__(input_vars, output_vars, ID = ID)
         self.modulo = modulo
@@ -331,7 +344,7 @@ class ConstantAdd(UnaryOperator): # Operator for the constant addition: use modu
             else:
                 return [f"assign {var_out} = {expr};"]
         else:
-            raise_unknown_implementation_type(str(self.__class__.__name__), implementation_type)
+            raise_unknown_implementation_type(self.__class__.__name__, implementation_type)
 
     def generate_implementation_header(self, implementation_type='python'):
         if implementation_type == 'python':
@@ -346,8 +359,8 @@ class ConstantAdd(UnaryOperator): # Operator for the constant addition: use modu
         else: return None
 
     def generate_model(self, model_type='sat'):
-        if model_type == 'sat': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        elif model_type == 'milp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
-        elif model_type == 'cp': RaiseExceptionVersionNotExisting(str(self.__class__.__name__), self.model_version, model_type)
+        if model_type == 'sat': RaiseExceptionVersionNotExisting(self.__class__.__name__, self.model_version, model_type)
+        elif model_type == 'milp': RaiseExceptionVersionNotExisting(self.__class__.__name__, self.model_version, model_type)
+        elif model_type == 'cp': RaiseExceptionVersionNotExisting(self.__class__.__name__, self.model_version, model_type)
         else:
-            raise_unknown_model_type(str(self.__class__.__name__), model_type)
+            raise_unknown_model_type(self.__class__.__name__, model_type)

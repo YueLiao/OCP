@@ -4,19 +4,19 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from primitives.lblock import LBLOCK_PERMUTATION, LBLOCK_BLOCKCIPHER
-from OCP import test_python_unrolled_imp
+from OCP import test_python_unrolled_imp as run_python_unrolled_imp
 
 
 def test_imp_lblock_permutation():
     cipher = LBLOCK_PERMUTATION(r=None)
 
-    test_python_unrolled_imp(cipher)
+    run_python_unrolled_imp(cipher)
 
 
 def test_imp_lblock_blockcipher():
     cipher = LBLOCK_BLOCKCIPHER(r=None, version=[64,80])
 
-    test_python_unrolled_imp(cipher)
+    run_python_unrolled_imp(cipher)
 
 
 if __name__ == "__main__":

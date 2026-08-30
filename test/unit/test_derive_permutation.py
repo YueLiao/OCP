@@ -51,10 +51,10 @@ def test_derived_permutation_kat_equals_block_cipher_with_zero_keys():
     with redirect_stdout(io.StringIO()):
         imp.generate_implementation(perm_cipher, get_files_dir() / f"{perm_cipher.name}.py",
                                     "python", _spec_needs_unroll(perm_spec))
-        perm_out = imp.evaluate(perm_cipher, sample_in)
+        perm_out = imp.evaluate_python(perm_cipher, sample_in)
         # independent reference: the block cipher (all-zero key), plaintext repacked cells->bits
         pt_bits = [(v >> (cb - 1 - j)) & 1 for v in sample_in[0] for j in range(cb)]
-        block_ref = imp.evaluate(cipher, [pt_bits, [0] * 128])
+        block_ref = imp.evaluate_python(cipher, [pt_bits, [0] * 128])
     out_bits = [(v >> (cb - 1 - j)) & 1 for v in perm_out for j in range(cb)]
     assert perm_out == kat_out          # perm reproduces its own KAT
     assert out_bits == block_ref        # and matches the bit-level block with zero keys

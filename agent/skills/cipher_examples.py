@@ -299,8 +299,13 @@ _DESCRIPTIONS = {
         "matrix applied to each listed word - distinct from 'matrix', which is a GF(2^n) "
         "word-diffusion matrix) on the tweak branch's words, plus a word permutation; then "
         "key_extract_indices pulls the subkey, which may be NON-CONTIGUOUS (words 0,2,4,6). "
-        "Use this for any tweakable cipher (SKINNY, Deoxys, CRAFT) or any key/tweakey LFSR that "
-        "mixes the bits of a word."
+        "Use this hand-written form for any key/tweakey LFSR that mixes the bits of a word. "
+        "For a STANDARD SKINNY/Deoxys tweakey (branches TK1..TKz, each permuted by the SKINNY "
+        "P_T with a per-branch LFSR, subkey = XOR of the branches' top cells), PREFER the "
+        "declarative key_archetype {\"type\": \"tweakey_lfsr\", \"branches\": z, "
+        "\"cells_per_branch\": nbr_words, \"subkey_cells\": K, \"lfsr_matrices\": [null, ...]} "
+        "instead - it generates the whole evolving schedule + subkey combine, and you keep the "
+        "mid-round add_round_key in round_structure."
     ),
 }
 
@@ -382,7 +387,7 @@ _FAMILY_KEYWORDS = {
                    ("master key", 3), ("whitening key", 4), ("key expansion", 5), ("round constant", 2)],
     # tweakable / tweakey framework: tweak folded into the key, per-word bit LFSR (gf2_linear)
     "mini_tweak": [("tweakable", 6), ("tweakey", 6), ("tweak", 5), ("deoxys", 6), ("craft", 4),
-                   ("qarma", 4), ("key lfsr", 5), ("tweakey schedule", 6)],
+                   ("qarma", 4), ("key lfsr", 5), ("tweakey schedule", 6), ("skinny", 5)],
 }
 
 

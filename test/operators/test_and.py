@@ -7,7 +7,6 @@ if str(ROOT) not in sys.path:
 
 import variables.variables as var
 from operators.boolean_operators import AND
-from operators.Sbox import Sbox
 import tools.milp_search as milp_search
 import tools.sat_search as sat_search
 import solving.solving as solving
@@ -15,49 +14,107 @@ import solving.solving as solving
 FILES_DIR = ROOT / "files"
 FILES_DIR.mkdir(parents=True, exist_ok=True)
 
+_LOG = sys.stdout
+
+
+def log(*args):
+    print(*args, file=_LOG)
+
+
+def expected_solution_count(op):
+    # AND is nonlinear: each bit contributes a fixed number of valid (in0,in1,out[,p]) patterns.
+    # The probability variable p is uniquely determined per bit, so it does not change the count.
+    # Explicit per-version branches so an undeclared future model_version fails loudly.
+    name = op.__class__.__name__
+    bitsize = op.input_vars[0].bitsize
+    if op.model_version == f"{name}_XORDIFF":
+        return 7 ** bitsize                        # per bit: out <= (in0 | in1)               -> 7
+    elif op.model_version == f"{name}_LINEAR":
+        return 5 ** bitsize                        # per bit: in0 <= out and in1 <= out        -> 5
+    elif op.model_version == f"{name}_INTEGRAL_TWOSUBSET":
+        return 4 ** bitsize                        # per bit: out == (in0 | in1)               -> 4
+    else:
+        raise AssertionError(f"unhandled model_version {op.model_version}")
+
+
+def print_solutions(op, sol_list):
+    # Print each solution as [in0,in1] -> [out] at the bit level.
+    a = op.get_var_model("in", 0)
+    b = op.get_var_model("in", 1)
+    c = op.get_var_model("out", 0)
+    for sol in sol_list:
+        ins = ",".join("".join(str(round(float(sol[x])) ) for x in grp) for grp in (a, b))
+        outs = "".join(str(round(float(sol[x]))) for x in c)
+        log(f"  [{ins}] -> [{outs}]")
+
+
+def check_solutions(op, sol_list):
+    # Validity is characterized on (in0,in1,out) bit by bit; the weight variable p is auxiliary.
+    name = op.__class__.__name__
+    a = op.get_var_model("in", 0)
+    b = op.get_var_model("in", 1)
+    c = op.get_var_model("out", 0)
+    for sol in sol_list:
+        av = [round(float(sol[x])) for x in a]  # normalize MILP float/-0.0 & SAT int
+        bv = [round(float(sol[x])) for x in b]
+        cv = [round(float(sol[x])) for x in c]
+        for i in range(len(cv)):
+            if op.model_version == f"{name}_XORDIFF":
+                assert cv[i] <= (av[i] | bv[i]), f"XORDIFF: out active requires in0|in1 at bit {i} in {sol}"
+            elif op.model_version == f"{name}_LINEAR":
+                assert av[i] <= cv[i] and bv[i] <= cv[i], f"LINEAR: in0,in1 must imply out at bit {i} in {sol}"
+            elif op.model_version == f"{name}_INTEGRAL_TWOSUBSET":
+                assert cv[i] == (av[i] | bv[i]), f"INTEGRAL_TWOSUBSET: out != in0|in1 at bit {i} in {sol}"
+            else:
+                raise AssertionError(f"unhandled model_version {op.model_version}")
+
 
 def gen_operator(bitsize=2):
-    print("\n********************* operation: AND ********************* ")
-    my_input, my_output = [var.Variable(bitsize,ID="in"+str(i)) for i in range(2)], [var.Variable(bitsize,ID="out")]
+    log("\n********************* operation: AND ********************* ")
+    my_input = [var.Variable(bitsize, ID="in" + str(i)) for i in range(2)]
+    my_output = [var.Variable(bitsize, ID="out")]
     op = AND(my_input, my_output, ID='AND')
     op.display()
     return op
 
+
 def test_implementation(op):
     code = op.generate_implementation(implementation_type="python", unroll=True)
-    print(f"python code with unroll=True: \n", "\n".join(code))
+    log(f"python code with unroll=True: \n", "\n".join(code))
+    assert code == ["out = in0 & in1"], f"python implementation: {code}"
 
     code = op.generate_implementation(implementation_type="c", unroll=True)
-    print(f"c code with unroll=True: \n", "\n".join(code))
+    log(f"c code with unroll=True: \n", "\n".join(code))
+    assert code == ["out = in0 & in1;"], f"c implementation: {code}"
+
+    code = op.generate_implementation(implementation_type="verilog", unroll=True)
+    log(f"verilog code with unroll=True: \n", "\n".join(code))
+    assert code == ["assign out = in0 & in1;"], f"verilog implementation: {code}"
 
 
 def test_milp_model(op):
-    model_versions = [op.__class__.__name__+"_XORDIFF", op.__class__.__name__+"_LINEAR", op.__class__.__name__+"_INTEGRAL_TWOSUBSET"]
+    model_versions = [op.__class__.__name__ + "_" + v for v in ("XORDIFF", "LINEAR", "INTEGRAL_TWOSUBSET")]
     for model_v in model_versions:
         op.model_version = model_v
         milp_constraints = op.generate_model(model_type='milp')
-        if model_v == op.__class__.__name__+"_INTEGRAL_TWOSUBSET":
-            var_in1, var_in2, var_out = op.get_var_model("in", 0), op.get_var_model("in", 1), op.get_var_model("out", 0)
-            expected_constraints = []
-            for i in range(op.input_vars[0].bitsize):
-                i1, i2, o = var_in1[i], var_in2[i], var_out[i]
-                expected_constraints += [f'{o} - {i1} >= 0', f'{o} - {i2} >= 0', f'{o} - {i1} - {i2} <= 0']
-            assert milp_constraints[:-1] == expected_constraints
-            assert milp_constraints[-1] == 'Binary\n' + ' '.join(v for v in var_in1 + var_in2 + var_out)
-        print(f"MILP constraints with model_version={model_v}: \n", "\n".join(milp_constraints))
+        log(f"MILP constraints with model_version={model_v}: \n", "\n".join(milp_constraints))
         filename = str(FILES_DIR / f"milp_{op.ID}_{model_v}.lp")
-        model = milp_search.write_milp_model(constraints=milp_constraints, obj_fun=op.weight, filename=filename)
+        model = milp_search.write_milp_model(constraints=milp_constraints, filename=filename)
         sol_list = solving.solve_milp(filename, {"solution_number": 100000})
-        print(f"All solutions:\n{sol_list}\n")
+        log(f"Number of solutions: {len(sol_list)}")
+        print_solutions(op, sol_list)
+        expected = expected_solution_count(op)
+        assert len(sol_list) == expected, f"{model_v}: MILP has {len(sol_list)} solutions, expected {expected}"
+        check_solutions(op, sol_list)
 
 
-def test_sat_model(op): 
-    model_versions = [op.__class__.__name__+"_XORDIFF", op.__class__.__name__+"_LINEAR"]
+def test_sat_model(op):
+    model_versions = [op.__class__.__name__ + "_" + v for v in ("XORDIFF", "LINEAR")]
     solver = None  # Change to test different solvers supported for solving SAT problems
     for model_v in model_versions:
         op.model_version = model_v
         sat_constraints = op.generate_model(model_type='sat')
-        print(f"SAT constraints with model_version={model_v}: \n", "\n".join(sat_constraints))
+        log(f"SAT constraints with model_version={model_v}: \n", "\n".join(sat_constraints))
         if solver == "CPSAT":
             family_of_variables = ' '.join(sat_constraints).replace('-', '')
             all_variables = sorted(set(family_of_variables.split()))
@@ -66,23 +123,17 @@ def test_sat_model(op):
         else:
             filename = str(FILES_DIR / f"sat_{op.ID}_{model_v}.cnf")
             model = sat_search.write_sat_model(constraints=sat_constraints, filename=filename)
-            print("variable_map in sat:\n", model["variable_map"])
+            log("variable_map in sat:\n", model["variable_map"])
             sol_list = solving.solve_sat(filename, model["variable_map"], {"solution_number": 100000})
-        print(f"All solutions:\n{sol_list}")
-
-
-def trans_sbox(): # Regard bit-wiseAND as an S-box and compute its ddt and lat
-    and_sbox = Sbox([var.Variable(2,ID="in")], [var.Variable(1,ID="out")], input_bitsize=2, output_bitsize=1, ID="and_sbox")
-    and_sbox.table = [0,0,0,1]
-
-    ddt = and_sbox.computeDDT()
-    print("ddt and number of non-zeros", ddt, len([ddt[i][j] for i in range(len(ddt)) for j in range(len(ddt[i])) if ddt[i][j] != 0]))
-
-    lat = and_sbox.computeLAT()
-    print("lat and number of non-zeros", lat, len([lat[i][j] for i in range(len(lat)) for j in range(len(lat[i])) if lat[i][j] != 0]))
+        log(f"Number of solutions: {len(sol_list)}")
+        print_solutions(op, sol_list)
+        expected = expected_solution_count(op)
+        assert len(sol_list) == expected, f"{model_v}: SAT has {len(sol_list)} solutions, expected {expected}"
+        check_solutions(op, sol_list)
 
 
 def test_and(bitsize):
+
     op = gen_operator(bitsize=bitsize)
 
     test_implementation(op)
@@ -93,12 +144,16 @@ def test_and(bitsize):
 
 
 if __name__ == '__main__':
-    print(f"=== Implementation Test Log ===")
+    log_path = FILES_DIR / "test_and_log.txt"
+    with open(log_path, "w") as log_file:
+        _LOG = log_file
+        log("=== Implementation Test Log ===")
 
-    test_and(bitsize=1)
+        test_and(bitsize=1)
+        test_and(bitsize=2)
+        test_and(bitsize=3)
+        test_and(bitsize=4)
 
-    test_and(bitsize=2)
+        log("All implementation tests completed!")
 
-    trans_sbox()
-
-    print("All implementation tests completed!")
+    print(f"log written to {log_path}")

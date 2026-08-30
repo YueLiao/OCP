@@ -118,7 +118,11 @@ def test_text_first_extraction_reports_unparseable_llm_responses():
     result = agent.extract_cipher_facts("x <- y")
 
     assert not result.success
-    assert result.error == "LLM response did not contain parseable cipher facts JSON."
+    # The message now starts with this sentence and appends troubleshooting guidance
+    # plus the saved-response path.
+    assert result.error.startswith(
+        "LLM response did not contain parseable cipher facts JSON."
+    )
 
 
 def test_text_first_extract_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):

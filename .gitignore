@@ -33,3 +33,7 @@ files/*.txt
 # dedicated cleanup commit if the project decides to regenerate them on demand.
 files/*_modeling/ttable.txt
 files/*_modeling/sttable.txt
+
+# generated solver artifacts / scratch
+files/
+sat.cnf

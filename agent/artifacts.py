@@ -1,7 +1,7 @@
 import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 
 def _artifact_type(label: str, path: str) -> str:
@@ -23,7 +23,7 @@ def _artifact_id(source_skill: str, label: str, path: str) -> str:
 
 
 def normalize_artifact_links(
-    artifact_links: Iterable[Dict[str, Any]] | None,
+    artifact_links: Optional[Iterable[Dict[str, Any]]],
     *,
     source_skill: str,
 ) -> List[Dict[str, Any]]:

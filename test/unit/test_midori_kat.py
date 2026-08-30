@@ -31,7 +31,7 @@ def _build_and_eval(version, tv):
         cipher = m.MIDORI_BLOCKCIPHER(version=version)
         fd = get_files_dir(); fd.mkdir(parents=True, exist_ok=True)
         imp.generate_implementation(cipher, fd / f"Midori{version}.py", "python", True)  # round-dependent -> unroll
-        out = imp.evaluate(cipher, [tv['plaintext'], tv['key']], output_len=out_len)
+        out = imp.evaluate_python(cipher, [tv['plaintext'], tv['key']], output_len=out_len)
     return _pack(out[:16], w)
 
 

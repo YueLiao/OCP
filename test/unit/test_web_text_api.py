@@ -37,6 +37,16 @@ class FakeFactsProvider(LLMProvider):
         }"""
 
 
+# The /api/text/draft endpoint now runs a deterministic pre-flight (lint_cipher_text)
+# that blocks any input shorter than 40 chars as "insufficient_cipher_text" before
+# calling the LLM. Use a description long enough to clear that gate so these tests
+# still exercise the extract/draft path they intend to.
+SUFFICIENT_TEXT = (
+    "TinyARX is an ARX permutation with 2 rounds over a 32-bit state "
+    "(2 words x 16 bits). Each round rotates, modular-adds, and xors the words."
+)
+
+
 def setup_function():
     web_app.agent = None
     web_app.config = {"provider": None, "model": None, "connected": False}
@@ -135,7 +145,11 @@ def test_config_hides_unexpected_provider_setup_details(monkeypatch):
 
 def test_chat_hides_unexpected_processing_details():
     class FailingAgent:
-        session = SimpleNamespace(get_context=lambda: {"has_cipher": False})
+        session = SimpleNamespace(
+            get_context=lambda: {"has_cipher": False},
+            set_metadata=lambda *args, **kwargs: None,
+            get_artifacts=lambda: [],
+        )
 
         def chat(self, message):
             raise RuntimeError("provider secret detail")
@@ -163,7 +177,7 @@ def test_text_draft_hides_unexpected_processing_details():
     web_app.config = {"provider": "fake", "model": "fake", "connected": True}
     client = web_app.app.test_client()
 
-    response = client.post("/api/text/draft", json={"text": "tiny arx text"})
+    response = client.post("/api/text/draft", json={"text": SUFFICIENT_TEXT})
     data = response.get_json()
 
     assert response.status_code == 500
@@ -182,7 +196,7 @@ def test_text_draft_returns_400_for_expected_validation_errors():
     web_app.config = {"provider": "fake", "model": "fake", "connected": True}
     client = web_app.app.test_client()
 
-    response = client.post("/api/text/draft", json={"text": "tiny arx text"})
+    response = client.post("/api/text/draft", json={"text": SUFFICIENT_TEXT})
     data = response.get_json()
 
     assert response.status_code == 400
@@ -302,7 +316,7 @@ def test_text_draft_and_confirm_builds_cipher(monkeypatch, tmp_path):
     web_app.config = {"provider": "fake", "model": "fake", "connected": True}
     client = web_app.app.test_client()
 
-    draft_response = client.post("/api/text/draft", json={"text": "tiny arx text"})
+    draft_response = client.post("/api/text/draft", json={"text": SUFFICIENT_TEXT})
     draft_data = draft_response.get_json()
     blocked_confirm_response = client.post("/api/text/confirm")
     confirm_response = client.post("/api/text/confirm", json={"confirmed": True})
@@ -342,7 +356,7 @@ def test_text_draft_spec_endpoint_validates_manual_edits(monkeypatch, tmp_path):
     web_app.config = {"provider": "fake", "model": "fake", "connected": True}
     client = web_app.app.test_client()
 
-    draft_response = client.post("/api/text/draft", json={"text": "tiny arx text"})
+    draft_response = client.post("/api/text/draft", json={"text": SUFFICIENT_TEXT})
     draft_data = draft_response.get_json()
     spec = draft_data["draft"]["spec"]
     spec["name"] = "TinyARXEdited"

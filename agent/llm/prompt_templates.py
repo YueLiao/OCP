@@ -51,6 +51,10 @@ INTENT_RESPONSE_SCHEMA = {
                             "visualization",
                             "differential_analysis",
                             "linear_analysis",
+                            "integral_analysis",
+                            "impossible_differential_analysis",
+                            "zero_correlation_analysis",
+                            "two_stage_trail_search",
                             "cipher_definition",
                             "cipher_dialogue",
                             "cipher_extraction",
@@ -182,6 +186,13 @@ When a user describes a new cipher, extract a CipherSpec:
     NOT for a GF(2^n) diffusion matrix over words (that is "matrix"). "index_out" defaults to
     "index_in" (in place).
   - add_round_key: {{"operator": "xor"/"modadd"}}
+  - equal: {{"input_indices": [[a]], "output_indices": [c]}} - copy a word unchanged
+    (w[c] = w[a]), e.g. to save a word for an ARX feed-forward.
+  - aes_round: {{"input_indices": [[16 words],...], "output_indices": [[16 words],...]}} - a
+    whole AES round (SubBytes+ShiftRows+MixColumns, NO key) as ONE fused operator over 16-byte
+    states. Each group is exactly 16 words (one 128-bit state). For AES-based designs like Rocca;
+    any AddRoundKey is a SEPARATE add_round_key/xor layer. Plain AES is still built from
+    sbox+matrix+permutation, NOT this.
   - add_identity: {{}} - an explicit do-nothing (identity) layer. Rarely emitted directly;
     prefer "only_rounds"/"except_rounds" below, which insert it automatically.
 - ROUND-DEPENDENT layers (a layer active in only SOME rounds, e.g. AES/PRESENT omit the
@@ -266,10 +277,20 @@ When a user describes a new cipher, extract a CipherSpec:
   round or inflate nbr_rounds yourself.
 - For a TWEAKABLE cipher (SKINNY/Deoxys tweakey framework): OCP has no separate tweak input -
   concatenate the tweak with the key so key_size = key_bits + tweak_bits and treat the whole
-  thing as the key state. The tweakey schedule updates each tweakey branch every round (a word
-  permutation for all branches, plus a per-branch bit-level LFSR via "gf2_linear" on that
-  branch's words) and XORs the branches into the subkey slot (an "xor" layer combining the
-  branch words). Use key_nbr_temp_words for scratch words the combine step needs.
+  thing as the key state (branches TK1..TKz laid out consecutively). PREFERRED: declare the whole
+  tweakey schedule with the "tweakey_lfsr" key_archetype instead of hand-writing it:
+  {{"type": "tweakey_lfsr", "branches": z, "cells_per_branch": nbr_words, "subkey_cells": K,
+    "permutation": [per-branch cell permutation], "lfsr_matrices": [null, mat_TK2, mat_TK3]}}
+  - branches*cells_per_branch MUST equal key_nbr_words. "permutation" defaults to the SKINNY P_T
+    [9,15,8,13,10,14,12,11,0,1,2,3,4,5,6,7]; give one lfsr_matrices entry per branch (null for
+    TK1's no-LFSR branch, a word_bitsize x word_bitsize GF(2) bit matrix for TK2/TK3). The
+    archetype generates the evolving key_schedule AND the per-round subkey = XOR of each branch's
+    top subkey_cells cells; do NOT also set key_schedule or key_extract_indices. Because SKINNY
+    adds the subkey MID-round, round_structure MUST still contain its own add_round_key at the
+    correct position (after SubCell and the round constant, before ShiftRows) - the archetype does
+    NOT emit it. FALLBACK (non-SKINNY tweakey shapes): hand-write key_schedule (a branch word
+    permutation + per-branch "gf2_linear" LFSR) with key_extract_indices {{"xor": [branch0_words,
+    branch1_words, ...]}}.
 - For a PARAMETERIZED FAMILY (several versions like 256/384/512, or SPECK's word sizes): add "versions": {{"256": {{scalar overrides such as block_size/word_bitsize/nbr_rounds plus a "params" dict}}, ...}} and "default_version", and reference per-version values in round params as "$name" (e.g. rotation "amount": "$rot"). One version is built at a time.
 - FIRST CLASSIFY the cipher and pick EXACTLY ONE data-path representation - they are mutually
   exclusive and setting two is rejected: ARX (add-rotate-xor, ChaCha/Salsa/Forro) -> "arx";

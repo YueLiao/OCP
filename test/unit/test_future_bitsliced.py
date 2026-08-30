@@ -114,7 +114,7 @@ def _run_kats(spec):
                                     _spec_needs_unroll(spec))
     for P, K, C in KATS:
         with redirect_stdout(io.StringIO()):
-            out = imp.evaluate(cipher, [_to_bits(P, 64), _to_bits(K, 128)], output_len=64)
+            out = imp.evaluate_python(cipher, [_to_bits(P, 64), _to_bits(K, 128)], output_len=64)
         got = int("".join(str(b) for b in out), 2)
         assert got == C, f"P={P:016x} K={K:032x}: got {got:016x} want {C:016x}"
 

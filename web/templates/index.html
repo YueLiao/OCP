@@ -225,6 +225,14 @@
     </div>
     <button class="btn btn-primary connect-btn" onclick="connect()" id="connectBtn">Connect</button>
 
+    <div class="form-group" style="margin-top:12px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="orchestrateToggle" checked style="width:auto">
+        Orchestrated mode
+      </label>
+      <div class="hint">Run each step through the agent controller — verify against an objective check (build KAT, analysis solver status) and auto-repair on failure.</div>
+    </div>
+
     <div class="settings-section">
       <h2>Control panel</h2>
       <div class="form-group">
@@ -902,8 +910,34 @@ function capabilityAnswer(msg) {
     const sat = Object.keys((SCHEMA.solvers && SCHEMA.solvers.sat) || {});
     return `Available solver backends:\n- MILP: ${milp.join(', ') || 'none'}\n- SAT: ${sat.join(', ') || 'none'}`;
   }
+  // Cipher FAMILY versions (e.g. "how many versions of KNOT?" / "版本") - a factual lookup from
+  // the catalog, so it never mis-routes to the operator-capabilities ("model versions") skill.
+  if ((/version|版本/.test(q)) && SCHEMA.ciphers) {
+    const hit = Object.keys(SCHEMA.ciphers).find(n => q.includes(n.toLowerCase()));
+    if (hit) {
+      const c = SCHEMA.ciphers[hit];
+      const vv = c.valid_versions || {};
+      const lines = Object.entries(vv).map(([t, list]) => {
+        const arr = Array.isArray(list) ? list : [];
+        const shown = arr.map(v => Array.isArray(v) ? v.join('/') : v).join(', ');
+        return `- ${t}: ${arr.length} version(s)${shown ? ' — ' + shown : ''}`;
+      });
+      if (lines.length) {
+        const dv = c.default_version;
+        const dvStr = dv && Object.keys(dv).length ? `\n(default: ${JSON.stringify(dv)})` : '';
+        return `**${hit}** supported versions:\n${lines.join('\n')}${dvStr}`;
+      }
+    }
+  }
 
   const fnMap = [
+    // More-specific analyses first: "impossible differential" / "zero-correlation linear" /
+    // "two-stage differential" all contain "differential"/"linear", so they must match before
+    // the plain differential/linear entries below (fnMap.find returns the first hit).
+    {re:/impossible/, skill:'impossible_differential_analysis', label:'Impossible-differential cryptanalysis'},
+    {re:/zero.?correlation/, skill:'zero_correlation_analysis', label:'Zero-correlation cryptanalysis'},
+    {re:/integral|division.?property/, skill:'integral_analysis', label:'Integral cryptanalysis'},
+    {re:/two.?stage/, skill:'two_stage_trail_search', label:'Two-stage trail search'},
     {re:/differential/, skill:'differential_analysis', label:'Differential cryptanalysis'},
     {re:/linear/, skill:'linear_analysis', label:'Linear cryptanalysis'},
     {re:/(implement|code|generat)/, skill:'code_generation', label:'Code generation'},
@@ -977,6 +1011,8 @@ async function sendMessage() {
   try {
     const chatBody = {message: msg};
     if (_chatSettings) chatBody.panel_settings = _chatSettings;
+    const orchestrateEl = document.getElementById('orchestrateToggle');
+    if (orchestrateEl) chatBody.orchestrate = orchestrateEl.checked;
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},

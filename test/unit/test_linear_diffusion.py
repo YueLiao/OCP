@@ -21,7 +21,7 @@ def _run(name, layers, nw, inp, nbr_rounds=1, sbox_tables=None):
     with redirect_stdout(io.StringIO()):
         cipher = build_permutation_from_spec(spec)
         imp.generate_implementation(cipher, get_files_dir() / f"{cipher.name}.py", "python", True)
-        return imp.evaluate(cipher, [inp], output_len=None)
+        return imp.evaluate_python(cipher, [inp], output_len=None)
 
 
 def test_linear_diffusion_reproduces_speedy_mixcolumn_across():
@@ -49,7 +49,7 @@ def test_full_ascon_from_linear_diffusion_matches_reference():
     with redirect_stdout(io.StringIO()):
         ref = ascon.ASCON_PERMUTATION(r=12)
         imp.generate_implementation(ref, get_files_dir() / f"{ref.name}.py", "python", True)
-        want = imp.evaluate(ref, [[0] * 320], output_len=None)
+        want = imp.evaluate_python(ref, [[0] * 320], output_len=None)
 
     cons = [0xf0 - r * 0x10 + r * 0x1 for r in range(12)]
     ct = [[(cons[i - 1] >> (7 - b)) & 1 for b in range(8)] for i in range(1, 13)]  # per-round 8-bit RC
