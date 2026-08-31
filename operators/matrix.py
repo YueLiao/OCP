@@ -1,3 +1,11 @@
+"""Linear-layer operators over GF(2): ``Matrix`` (binary / MDS / polynomial matrices) and
+``GF2Linear_Trans``.
+
+Provides binary-matrix generation (including MDS polynomial-matrix expansion to a bit matrix),
+python/C/Verilog code generation, and SAT/MILP models built row by row as XOR constraints over
+the active input bits.
+"""
+
 import numpy as np
 import os
 import copy

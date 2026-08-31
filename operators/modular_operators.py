@@ -1,3 +1,10 @@
+"""Modular arithmetic operators: ``ModAdd``, ``ModMul``, and ``ConstantAdd``.
+
+Support a word-size (2^n) modulus or an explicit non-power-of-two modulus, with python/C/Verilog
+code generation. ``ModAdd`` also builds SAT/MILP differential/linear models (with carry/weight
+dummies).
+"""
+
 from operators.operators import BinaryOperator, UnaryOperator, RaiseExceptionVersionNotExisting, raise_unknown_implementation_type, raise_unknown_model_type
 from tools.operator_constraints import binary_declaration
 

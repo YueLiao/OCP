@@ -1,3 +1,9 @@
+"""Bitwise boolean operators: AND, OR, XOR, N_XOR (n-ary XOR), NOT, ConstantXOR, and ANDXOR.
+
+Each provides python/C/Verilog code generation and SAT/MILP model generation across the
+differential / linear / truncated / integral model versions.
+"""
+
 from operators.operators import Operator, BinaryOperator, UnaryOperator, RaiseExceptionVersionNotExisting, raise_unknown_implementation_type, raise_unknown_model_type
 from tools.operator_constraints import gen_xor_constraints, gen_word_xor_constraints, gen_nxor_constraints, gen_word_nxor_constraints, binary_declaration, integer_declaration, gen_equivalence_constraints, gen_or_constraints, gen_implication_constraints
 
