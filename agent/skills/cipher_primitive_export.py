@@ -461,7 +461,10 @@ def _emit_versioned_block(spec):
     catalog_entry = {cls_base.lower(): {
         "module": f"primitives.{cls_base.lower()}",
         "factories": {"blockcipher": factory},
-        "default_version": {"blockcipher": spec.default_version},
+        # default_version must use the SAME [block,key] convention as valid_versions and the
+        # generated factory (version=[block,key]) - NOT the spec's version NAME (e.g. "Midori64"),
+        # which the factory rejects. default_bk is that pair for the default version.
+        "default_version": {"blockcipher": default_bk},
         "valid_versions": {"blockcipher": list(dims.keys())}}}
     return filename, "\n".join(L), sbox_appends, catalog_entry
 

@@ -103,6 +103,28 @@ def test_resolve_returns_none_without_pending_or_llm():
     assert agent.resolve_clarification("anything") is None   # nothing pending
 
 
+# --- detection also covers a WRONG-SIZE S-box (not just a missing one) -------
+
+def test_detect_wrong_size_sbox_with_cipher_named_suggestions():
+    from agent.skills.cipher_spec import CipherSpec, LayerSpec
+    from agent.skills.cipher_definition import detect_clarifications
+    # a version with 8-bit cells reusing the default's 4-bit Sb0 (16 entries, needs 256) -
+    # exactly the Midori128 case; suggestions come from the cipher's own built-in family.
+    spec = CipherSpec(
+        name="Midori", cipher_type="blockcipher",
+        word_bitsize=4, nbr_words=16, block_size=64, nbr_rounds=1,
+        key_size=128, key_word_bitsize=4, key_nbr_words=32,
+        sbox_tables={"Sb0": list(range(16))},
+        round_structure=[LayerSpec("sbox", {"sbox_name": "Sb0", "index": [[i] for i in range(16)]})],
+        versions={"M128": {"word_bitsize": 8, "nbr_words": 16, "block_size": 128, "nbr_rounds": 1,
+                           "key_size": 128, "key_word_bitsize": 8, "key_nbr_words": 16, "params": {}}},
+        default_version="M128",
+    )
+    cl = detect_clarifications(spec, {"M128": {"tested": False}})
+    assert cl and cl[0].kind == "wrong_size_sbox" and cl[0].item == "Sb0" and cl[0].version == "M128"
+    assert any("SSb" in s for s in cl[0].suggestions)      # Midori128_SSb0-3 offered
+
+
 # --- process_message routes a pending clarification to resolution ------------
 
 class _FakeParseLLM(_FakeLLM):

@@ -980,33 +980,56 @@ def detect_clarifications(spec, dropped_versions):
     clarifications = []
     seen = set()
     builtins = builtin_sbox_names()
+    cipher_low = (getattr(spec, "name", "") or "").lower()
+    _options = [
+        "reference a built-in S-box by name (e.g. paste which one, or its file/class)",
+        "paste the S-box lookup table",
+        "skip this version",
+    ]
     for vname in (dropped_versions or {}):
         try:
             vspec = spec.instantiate(vname) if getattr(spec, "versions", None) else spec
         except Exception:
             continue
-        tables = set(vspec.sbox_tables or {})
+        tables = vspec.sbox_tables or {}
+        wb = vspec.word_bitsize
         layers = list(vspec.round_structure or []) + list(vspec.key_schedule or [])
         for layer in layers:
             if getattr(layer, "layer_type", None) != "sbox":
                 continue
             nm = (layer.params or {}).get("sbox_name")
-            if not nm or nm in tables or builtin_sbox_class(nm) is not None or nm in seen:
+            if not nm or nm in seen:
+                continue
+            table = tables.get(nm)
+            if table is None and builtin_sbox_class(nm) is None:
+                # MISSING: no table, not a built-in. Suggest built-ins whose name looks related.
+                low = nm.lower()
+                suggestions = [b for b in builtins if low in b.lower() or b.lower().startswith(low)][:8]
+                context = (f"{vname}'s S-box '{nm}' has no lookup table and is not a built-in OCP "
+                           f"S-box, so {vname} could not be built.")
+                kind = "missing_sbox"
+            elif isinstance(table, list) and isinstance(wb, int) and wb > 0:
+                # WRONG SIZE: a per-cell S-box whose table width != this version's cell size (e.g.
+                # Midori128 (8-bit cells) reusing Midori64's 4-bit Sb0). Suggest built-ins named
+                # after this cipher (the user picks the right-size ones, e.g. Midori128_SSb0-3).
+                index = (layer.params or {}).get("index")
+                per_cell = isinstance(index, list) and all(
+                    isinstance(g, list) and len(g) == 1 for g in index)
+                nbits = (len(table) - 1).bit_length()
+                if not (per_cell and nbits != wb):
+                    continue
+                suggestions = [b for b in builtins
+                               if cipher_low and cipher_low in b.lower()][:8]
+                context = (f"{vname} has {wb}-bit cells but its S-box '{nm}' has {len(table)} entries "
+                           f"(a {wb}-bit cell needs {1 << wb}); it uses a DIFFERENT S-box than the "
+                           f"default, which was not provided.")
+                kind = "wrong_size_sbox"
+            else:
                 continue
             seen.add(nm)
-            low = nm.lower()
-            suggestions = [b for b in builtins if low in b.lower() or b.lower().startswith(low)][:8]
             clarifications.append(ClarificationRequest(
-                kind="missing_sbox", item=nm, version=vname,
-                context=(f"{vname}'s S-box '{nm}' has no lookup table and is not a built-in OCP "
-                         f"S-box, so {vname} could not be built."),
-                options=[
-                    "reference a built-in S-box by name (e.g. paste which one, or its file/class)",
-                    "paste the S-box lookup table",
-                    "skip this version",
-                ],
-                suggestions=suggestions,
-            ))
+                kind=kind, item=nm, version=vname, context=context,
+                options=_options, suggestions=suggestions))
     return clarifications
 
 

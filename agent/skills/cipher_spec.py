@@ -1181,7 +1181,11 @@ class CipherSpec:
             if self.key_archetype.get("round_constants") and "add_constant" in layer_types:
                 arch_conflicts.append(
                     "an add_constant layer AND archetype round_constants (both add constants - keep one)")
-            if self.key_extract_indices is not None:
+            # An EMPTY key_extract_indices ([]/None) carries no information and does NOT conflict
+            # with the archetype (which generates the real one); only a NON-EMPTY hand-written list
+            # is a genuine conflict. This stops the auto-repair from getting stuck on a leftover
+            # empty "key_extract_indices": [] it cannot "remove".
+            if self.key_extract_indices:
                 arch_conflicts.append(
                     "a hand-written key_extract_indices (the archetype generates it - remove the field)")
             if self.key_schedule:

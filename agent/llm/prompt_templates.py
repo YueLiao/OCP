@@ -815,14 +815,23 @@ AVAILABLE BUILT-IN OCP S-BOXES (reference any by name in `sbox_name`, NO table n
 {', '.join(builtin_sboxes)}
 
 HOW TO APPLY:
-- If the user points to a built-in S-box, set that layer's `sbox_name` to the built-in's exact
-  name (e.g. "Midori128_SSb0") and do NOT add a table for it.
-- If DIFFERENT S-boxes apply per cell position (e.g. Midori128 uses SSb0..3 on cells j where
-  j%4==0..3), emit ONE `sbox` layer PER S-box with a `mask` selecting its cells (mask[j]=1 for
-  the cells that use this S-box, else 0), in place of the single generic sbox layer.
+- PLACEHOLDER INDIRECTION: a version's S-box often comes from a "$name" placeholder in the shared
+  round_structure, resolved from `versions.<version>.params` (e.g. round_structure has
+  {{"sbox_name": "$sb"}} and versions.Midori128.params.sb = "SSb"). Editing the shared layer would
+  change EVERY version - so to fix ONE version, use a PER-VERSION STRUCTURAL OVERRIDE instead.
+- PER-VERSION STRUCTURAL OVERRIDE: a version may carry its OWN `round_structure` (and its own
+  `sbox_tables` / `key_archetype`) under `versions.<version>`, replacing the shared skeleton for
+  THAT version only. Use this whenever a version's LAYER STRUCTURE differs (not just a scalar).
+- If the user points to a built-in S-box, reference it by exact name in `sbox_name` (no table).
+- If DIFFERENT S-boxes apply per cell position (Midori128: SSb0..3 on cells j where j%4==0..3),
+  give that version its OWN round_structure with ONE `sbox` layer PER S-box, each with a `mask`
+  selecting its cells (mask[j]=1 for cells using this S-box). e.g. for 16 cells:
+    {{"layer_type":"sbox","params":{{"sbox_name":"Midori128_SSb0","index":[[0]],"mask":[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0]}}}}
+    ... SSb1 mask [0,1,0,0,...], SSb2 [0,0,1,0,...], SSb3 [0,0,0,1,...] ... then the version's
+  permutation + matrix layers (copy them from the shared skeleton, resolving that version's params).
 - If the user pastes a table, add it under `sbox_tables` and keep the name.
 - If the user asks to skip a version, remove that entry from `versions`.
-- Change ONLY what is needed to fill the gap; keep everything else identical.
+- Change ONLY the version(s) named in the gap; keep the base skeleton and other versions identical.
 
 If the user's message is NOT about resolving these gaps, return exactly {{"not_a_resolution": true}}.
 
